@@ -1,0 +1,13 @@
+{
+  "name": "Ndalama - Money Manager",
+  "short_name": "Ndalama",
+  "description": "Track income, expenses, budgets, savings goals, bills and loans in Kwacha.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f6f3",
+  "theme_color": "#0b6b3a",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
