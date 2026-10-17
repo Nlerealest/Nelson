@@ -1,41 +1,7 @@
-// Persists app data in the browser's localStorage. Nothing leaves the phone.
+// Sample data: a month of a K250,000 income, used to explore the app.
 
-import { toDateKey, addMonths, monthOf } from './logic.js';
-
-const KEY = 'ndalama:v1';
-
-export function emptyData() {
-  return { transactions: [], budgets: {}, goals: [], bills: [], loans: [], settings: { name: '' } };
-}
-
-export function newId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-}
-
-export function load() {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return emptyData();
-    return { ...emptyData(), ...JSON.parse(raw) };
-  } catch {
-    return emptyData();
-  }
-}
-
-export function save(data) {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(data));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export function parseBackup(text) {
-  const parsed = JSON.parse(text);
-  if (!parsed || !Array.isArray(parsed.transactions)) throw new Error('Not an Ndalama backup file');
-  return { ...emptyData(), ...parsed };
-}
+import { toDateKey, addMonths, monthOf } from './logic';
+import { emptyData, newId } from './storage';
 
 // Sample data for the K250,000-a-month example: last month in full plus the
 // current month up to today.

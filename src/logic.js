@@ -67,7 +67,9 @@ export const SUGGESTED_SPLIT = [
 export function formatKwacha(amount) {
   const n = Math.round(Number(amount) || 0);
   const sign = n < 0 ? '-' : '';
-  return `${sign}K${Math.abs(n).toLocaleString('en-US')}`;
+  // Group thousands by hand: Intl support varies between phone JS engines.
+  const digits = String(Math.abs(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return `${sign}K${digits}`;
 }
 
 export function toDateKey(date) {
@@ -94,9 +96,22 @@ export function addMonths(monthKey, n) {
   return `${ny}-${String(nm).padStart(2, '0')}`;
 }
 
+export const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
 export function monthLabel(monthKey) {
   const [y, m] = monthKey.split('-').map(Number);
-  return new Date(y, m - 1, 1).toLocaleString('en-GB', { month: 'long', year: 'numeric' });
+  return `${MONTH_NAMES[m - 1]} ${y}`;
+}
+
+// "16 Oct", or "16 Oct 2025" when not in the current year.
+export function shortDate(dateKey, today) {
+  if (!dateKey) return '';
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const label = `${d} ${MONTH_NAMES[m - 1].slice(0, 3)}`;
+  return today && today.slice(0, 4) === dateKey.slice(0, 4) ? label : `${label} ${y}`;
 }
 
 export function daysBetween(fromKey, toKey) {
@@ -136,6 +151,15 @@ export function monthSummary(transactions, monthKey) {
     }
   }
   return { month: monthKey, income, expenses, net: income - expenses, byCategory, incomeByCategory };
+}
+
+// Money in that isn't earnings: borrowed money and loans paid back to you.
+export const NON_EARNED_INCOME = new Set(['Borrowed money', 'Loan repaid to me']);
+
+export function earnedIncome(summary) {
+  return Object.entries(summary.incomeByCategory)
+    .filter(([category]) => !NON_EARNED_INCOME.has(category))
+    .reduce((acc, [, amount]) => acc + amount, 0);
 }
 
 // Average income and expenses over the `months` full months before `monthKey`

@@ -17,6 +17,7 @@ import {
   goalWarnings,
   projectMonthExpenses,
   monthlyReport,
+  earnedIncome,
 } from '../src/logic.js';
 
 const tx = (date, type, amount, category) => ({ id: `${date}-${category}-${amount}`, date, type, amount, category });
@@ -217,4 +218,17 @@ test('monthlyReport ranks categories and writes insights', () => {
   assert.ok(rep.insights.some((i) => i.includes('62%')));
   assert.ok(rep.insights.some((i) => i.includes('Transport went over budget by K5,000')));
   assert.ok(rep.insights.some((i) => i.includes('Transport rose by K10,000')));
+});
+
+test('earnedIncome leaves out borrowed money and loan repayments', () => {
+  const s = monthSummary(
+    [
+      tx('2026-10-01', 'income', 250000, 'Salary'),
+      tx('2026-10-03', 'income', 15000, 'Loan repaid to me'),
+      tx('2026-10-04', 'income', 50000, 'Borrowed money'),
+    ],
+    '2026-10',
+  );
+  assert.equal(s.income, 315000);
+  assert.equal(earnedIncome(s), 250000);
 });
