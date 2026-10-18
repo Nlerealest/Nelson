@@ -2,13 +2,20 @@
 // and need no server. Rescheduled every time the data changes.
 
 import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
+import { isRunningInExpoGo } from 'expo';
 import { billSchedule, formatKwacha as K, loanStatus, shortDate } from './logic';
 
 const CHANNEL = 'bills';
 const REMIND_HOUR = 8;
 
-if (Platform.OS !== 'web') {
+// Expo Go on Android no longer ships every native part of expo-notifications,
+// and merely importing the package crashes there. Load it only in the
+// installed app (an EAS build); in Expo Go and on the web, reminders are off.
+export const remindersSupported = Platform.OS !== 'web' && !isRunningInExpoGo();
+
+const Notifications = remindersSupported ? require('expo-notifications') : null;
+
+if (Notifications) {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldPlaySound: false,
@@ -20,13 +27,13 @@ if (Platform.OS !== 'web') {
 }
 
 export async function getReminderPermission() {
-  if (Platform.OS === 'web') return 'unsupported';
+  if (!Notifications) return 'unsupported';
   const { status } = await Notifications.getPermissionsAsync();
   return status;
 }
 
 export async function requestReminderPermission() {
-  if (Platform.OS === 'web') return 'unsupported';
+  if (!Notifications) return 'unsupported';
   if (Platform.OS === 'android') {
     // Android only shows the permission prompt once a channel exists.
     await Notifications.setNotificationChannelAsync(CHANNEL, {
@@ -74,7 +81,7 @@ export function plannedReminders(data, today) {
 let pending = null;
 
 export function scheduleReminders(data, today) {
-  if (Platform.OS === 'web') return;
+  if (!Notifications) return;
   // Debounce: several quick edits only reschedule once.
   clearTimeout(pending);
   pending = setTimeout(async () => {

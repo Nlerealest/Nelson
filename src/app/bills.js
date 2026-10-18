@@ -1,9 +1,8 @@
 import { useCallback, useState } from 'react';
-import { Platform } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { billSchedule, formatKwacha as K } from '../logic';
 import { useData } from '../data';
-import { getReminderPermission, requestReminderPermission, scheduleReminders } from '../reminders';
+import { getReminderPermission, remindersSupported, requestReminderPermission, scheduleReminders } from '../reminders';
 import { Alert, Body, Button, Card, Empty, H1, Screen, Tiles, Actions } from '../components/ui';
 import { BillRow } from '../components/rows';
 
@@ -28,7 +27,10 @@ export default function Bills() {
           { label: 'Still to pay this month', value: K(unpaid), tone: unpaid ? 'danger' : 'primary' },
         ]}
       />
-      {Platform.OS !== 'web' && permission && permission !== 'granted' && (
+      {!remindersSupported && (
+        <Alert level="info">Phone reminders for bills work in the installed Ndalama app. They are switched off while testing in Expo Go.</Alert>
+      )}
+      {remindersSupported && permission && permission !== 'granted' && (
         <Alert level="info">
           <Body>Get a reminder on your phone the day before and the day a bill is due.</Body>
           <Actions>
