@@ -26,6 +26,10 @@ Data stays on the phone. There's no account and no server, and the app works ful
 
 The quickest way is **Expo Go**, a free app that runs this project straight from your computer. You don't need Android Studio, Xcode or a Mac.
 
+**Easiest:** open the project folder (the one that contains `package.json`) and double-click **`Start Ndalama (Windows).bat`** or **`Start Ndalama (Mac).command`**. It checks Node.js, installs everything the first time, and shows the QR code. Then do steps 1 and 3 below.
+
+The manual steps:
+
 1. **On your phone**, install **Expo Go** from the Google Play Store or the Apple App Store.
 2. **On your computer**, install [Node.js](https://nodejs.org) (version 20 or newer). Then:
 
