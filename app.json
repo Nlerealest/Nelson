@@ -57,7 +57,8 @@
           "imageWidth": 180,
           "backgroundColor": "#0b6b3a"
         }
-      ]
+      ],
+      "expo-font"
     ]
   }
 }

@@ -30,7 +30,7 @@ The quickest way is **Expo Go**, a free app that runs this project straight from
 
 The manual steps:
 
-1. **On your phone**, install **Expo Go** from the Google Play Store or the Apple App Store.
+1. **On your phone**, install **Expo Go** from the Google Play Store. The project uses Expo SDK 57 to match the Play Store version of Expo Go. On iPhone, the App Store version of Expo Go only supports SDK 54 and older, so use TestFlight instead (see below).
 2. **On your computer**, install [Node.js](https://nodejs.org) (version 20 or newer). Then:
 
    ```bash

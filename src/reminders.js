@@ -31,7 +31,6 @@ export async function requestReminderPermission() {
     // Android only shows the permission prompt once a channel exists.
     await Notifications.setNotificationChannelAsync(CHANNEL, {
       name: 'Bill reminders',
-      // eslint-disable-next-line import/namespace -- re-exported enum the rule cannot resolve
       importance: Notifications.AndroidImportance.HIGH,
     });
   }
