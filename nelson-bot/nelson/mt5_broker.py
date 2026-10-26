@@ -25,6 +25,28 @@ class BrokerError(RuntimeError):
     pass
 
 
+def find_gold_symbol(symbols) -> str | None:
+    """Finds the broker's spot gold vs US dollar symbol (XAUUSD, XAUUSDm, XAUUSD.r, GOLD...).
+
+    `symbols` are MT5 symbol infos (anything with name, description, currency_base, currency_profit).
+    """
+    def ok(s) -> bool:
+        name, desc = s.name.upper(), (getattr(s, "description", "") or "").lower()
+        base, profit = (getattr(s, "currency_base", "") or "").upper(), (getattr(s, "currency_profit", "") or "").upper()
+        if "XAUUSD" in name:
+            return True
+        if base == "XAU" and profit == "USD":
+            return True
+        return "gold" in desc and ("dollar" in desc or "usd" in desc) and "future" not in desc and "option" not in desc
+
+    matches = [s for s in symbols if ok(s)]
+    if not matches:
+        return None
+    # exact XAUUSD first, then names that start with it (XAUUSDm, XAUUSD.r), then the shortest
+    matches.sort(key=lambda s: (s.name.upper() != "XAUUSD", not s.name.upper().startswith("XAUUSD"), len(s.name)))
+    return matches[0].name
+
+
 class MT5Broker:
     def __init__(self, cfg):
         if mt5 is None:
@@ -46,8 +68,14 @@ class MT5Broker:
         if not mt5.initialize(**kwargs):
             raise BrokerError(f"MT5 initialize failed: {mt5.last_error()}")
         if not mt5.symbol_select(self.symbol, True):
-            raise BrokerError(f"Symbol {self.symbol} not found. Check the exact name in Market Watch "
-                              "(e.g. XAUUSD, XAUUSDm, XAUUSD.r, GOLD) and set 'symbol' in config.yaml.")
+            found = find_gold_symbol(mt5.symbols_get() or [])
+            if not found or not mt5.symbol_select(found, True):
+                raise BrokerError(f"Symbol {self.symbol} not found, and no gold (Gold Spot vs US Dollar) symbol was "
+                                  "found automatically. Check the exact name in Market Watch (e.g. XAUUSD, XAUUSDm, "
+                                  "XAUUSD.r, GOLD) and set 'symbol' in config.yaml.")
+            log.warning("Symbol %s not found at this broker - using %s (Gold Spot vs US Dollar). "
+                        "Set symbol: %s in config.yaml to silence this.", self.symbol, found, found)
+            self.symbol = self.cfg.symbol = found
         self.info = mt5.symbol_info(self.symbol)
         self.offset_hours = self._detect_offset()
         acc = mt5.account_info()

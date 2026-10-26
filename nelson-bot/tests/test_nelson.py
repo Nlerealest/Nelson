@@ -214,5 +214,20 @@ class TestBacktest(unittest.TestCase):
             self.assertGreater(t.pnl, -cfg.backtest.initial_balance * 0.012)
 
 
+class TestGoldSymbol(unittest.TestCase):
+    def sym(self, name, desc="", base="", profit=""):
+        from types import SimpleNamespace
+        return SimpleNamespace(name=name, description=desc, currency_base=base, currency_profit=profit)
+
+    def test_finds_broker_variants(self):
+        from nelson.mt5_broker import find_gold_symbol
+        eur = self.sym("EURUSD", "Euro vs US Dollar", "EUR", "USD")
+        self.assertEqual(find_gold_symbol([eur, self.sym("XAUUSDm", "Gold Spot vs US Dollar", "XAU", "USD")]), "XAUUSDm")
+        self.assertEqual(find_gold_symbol([self.sym("XAUUSD.r"), self.sym("XAUUSD")]), "XAUUSD")
+        self.assertEqual(find_gold_symbol([eur, self.sym("GOLD", "Gold Spot vs US Dollar")]), "GOLD")
+        self.assertEqual(find_gold_symbol([self.sym("XAUEUR", "Gold vs Euro", "XAU", "EUR"), eur]), None)
+        self.assertEqual(find_gold_symbol([self.sym("GC_Z6", "Gold Futures (US Dollar)")]), None)
+
+
 if __name__ == "__main__":
     unittest.main()
