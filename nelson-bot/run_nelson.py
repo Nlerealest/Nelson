@@ -123,30 +123,53 @@ def cmd_telegram_setup(cfg, args):
           f"  token: \"{token}\"\n  chat_ids: [{cid}]\n")
 
 
+def _save_app_section(path: str, key: str, port: int) -> bool:
+    """Writes the app: section of config.yaml (replacing an existing one). Returns False if there is no config."""
+    import re
+    cfg_file = Path(path)
+    if not cfg_file.exists():
+        return False
+    block = (f"app:                          # the Nelson phone app (written by app-setup)\n"
+             f"  enabled: true\n  host: 127.0.0.1\n  port: {port}\n  api_key: \"{key}\"\n")
+    text = cfg_file.read_text(encoding="utf-8")
+    pattern = re.compile(r"^app:.*\n(?:[ \t]+.*\n?|[ \t]*\n)*", re.MULTILINE)
+    if pattern.search(text):
+        text = pattern.sub(lambda _m: block + "\n", text, count=1).rstrip("\n") + "\n"
+    else:
+        text = text.rstrip("\n") + "\n\n" + block
+    cfg_file.write_text(text, encoding="utf-8")
+    return True
+
+
 def cmd_app_setup(cfg, args):
     import secrets
     key = cfg.app.api_key if len(cfg.app.api_key) >= 24 and not args.new_key else secrets.token_urlsafe(32)
-    url = args.url.rstrip("/")
-    print("Put this in config.yaml (then restart Nelson):\n")
-    print(f"app:\n  enabled: true\n  host: 127.0.0.1\n  port: {cfg.app.port}\n  api_key: \"{key}\"\n")
+    url = args.url.strip().rstrip("/")
+    if _save_app_section(args.config, key, cfg.app.port):
+        print(f"Saved the app key in {args.config}. Restart Nelson for it to take effect.\n")
+    else:
+        print("Put this in config.yaml (then restart Nelson):\n")
+        print(f"app:\n  enabled: true\n  host: 127.0.0.1\n  port: {cfg.app.port}\n  api_key: \"{key}\"\n")
     if not url:
-        print("Then publish it privately with Tailscale (see README), e.g.:  tailscale serve --bg "
-              f"{cfg.app.port}\nand run this again with --url https://<your-vps>.<tailnet>.ts.net "
-              "to get a QR code for the app.")
+        print("Next: publish it privately with Tailscale, e.g.  tailscale serve --bg "
+              f"{cfg.app.port}\nand run this again with --url https://<your-vps>.<tailnet>.ts.net")
         return
     payload = json.dumps({"url": url, "key": key})
+    link_file = Path("nelson_app_link.txt")
+    link_file.write_text(payload + "\n", encoding="utf-8")
+    print(f"Connection code saved to {link_file.resolve()}")
+    print("  Phone-only setup: open that file in Notepad, press Ctrl+A then Ctrl+C, and in the Nelson app")
+    print("  long-press the Address box > Paste. Address and key fill in by themselves.\n")
+    print(f"Or type them in:  Address: {url}\n                  Key:     {key}\n")
     try:
         import qrcode
     except ImportError:
-        print("pip install qrcode   (to show a QR code). Or type these into the app:")
-        print(f"  Address: {url}\n  Key:     {key}")
         return
     qr = qrcode.QRCode(border=2)
     qr.add_data(payload)
     qr.make(fit=True)
-    print("Open the Nelson app -> Scan QR code, and point it at this:\n")
+    print("Or, from another screen, scan this with the Nelson app (Scan QR code):\n")
     qr.print_ascii(invert=True)
-    print(f"\n(or type it in)  Address: {url}\n                  Key:     {key}")
 
 
 def cmd_demo(cfg, args):

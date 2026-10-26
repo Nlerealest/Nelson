@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useNelson } from '../nelson';
 import { Banner, Button, Card, T } from '../components/ui';
 import { C } from '../theme';
-import { isInsecureRemote, normaliseUrl } from '../format';
+import { isInsecureRemote, normaliseUrl, parseConnectionQr } from '../format';
 import { confirm } from '../confirm';
 
 export default function Connect() {
@@ -22,6 +22,17 @@ export default function Connect() {
     setUrl(String(params.url || ''));
     setKey(String(params.key));
   }
+
+  // Pasting the whole connection code (from nelson_app_link.txt) into either box fills both
+  const pasteAware = (setter) => (text) => {
+    const code = parseConnectionQr(String(text).trim());
+    if (code) {
+      setUrl(code.url);
+      setKey(code.key);
+    } else {
+      setter(text);
+    }
+  };
 
   const clean = normaliseUrl(url);
   const save = async () => {
@@ -45,16 +56,19 @@ export default function Connect() {
           <T muted>
             On the VPS run{'\n'}
             <T mono color={C.gold}>python run_nelson.py app-setup --url https://…</T>
-            {'\n'}then scan the QR code it shows, or type the address and key below.
+            {'\n'}then scan the QR code it shows, or paste the connection code below.
           </T>
           <Button title="Scan QR code" icon="qr-code" style={{ marginTop: 14 }} onPress={() => router.push('/scan')} />
         </Card>
 
-        <Card title="Or type it in">
+        <Card title="Or paste / type it in">
+          <T small muted style={{ marginBottom: 10 }}>
+            Tip: copy the connection code from nelson_app_link.txt on the VPS and paste it into Address. Both boxes fill in.
+          </T>
           <T small muted>Address</T>
           <TextInput
             value={url}
-            onChangeText={setUrl}
+            onChangeText={pasteAware(setUrl)}
             placeholder="https://my-vps.tail1234.ts.net"
             placeholderTextColor={C.muted}
             autoCapitalize="none"
@@ -65,7 +79,7 @@ export default function Connect() {
           <T small muted style={{ marginTop: 10 }}>App key</T>
           <TextInput
             value={key}
-            onChangeText={setKey}
+            onChangeText={pasteAware(setKey)}
             placeholder="long secret from app-setup"
             placeholderTextColor={C.muted}
             autoCapitalize="none"
