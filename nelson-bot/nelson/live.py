@@ -23,9 +23,11 @@ from .report import market_brief
 from .risk import RiskManager
 from .sessions import _minutes
 from .strategy import NelsonStrategy, prepare
+from .telegram import HELP, TelegramLink
 
 log = logging.getLogger("nelson")
 STATE = Path("nelson_state.json")
+CONTROL = Path("nelson_control.json")   # settings changed from the phone (pause, risk)
 
 
 class NelsonBot:
@@ -42,6 +44,24 @@ class NelsonBot:
         self.trading = cfg.mode in ("demo", "live")
         # ticket -> {"risk": initial stop distance, "partial": bool, "dir": +1/-1}
         self.trades: dict[str, dict] = json.loads(STATE.read_text()) if STATE.exists() else {}
+        control = json.loads(CONTROL.read_text()) if CONTROL.exists() else {}
+        self.paused: bool = control.get("paused", False)
+        if "risk_per_trade_pct" in control:
+            cfg.risk.risk_per_trade_pct = float(control["risk_per_trade_pct"])
+        tg = cfg.telegram
+        self.phone = TelegramLink(tg.token, tg.chat_ids) if tg.enabled and tg.token and tg.chat_ids else None
+        self.last_f = None
+        self.last_setups = []
+        self.last_error_alert = 0.0
+        self.last_summary_day = None
+        self.limit_alert_day = None
+        self.confirm_close_until = 0.0
+
+    def notify(self, text: str) -> None:
+        """Logs a message and sends it to your phone (if Telegram is set up)."""
+        log.info(text)
+        if self.phone:
+            self.phone.send(text)
 
     # ---------- start-up
     def start(self) -> None:
@@ -56,8 +76,11 @@ class NelsonBot:
         acc = self.broker.account()
         self.risk = RiskManager(self.cfg.risk, acc.balance)
         self.news.refresh(force=True)
-        log.info("Nelson started in %s mode on %s (%s account). Trading orders: %s",
-                 self.cfg.mode.upper(), self.cfg.symbol, kind, "YES" if self.trading else "NO (analysis only)")
+        if self.phone:
+            self.phone.start()
+        self.notify(f"Nelson started: {self.cfg.mode.upper()} mode, {self.cfg.symbol}, {kind} account, "
+                    f"balance {acc.balance:.2f}. Placing orders: {'YES' if self.trading else 'NO (analysis only)'}"
+                    f"{' - PAUSED' if self.paused else ''}. Send /help for commands.")
         self.journal.write("start", details=f"mode={self.cfg.mode} account={kind} trading={self.trading}")
 
     def run(self) -> None:
@@ -66,12 +89,17 @@ class NelsonBot:
             while True:
                 try:
                     self.step()
-                except Exception:
+                except Exception as exc:
                     log.exception("Error in main loop (continuing)")
+                    if time.time() - self.last_error_alert > 1800:
+                        self.last_error_alert = time.time()
+                        self.notify(f"Nelson error (still running): {exc!r}")
                 time.sleep(5)
         except KeyboardInterrupt:
-            log.info("Stopped by user")
+            self.notify("Nelson stopped from the computer. Open trades keep their stop and target in MT5.")
         finally:
+            if self.phone:
+                self.phone.stop()
             self.broker.shutdown()
 
     # ---------- main step
@@ -80,8 +108,12 @@ class NelsonBot:
         acc = self.broker.account()
         self.risk.new_day(now.normalize(), acc.balance)
         self.news.refresh()
+        if self.phone:
+            for chat_id, text in self.phone.pending_commands():
+                self.phone.send(self.handle_command(text, now), chat_id)
         self._sync_closed(acc.balance)
         self._manage(now)
+        self._daily_summary(now, acc)
         bars = self.broker.bars()
         if bars["time"].iloc[-1] != self.last_bar:
             self.last_bar = bars["time"].iloc[-1]
@@ -96,6 +128,7 @@ class NelsonBot:
             bars.loc[recent.index, "delta"] = tick_delta(ticks, recent["time"], self.minutes).to_numpy()
         f = prepare(bars, self.cfg.strategy, self.minutes)
         setups = self.strategy.scan(f)
+        self.last_f, self.last_setups = f, setups
         last = len(f) - 1
 
         if now.hour != self.last_brief_hour:
@@ -111,11 +144,18 @@ class NelsonBot:
 
     def _take(self, s) -> None:
         log.info("SETUP: %s", s.describe())
+        if self.paused:
+            self.journal.write("paused", side=s.side, price=s.entry, sl=s.sl, tp=s.tp, details="paused from phone")
+            self.notify(f"Setup seen while PAUSED (not taken): {s.describe()}")
+            return
         acc = self.broker.account()
         open_count = len(self.broker.positions()) + len(self.broker.orders())
         ok, why = self.risk.can_open(acc.balance, acc.equity, open_count, self.broker.spread())
         if not ok:
             log.info("Not taken: %s", why)
+            if ("limit" in why or "halted" in why or "in a row" in why) and self.limit_alert_day != self.risk.state.day:
+                self.limit_alert_day = self.risk.state.day
+                self.notify(f"Nelson has stopped taking trades: {why}")
             self.journal.write("blocked", side=s.side, price=s.entry, sl=s.sl, tp=s.tp, details=why)
             return
         tick = self.broker.tick()
@@ -131,7 +171,7 @@ class NelsonBot:
             log.warning("Balance too small to risk %.2f%% with the minimum lot - skipped", self.cfg.risk.risk_per_trade_pct)
             return
         if not self.trading:
-            log.info("[PAPER] would place %s %.2f lots", s.side, lots)
+            self.notify(f"[PAPER - no order sent] {s.describe()} | {lots:.2f} lots")
             self.journal.write("paper_signal", side=s.side, price=s.entry, sl=s.sl, tp=s.tp, lots=lots,
                                details="; ".join(s.reasons))
             return
@@ -139,7 +179,8 @@ class NelsonBot:
         self.trades[str(res.order)] = {"risk": s.risk, "partial": False, "dir": s.direction, "entry": s.entry,
                                        "expires": str(pd.Timestamp(s.time) + pd.Timedelta(minutes=self.minutes * (self.cfg.strategy.order_expiry_bars + 1)))}
         self._save()
-        log.info("ORDER PLACED #%s %s %.2f lots @ %.2f SL %.2f TP %.2f", res.order, s.side, lots, s.entry, s.sl, s.tp)
+        self.notify(f"ORDER #{res.order}: {s.side} {lots:.2f} lots XAUUSD limit {s.entry:.2f}, SL {s.sl:.2f}, "
+                    f"TP {s.tp:.2f} (risking {lots * loss:.2f})\nWhy: " + "; ".join(s.reasons))
         self.journal.write("order", side=s.side, price=s.entry, sl=s.sl, tp=s.tp, lots=lots, ticket=res.order,
                            details="; ".join(s.reasons))
 
@@ -157,7 +198,7 @@ class NelsonBot:
                 self.broker.cancel(o.ticket)
                 self.trades.pop(str(o.ticket), None)
                 self.journal.write("cancel", ticket=o.ticket, details=flatten or "order expired unfilled")
-                log.info("Cancelled order #%s (%s)", o.ticket, flatten or "expired")
+                self.notify(f"Cancelled order #{o.ticket}: {flatten or 'not filled in time'}")
 
         sc = self.cfg.strategy
         for p in self.broker.positions():
@@ -166,13 +207,13 @@ class NelsonBot:
             if flatten:
                 self.broker.close(p, comment="Nelson flat")
                 self.journal.write("flatten", ticket=p.ticket, details=flatten)
-                log.info("Closed #%s before %s", p.ticket, flatten)
+                self.notify(f"Closed #{p.ticket} early because of {flatten}")
                 continue
             if not info.get("filled"):
                 info["filled"] = True
                 self.risk.on_open()
                 self.journal.write("filled", ticket=p.ticket, price=p.price_open, lots=p.volume)
-                log.info("Order #%s filled at %.2f", p.ticket, p.price_open)
+                self.notify(f"FILLED #{p.ticket} at {p.price_open:.2f}, {p.volume:.2f} lots")
             d, risk = info["dir"], info["risk"]
             if risk <= 0:
                 continue
@@ -183,11 +224,12 @@ class NelsonBot:
                 if vmin <= part < p.volume:
                     self.broker.close(p, part, comment="Nelson partial")
                     self.journal.write("partial", ticket=p.ticket, lots=part, price=p.price_current)
+                    self.notify(f"#{p.ticket}: took partial profit on {part:.2f} lots at {p.price_current:.2f}")
                 info["partial"] = True
             if sc.breakeven_at_r > 0 and gained >= sc.breakeven_at_r and (p.price_open - p.sl) * d > 0:
                 self.broker.modify_sl(p, p.price_open)
                 self.journal.write("breakeven", ticket=p.ticket, sl=p.price_open)
-                log.info("#%s stop moved to break-even", p.ticket)
+                self.notify(f"#{p.ticket}: stop moved to break-even ({p.price_open:.2f}) - this trade can no longer lose")
         self._save()
 
     def _sync_closed(self, balance: float) -> None:
@@ -200,8 +242,116 @@ class NelsonBot:
                     self.risk.on_open()
                 self.risk.on_close(pnl, balance)
                 self.journal.write("closed", ticket=ticket, pnl=round(pnl, 2))
-                log.info("Trade #%s closed: %+.2f", ticket, pnl)
+                self.notify(f"{'WIN' if pnl > 0 else 'LOSS' if pnl < 0 else 'FLAT'} #{ticket} closed: {pnl:+.2f}. "
+                            f"Balance {balance:.2f}")
         self._save()
 
     def _save(self) -> None:
         STATE.write_text(json.dumps(self.trades, indent=1))
+
+    def _save_control(self) -> None:
+        CONTROL.write_text(json.dumps({"paused": self.paused,
+                                       "risk_per_trade_pct": self.cfg.risk.risk_per_trade_pct}, indent=1))
+
+    # ---------- phone
+    def _daily_summary(self, now: pd.Timestamp, acc) -> None:
+        at = self.cfg.telegram.daily_summary_utc
+        if not self.phone or not at or self.last_summary_day == now.date():
+            return
+        if now.hour * 60 + now.minute < _minutes(at):
+            return
+        self.last_summary_day = now.date()
+        if now.dayofweek >= 5:
+            return
+        self.phone.send("End of day\n" + self._status_text())
+
+    def _status_text(self) -> str:
+        acc = self.broker.account()
+        st = self.risk.state
+        day_pl = acc.equity - st.day_start_balance
+        lines = [
+            f"Nelson {self.cfg.mode.upper()} on {self.cfg.symbol}{' - PAUSED' if self.paused else ''}"
+            f"{' - analysis only' if not self.trading else ''}",
+            f"Balance {acc.balance:.2f} | Equity {acc.equity:.2f}",
+            f"Today: {day_pl:+.2f} ({day_pl / st.day_start_balance * 100 if st.day_start_balance else 0:+.2f}%), "
+            f"{st.trades_today} trade(s), {st.consecutive_losses} loss(es) in a row",
+            f"Risk per trade {self.cfg.risk.risk_per_trade_pct}%",
+        ]
+        if st.halted:
+            lines.append(f"HALTED: {st.halted}")
+        for p in self.broker.positions():
+            side = "BUY" if self.broker.is_buy(p) else "SELL"
+            lines.append(f"Open #{p.ticket} {side} {p.volume:.2f} @ {p.price_open:.2f} SL {p.sl:.2f} TP {p.tp:.2f} "
+                         f"P/L {getattr(p, 'profit', 0.0):+.2f}")
+        for o in self.broker.orders():
+            lines.append(f"Order #{o.ticket} {o.volume:.2f} lots @ {o.price_open:.2f} SL {o.sl:.2f} TP {o.tp:.2f}")
+        if len(lines) == 4 + bool(st.halted):
+            lines.append("No open trades or orders")
+        return "\n".join(lines)
+
+    def handle_command(self, text: str, now: pd.Timestamp) -> str:
+        parts = text.strip().split()
+        cmd = parts[0].lower().split("@")[0] if parts else ""
+        arg = parts[1].lower() if len(parts) > 1 else ""
+        log.info("Phone command: %s", text)
+        if cmd in ("/start", "/help"):
+            return HELP
+        if cmd == "/status":
+            return self._status_text()
+        if cmd == "/brief":
+            if self.last_f is None:
+                return "No analysis yet - wait for the next candle to close."
+            return market_brief(self.last_f, self.strategy.book, self.news, self.last_setups)
+        if cmd == "/news":
+            up = self.news.upcoming(now, 48) if self.news.available else None
+            if up is None:
+                return "News calendar unavailable - Nelson is not opening trades until it loads."
+            return "High-impact USD news (next 48h):\n" + ("\n".join(
+                f"- {e}{' [TIER 1]' if e.tier1 else ''}" for e in up) or "none")
+        if cmd == "/journal":
+            rows = self.journal.path.read_text(encoding="utf-8").strip().splitlines()[1:][-10:]
+            return "Last journal entries:\n" + ("\n".join(r[:300] for r in rows) or "empty")
+        if cmd == "/pause":
+            self.paused = True
+            self._save_control()
+            self.journal.write("pause", details="from phone")
+            return "Paused. No new trades. Open trades are still managed (stops, partials, news). /resume to continue."
+        if cmd == "/resume":
+            self.paused = False
+            self._save_control()
+            self.journal.write("resume", details="from phone")
+            return "Resumed. Nelson will take new setups again."
+        if cmd == "/closeall":
+            if arg != "yes" or time.time() > self.confirm_close_until:
+                if arg == "yes":
+                    return "Confirmation expired. Send /closeall again."
+                self.confirm_close_until = time.time() + 60
+                n = len(self.broker.positions()) + len(self.broker.orders())
+                return f"This closes {n} Nelson trade(s)/order(s) at market. Send '/closeall yes' within 60 s to confirm."
+            self.confirm_close_until = 0.0
+            done = []
+            for o in self.broker.orders():
+                self.broker.cancel(o.ticket)
+                self.trades.pop(str(o.ticket), None)
+                done.append(f"cancelled order #{o.ticket}")
+            for p in self.broker.positions():
+                self.broker.close(p, comment="Nelson phone close")
+                done.append(f"closed #{p.ticket} ({getattr(p, 'profit', 0.0):+.2f})")
+            self._save()
+            self.journal.write("closeall", details="from phone: " + ", ".join(done))
+            self.paused = True
+            self._save_control()
+            return ("\n".join(done) or "Nothing was open.") + "\nNelson is now PAUSED. /resume when ready."
+        if cmd == "/risk":
+            try:
+                value = float(arg)
+            except ValueError:
+                return f"Risk per trade is {self.cfg.risk.risk_per_trade_pct}%. Change it with e.g. /risk 0.5"
+            top = self.cfg.telegram.max_risk_pct
+            if not 0.05 <= value <= top:
+                return f"Risk must be between 0.05% and {top}% (limit set in config.yaml)."
+            self.cfg.risk.risk_per_trade_pct = value
+            self._save_control()
+            self.journal.write("risk", details=f"risk per trade set to {value}% from phone")
+            return f"Risk per trade is now {value}% of balance."
+        return "Unknown command. Send /help"

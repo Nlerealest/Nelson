@@ -107,7 +107,7 @@ class TestLiveLoop(unittest.TestCase):
         fake.orders_.clear()
         r = o.sl - o.price_open
         pos = SimpleNamespace(ticket=o.ticket, volume=o.volume, price_open=o.price_open, sl=o.sl, tp=o.tp,
-                              price_current=o.price_open - 1.2 * r, d=-1)
+                              price_current=o.price_open - 1.2 * r, d=-1, profit=60.0)
         fake.positions_.append(pos)
         bot.step()
         self.assertEqual(len(fake.closed), 1)                 # partial
@@ -131,6 +131,68 @@ class TestLiveLoop(unittest.TestCase):
                                                       "date": nfp_time.isoformat() + "+00:00", "impact": "High"}]))
         bot.step()
         self.assertEqual(fake.orders_, [])
+
+
+class FakePhone:
+    def __init__(self):
+        self.sent, self.inbox = [], []
+    def start(self): pass
+    def stop(self): pass
+    def send(self, text, chat_id=None): self.sent.append(text)
+    def pending_commands(self):
+        out, self.inbox = self.inbox, []
+        return out
+
+
+class TestPhoneControl(TestLiveLoop):
+    def _bot(self, kind="demo"):
+        bot, fake = super()._bot(kind)
+        bot.phone = FakePhone()
+        return bot, fake
+
+    def _say(self, bot, text):
+        bot.phone.inbox.append((1, text))
+        bot.step()
+        return bot.phone.sent[-1]
+
+    def test_alerts_and_status(self):
+        bot, fake = self._bot()
+        self._run_until(bot, fake, self.i + 4)
+        self.assertTrue(any(m.startswith("ORDER #") for m in bot.phone.sent))
+        status = self._say(bot, "/status")
+        self.assertIn("Balance 10000.00", status)
+        self.assertIn("Order #1000", status)
+        self.assertIn("XAUUSD", self._say(bot, "/brief"))
+
+    def test_pause_blocks_new_trades_and_persists(self):
+        bot, fake = self._bot()
+        fake.n = self.i - 40
+        bot.step()
+        self.assertIn("Paused", self._say(bot, "/pause"))
+        self._run_until(bot, fake, self.i + 4)
+        self.assertEqual(fake.placed, [])
+        self.assertTrue(any("PAUSED" in m for m in bot.phone.sent))
+        bot2, fake2 = self._bot()
+        fake2.n = self.i
+        self.assertTrue(bot2.paused)        # survives a restart
+        self.assertIn("Resumed", self._say(bot2, "/resume"))
+
+    def test_closeall_needs_confirmation(self):
+        bot, fake = self._bot()
+        self._run_until(bot, fake, self.i + 4)
+        self.assertIn("/closeall yes", self._say(bot, "/closeall"))
+        self.assertEqual(len(fake.orders_), 1)
+        reply = self._say(bot, "/closeall yes")
+        self.assertIn("cancelled order", reply)
+        self.assertEqual(fake.orders_, [])
+        self.assertTrue(bot.paused)
+
+    def test_risk_is_capped(self):
+        bot, fake = self._bot()
+        fake.n = self.i - 40
+        self.assertIn("between", self._say(bot, "/risk 5"))
+        self.assertIn("0.25%", self._say(bot, "/risk 0.25"))
+        self.assertEqual(bot.risk.cfg.risk_per_trade_pct, 0.25)
 
 
 if __name__ == "__main__":

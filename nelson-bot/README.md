@@ -47,6 +47,66 @@ The optimiser scores **expectancy and drawdown, not win rate**. A 2.5R strategy 
 
 ---
 
+## Use Nelson from your phone
+
+Phones can't run trading bots: the MT5 app on Android and iPhone has no automated trading. Nelson runs on a computer that stays on, and your phone is the remote control.
+
+```
+ Windows VPS (always on)                      Your phone
+ ┌────────────────────────┐   alerts    ┌──────────────────────┐
+ │ MetaTrader 5 + Nelson  │ ──────────▶ │ Telegram: Nelson bot │
+ │                        │ ◀────────── │ /status /pause ...   │
+ └────────────────────────┘  commands   ├──────────────────────┤
+            │                           │ MT5 app: same account│
+            └──── same MT5 account ───▶ │ (see trades on chart)│
+                                        └──────────────────────┘
+```
+
+### 1. Get a Windows VPS (a computer in the cloud)
+* Many brokers give a **free VPS** once your account reaches a certain balance or trading volume. Ask yours first.
+* Otherwise rent a small **Windows** VPS (2 GB RAM is enough). Pick one close to your broker's servers, usually London or New York.
+* From your phone, install **Windows App** (Microsoft's Remote Desktop app; Android and iPhone) to log in to the VPS. On the VPS, install MT5 and Python and set up Nelson as described in "Setup" below. You only need to do this once. A laptop makes it easier, but it works from a phone.
+
+### 2. Connect Telegram (5 minutes)
+1. In Telegram, open **@BotFather**, send `/newbot` and pick a name (for example *Nelson Gold*). Copy the **token** it gives you. Keep it secret.
+2. Open your new bot and press **START**.
+3. On the VPS, run:
+   ```bash
+   python run_nelson.py telegram-setup --token <YOUR_TOKEN>
+   ```
+   Your phone receives a test message. The command prints the `telegram:` lines to paste into `config.yaml`.
+4. Restart Nelson. You'll get a "Nelson started" message.
+
+Nelson only answers the chat IDs listed in `config.yaml`. Anyone else who finds your bot is ignored.
+
+### 3. What you get on your phone
+
+**Alerts:**
+* each order and the reasons for it;
+* fills, partial profits and moves to break-even;
+* every closed trade with its profit or loss and your new balance;
+* trades cancelled or closed because of news or the weekend;
+* daily-limit and drawdown stops;
+* errors;
+* an end-of-day summary at 21:05 UTC.
+
+**Commands:**
+
+| Command | What it does |
+| --- | --- |
+| `/status` | Balance, equity, today's profit/loss, open trades and orders |
+| `/brief` | Nelson's current read of gold: bias, liquidity, key levels, order flow, news |
+| `/news` | High-impact USD news in the next 48 hours |
+| `/journal` | The last 10 journal entries |
+| `/pause` / `/resume` | Stop or allow new trades. Open trades are still managed. Remembered after a restart. |
+| `/closeall` | Closes every Nelson trade and cancels its orders. You must confirm with `/closeall yes`, and Nelson then pauses. |
+| `/risk 0.5` | Change the risk per trade. It can never exceed `telegram.max_risk_pct` (1% by default). |
+
+### 4. Watch the trades in the MT5 app
+Install **MetaTrader 5** from the Play Store or App Store and log in to the **same account**. Nelson's trades appear on the chart with their stop and target. To be able to look but not trade from the phone, log in with the account's **investor (read-only) password**.
+
+---
+
 ## Setup (Windows PC or Windows VPS)
 
 The MetaTrader5 Python package only works on **Windows**, next to an MT5 terminal. To run Nelson 24/5, use a Windows VPS. Backtesting and optimising work on any computer.
@@ -113,6 +173,7 @@ nelson/backtest.py     realistic backtester
 nelson/optimizer.py    walk-forward learning
 nelson/live.py         the live MT5 loop and trade management
 nelson/mt5_broker.py   everything that talks to MetaTrader 5
+nelson/telegram.py     phone alerts and commands
 tests/                 unit tests:  python -m unittest discover -s tests
 ```
 

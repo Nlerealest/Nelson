@@ -118,6 +118,15 @@ class MT5Config:
 
 
 @dataclass
+class TelegramConfig:
+    enabled: bool = False
+    token: str = ""                      # from @BotFather; better via env NELSON_TELEGRAM_TOKEN
+    chat_ids: list[int] = field(default_factory=list)   # only these chats may see or control Nelson
+    daily_summary_utc: str = "21:05"     # end-of-day report ("" = off)
+    max_risk_pct: float = 1.0            # /risk cannot go above this from the phone
+
+
+@dataclass
 class Config:
     symbol: str = "XAUUSD"               # some brokers use XAUUSDm, XAUUSD.r, GOLD ...
     timeframe: str = "M5"
@@ -131,6 +140,7 @@ class Config:
     news: NewsConfig = field(default_factory=NewsConfig)
     backtest: BacktestConfig = field(default_factory=BacktestConfig)
     mt5: MT5Config = field(default_factory=MT5Config)
+    telegram: TelegramConfig = field(default_factory=TelegramConfig)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -168,6 +178,12 @@ def load_config(path: str | os.PathLike | None = "config.yaml", use_learned: boo
     cfg.mt5.password = env.get("NELSON_MT5_PASSWORD", cfg.mt5.password)
     cfg.mt5.server = env.get("NELSON_MT5_SERVER", cfg.mt5.server)
     cfg.mt5.path = env.get("NELSON_MT5_PATH", cfg.mt5.path)
+
+    cfg.telegram.token = env.get("NELSON_TELEGRAM_TOKEN", cfg.telegram.token)
+    if env.get("NELSON_TELEGRAM_CHAT_ID"):
+        cfg.telegram.chat_ids = [int(x) for x in env["NELSON_TELEGRAM_CHAT_ID"].split(",") if x.strip()]
+    if env.get("NELSON_TELEGRAM_TOKEN") and cfg.telegram.chat_ids:
+        cfg.telegram.enabled = True
 
     if cfg.mode not in ("paper", "demo", "live"):
         raise ValueError("mode must be paper, demo or live")

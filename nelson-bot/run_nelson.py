@@ -5,6 +5,7 @@
   python run_nelson.py brief     [--csv data/xauusd_m5.csv]   (market analysis)
   python run_nelson.py download  --start 2023-01-01 --end 2025-12-31
   python run_nelson.py live                                   (runs on your MT5 terminal)
+  python run_nelson.py telegram-setup --token <TOKEN>         (control Nelson from your phone)
 """
 from __future__ import annotations
 
@@ -101,6 +102,25 @@ def cmd_download(cfg, args):
     print(f"Saved {len(df)} bars to {args.out}")
 
 
+def cmd_telegram_setup(cfg, args):
+    from nelson.telegram import TelegramLink, find_chat_ids
+    token = args.token or cfg.telegram.token
+    if not token:
+        print("Create a bot: open Telegram, message @BotFather, send /newbot, copy the token, then run\n"
+              "  python run_nelson.py telegram-setup --token <TOKEN>")
+        return
+    chats = find_chat_ids(token)
+    if not chats:
+        print("No messages yet. Open your new bot in Telegram, press START (or send 'hi'), then run this again.")
+        return
+    for cid, name in chats:
+        print(f"Found chat {cid} ({name})")
+    cid = chats[-1][0]
+    TelegramLink(token, [cid]).send("Nelson is connected to this chat. You will get trade alerts here. Send /help after Nelson starts.")
+    print(f"\nSent a test message. Now put this in config.yaml:\n\ntelegram:\n  enabled: true\n"
+          f"  token: \"{token}\"\n  chat_ids: [{cid}]\n")
+
+
 def cmd_live(cfg, args):
     from nelson.live import NelsonBot
     NelsonBot(cfg).run()
@@ -122,11 +142,14 @@ def main():
     d.add_argument("--end", required=True)
     d.add_argument("--out", default="data/xauusd_m5.csv")
     sub.add_parser("live")
+    tg = sub.add_parser("telegram-setup", help="connect Nelson to your phone via Telegram")
+    tg.add_argument("--token", default="")
     args = p.parse_args()
     cfg = load_config(args.config, use_learned=args.cmd != "optimize")
     _setup_logging(cfg.log_dir)
     {"backtest": cmd_backtest, "optimize": cmd_optimize, "brief": cmd_brief,
-     "download": cmd_download, "live": cmd_live}[args.cmd](cfg, args)
+     "download": cmd_download, "live": cmd_live,
+     "telegram-setup": cmd_telegram_setup}[args.cmd](cfg, args)
 
 
 if __name__ == "__main__":

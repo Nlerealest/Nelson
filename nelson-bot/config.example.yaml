@@ -55,3 +55,10 @@ backtest:
   spread_usd: 0.25
   slippage_usd: 0.05
   commission_per_lot: 7.0
+
+telegram:                     # control Nelson from your phone - see README "Use Nelson from your phone"
+  enabled: false
+  token: ""                   # from @BotFather (or env NELSON_TELEGRAM_TOKEN)
+  chat_ids: []                # your chat id from: python run_nelson.py telegram-setup --token <TOKEN>
+  daily_summary_utc: "21:05"
+  max_risk_pct: 1.0           # /risk from the phone can never go above this
