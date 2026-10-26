@@ -1,0 +1,57 @@
+# Nelson - XAUUSD (gold vs US dollar) settings.
+# Copy this file to config.yaml and edit. Anything you leave out uses the default.
+
+symbol: XAUUSD          # exactly as in your MT5 Market Watch (XAUUSD, XAUUSDm, XAUUSD.r, GOLD ...)
+timeframe: M5
+mode: paper             # paper = analyse + log only | demo = trade a demo account | live = trade a real account
+allow_real_money: false # must ALSO be true (with mode: live) before Nelson touches real money
+magic: 777001           # identifies Nelson's trades in MT5
+
+mt5:
+  login: 0              # or set env NELSON_MT5_LOGIN; 0 = use the account already logged in to the terminal
+  password: ""          # better: env NELSON_MT5_PASSWORD (never commit passwords)
+  server: ""            # e.g. "Exness-MT5Trial9"
+  path: ""              # e.g. "C:/Program Files/MetaTrader 5/terminal64.exe" (optional)
+  server_utc_offset_hours: auto   # broker clock vs UTC; set a number (2 or 3) if auto-detect warns
+
+risk:
+  risk_per_trade_pct: 0.5     # lose at most 0.5% of balance per trade
+  max_daily_loss_pct: 2.0
+  max_total_drawdown_pct: 10.0
+  max_trades_per_day: 3
+  max_consecutive_losses: 3
+  max_open_positions: 1
+  max_spread_usd: 0.50        # gold spread in dollars (0.50 = 50 cents)
+  max_lot: 5.0
+  close_friday_utc: "20:30"
+  flatten_minutes_before_tier1: 10
+
+strategy:
+  killzones_utc: [["07:00", "10:30"], ["12:30", "16:00"]]   # London open, New York open
+  rr_target: 2.5
+  displacement_atr: 1.0
+  sweep_max_age_bars: 12
+  use_htf_bias: true
+  use_premium_discount: true
+  require_volume_spike: true
+  require_delta_confirmation: true
+  partial_at_r: 1.0
+  partial_fraction: 0.5
+  breakeven_at_r: 1.0
+
+news:
+  enabled: true
+  minutes_before: 30
+  minutes_after: 30
+  tier1_minutes_before: 60
+  tier1_minutes_after: 60
+  flatten_before_tier1: true
+  block_if_unavailable: true
+  history_csv: ""             # for backtests: CSV with date,currency,impact,title
+
+backtest:
+  initial_balance: 10000
+  contract_size: 100          # 1 lot = 100 oz
+  spread_usd: 0.25
+  slippage_usd: 0.05
+  commission_per_lot: 7.0

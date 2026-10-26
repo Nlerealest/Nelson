@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+config.yaml
+data/
+logs/
+journal/
+learned_params.json
+.news_cache.json
+.venv/
+nelson_state.json
