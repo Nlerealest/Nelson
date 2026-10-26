@@ -127,6 +127,15 @@ class TelegramConfig:
 
 
 @dataclass
+class AppConfig:
+    """The private API the Nelson phone app connects to."""
+    enabled: bool = False
+    host: str = "127.0.0.1"              # keep 127.0.0.1 and publish it with Tailscale (see README)
+    port: int = 8765
+    api_key: str = ""                    # long random secret; better via env NELSON_APP_KEY
+
+
+@dataclass
 class Config:
     symbol: str = "XAUUSD"               # some brokers use XAUUSDm, XAUUSD.r, GOLD ...
     timeframe: str = "M5"
@@ -141,6 +150,7 @@ class Config:
     backtest: BacktestConfig = field(default_factory=BacktestConfig)
     mt5: MT5Config = field(default_factory=MT5Config)
     telegram: TelegramConfig = field(default_factory=TelegramConfig)
+    app: AppConfig = field(default_factory=AppConfig)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -184,6 +194,8 @@ def load_config(path: str | os.PathLike | None = "config.yaml", use_learned: boo
         cfg.telegram.chat_ids = [int(x) for x in env["NELSON_TELEGRAM_CHAT_ID"].split(",") if x.strip()]
     if env.get("NELSON_TELEGRAM_TOKEN") and cfg.telegram.chat_ids:
         cfg.telegram.enabled = True
+
+    cfg.app.api_key = env.get("NELSON_APP_KEY", cfg.app.api_key)
 
     if cfg.mode not in ("paper", "demo", "live"):
         raise ValueError("mode must be paper, demo or live")

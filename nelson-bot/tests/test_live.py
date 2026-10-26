@@ -183,7 +183,7 @@ class TestPhoneControl(TestLiveLoop):
         self.assertIn("/closeall yes", self._say(bot, "/closeall"))
         self.assertEqual(len(fake.orders_), 1)
         reply = self._say(bot, "/closeall yes")
-        self.assertIn("cancelled order", reply)
+        self.assertIn("Cancelled order", reply)
         self.assertEqual(fake.orders_, [])
         self.assertTrue(bot.paused)
 

@@ -9,3 +9,4 @@ learned_params.json
 .venv/
 nelson_state.json
 nelson_control.json
+demo_logs/

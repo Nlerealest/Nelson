@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from .api import AppServer, build_snapshot, run_action
 from .config import Config
 from .journal import Journal
 from .mt5_broker import TIMEFRAMES, MT5Broker
@@ -50,7 +51,9 @@ class NelsonBot:
             cfg.risk.risk_per_trade_pct = float(control["risk_per_trade_pct"])
         tg = cfg.telegram
         self.phone = TelegramLink(tg.token, tg.chat_ids) if tg.enabled and tg.token and tg.chat_ids else None
+        self.app = AppServer(cfg.app.host, cfg.app.port, cfg.app.api_key) if cfg.app.enabled else None
         self.last_f = None
+        self.poll_seconds = 5.0
         self.last_setups = []
         self.last_error_alert = 0.0
         self.last_summary_day = None
@@ -78,6 +81,8 @@ class NelsonBot:
         self.news.refresh(force=True)
         if self.phone:
             self.phone.start()
+        if self.app:
+            self.app.start()
         self.notify(f"Nelson started: {self.cfg.mode.upper()} mode, {self.cfg.symbol}, {kind} account, "
                     f"balance {acc.balance:.2f}. Placing orders: {'YES' if self.trading else 'NO (analysis only)'}"
                     f"{' - PAUSED' if self.paused else ''}. Send /help for commands.")
@@ -94,12 +99,14 @@ class NelsonBot:
                     if time.time() - self.last_error_alert > 1800:
                         self.last_error_alert = time.time()
                         self.notify(f"Nelson error (still running): {exc!r}")
-                time.sleep(5)
+                time.sleep(self.poll_seconds)
         except KeyboardInterrupt:
             self.notify("Nelson stopped from the computer. Open trades keep their stop and target in MT5.")
         finally:
             if self.phone:
                 self.phone.stop()
+            if self.app:
+                self.app.stop()
             self.broker.shutdown()
 
     # ---------- main step
@@ -111,6 +118,14 @@ class NelsonBot:
         if self.phone:
             for chat_id, text in self.phone.pending_commands():
                 self.phone.send(self.handle_command(text, now), chat_id)
+        if self.app:
+            for pending in self.app.pending_actions():
+                try:
+                    pending.result = run_action(self, pending)
+                except Exception as exc:
+                    log.exception("App action failed")
+                    pending.result = {"ok": False, "message": f"failed: {exc}"}
+                pending.done.set()
         self._sync_closed(acc.balance)
         self._manage(now)
         self._daily_summary(now, acc)
@@ -118,6 +133,8 @@ class NelsonBot:
         if bars["time"].iloc[-1] != self.last_bar:
             self.last_bar = bars["time"].iloc[-1]
             self._on_new_bar(bars, now)
+        if self.app:
+            self.app.publish(build_snapshot(self, now, self.broker.account()))
 
     def _on_new_bar(self, bars: pd.DataFrame, now: pd.Timestamp) -> None:
         # real tick delta for recent bars (better than the OHLC estimate)
@@ -312,15 +329,9 @@ class NelsonBot:
             rows = self.journal.path.read_text(encoding="utf-8").strip().splitlines()[1:][-10:]
             return "Last journal entries:\n" + ("\n".join(r[:300] for r in rows) or "empty")
         if cmd == "/pause":
-            self.paused = True
-            self._save_control()
-            self.journal.write("pause", details="from phone")
-            return "Paused. No new trades. Open trades are still managed (stops, partials, news). /resume to continue."
+            return self.set_paused(True, "Telegram") + " /resume to continue."
         if cmd == "/resume":
-            self.paused = False
-            self._save_control()
-            self.journal.write("resume", details="from phone")
-            return "Resumed. Nelson will take new setups again."
+            return self.set_paused(False, "Telegram")
         if cmd == "/closeall":
             if arg != "yes" or time.time() > self.confirm_close_until:
                 if arg == "yes":
@@ -329,29 +340,47 @@ class NelsonBot:
                 n = len(self.broker.positions()) + len(self.broker.orders())
                 return f"This closes {n} Nelson trade(s)/order(s) at market. Send '/closeall yes' within 60 s to confirm."
             self.confirm_close_until = 0.0
-            done = []
-            for o in self.broker.orders():
-                self.broker.cancel(o.ticket)
-                self.trades.pop(str(o.ticket), None)
-                done.append(f"cancelled order #{o.ticket}")
-            for p in self.broker.positions():
-                self.broker.close(p, comment="Nelson phone close")
-                done.append(f"closed #{p.ticket} ({getattr(p, 'profit', 0.0):+.2f})")
-            self._save()
-            self.journal.write("closeall", details="from phone: " + ", ".join(done))
-            self.paused = True
-            self._save_control()
-            return ("\n".join(done) or "Nothing was open.") + "\nNelson is now PAUSED. /resume when ready."
+            return "\n".join(self.close_all("Telegram")) + "\n/resume when ready."
         if cmd == "/risk":
             try:
                 value = float(arg)
             except ValueError:
                 return f"Risk per trade is {self.cfg.risk.risk_per_trade_pct}%. Change it with e.g. /risk 0.5"
-            top = self.cfg.telegram.max_risk_pct
-            if not 0.05 <= value <= top:
-                return f"Risk must be between 0.05% and {top}% (limit set in config.yaml)."
-            self.cfg.risk.risk_per_trade_pct = value
-            self._save_control()
-            self.journal.write("risk", details=f"risk per trade set to {value}% from phone")
-            return f"Risk per trade is now {value}% of balance."
+            return self.set_risk(value, "Telegram")[1]
         return "Unknown command. Send /help"
+
+    # ---------- controls shared by Telegram and the Nelson app
+    def set_paused(self, paused: bool, source: str) -> str:
+        self.paused = paused
+        self._save_control()
+        self.journal.write("pause" if paused else "resume", details=f"from {source}")
+        if paused:
+            return "Paused. No new trades. Open trades are still managed (stops, partials, news)."
+        return "Resumed. Nelson will take new setups again."
+
+    def close_all(self, source: str) -> list[str]:
+        """Cancels Nelson's orders, closes its positions at market, then pauses."""
+        done = []
+        for o in self.broker.orders():
+            self.broker.cancel(o.ticket)
+            self.trades.pop(str(o.ticket), None)
+            done.append(f"Cancelled order #{o.ticket}")
+        for p in self.broker.positions():
+            self.broker.close(p, comment="Nelson phone close")
+            done.append(f"Closed #{p.ticket} ({getattr(p, 'profit', 0.0):+.2f})")
+        self._save()
+        self.journal.write("closeall", details=f"from {source}: " + ", ".join(done))
+        self.paused = True
+        self._save_control()
+        if source != "Telegram" and self.phone:
+            self.phone.send(f"Close all from {source}: " + (", ".join(done) or "nothing was open"))
+        return (done or ["Nothing was open."]) + ["Nelson is now PAUSED."]
+
+    def set_risk(self, value: float, source: str) -> tuple[bool, str]:
+        top = self.cfg.telegram.max_risk_pct
+        if not 0.05 <= value <= top:
+            return False, f"Risk must be between 0.05% and {top}% (limit set in config.yaml)."
+        self.cfg.risk.risk_per_trade_pct = value
+        self._save_control()
+        self.journal.write("risk", details=f"risk per trade set to {value}% from {source}")
+        return True, f"Risk per trade is now {value}% of balance."

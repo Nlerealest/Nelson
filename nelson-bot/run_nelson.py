@@ -5,7 +5,9 @@
   python run_nelson.py brief     [--csv data/xauusd_m5.csv]   (market analysis)
   python run_nelson.py download  --start 2023-01-01 --end 2025-12-31
   python run_nelson.py live                                   (runs on your MT5 terminal)
-  python run_nelson.py telegram-setup --token <TOKEN>         (control Nelson from your phone)
+  python run_nelson.py telegram-setup --token <TOKEN>         (alerts + commands in Telegram)
+  python run_nelson.py app-setup --url https://...            (connect the Nelson phone app)
+  python run_nelson.py demo                                   (try the app on practice prices)
 """
 from __future__ import annotations
 
@@ -121,6 +123,43 @@ def cmd_telegram_setup(cfg, args):
           f"  token: \"{token}\"\n  chat_ids: [{cid}]\n")
 
 
+def cmd_app_setup(cfg, args):
+    import secrets
+    key = cfg.app.api_key if len(cfg.app.api_key) >= 24 and not args.new_key else secrets.token_urlsafe(32)
+    url = args.url.rstrip("/")
+    print("Put this in config.yaml (then restart Nelson):\n")
+    print(f"app:\n  enabled: true\n  host: 127.0.0.1\n  port: {cfg.app.port}\n  api_key: \"{key}\"\n")
+    if not url:
+        print("Then publish it privately with Tailscale (see README), e.g.:  tailscale serve --bg "
+              f"{cfg.app.port}\nand run this again with --url https://<your-vps>.<tailnet>.ts.net "
+              "to get a QR code for the app.")
+        return
+    payload = json.dumps({"url": url, "key": key})
+    try:
+        import qrcode
+    except ImportError:
+        print("pip install qrcode   (to show a QR code). Or type these into the app:")
+        print(f"  Address: {url}\n  Key:     {key}")
+        return
+    qr = qrcode.QRCode(border=2)
+    qr.add_data(payload)
+    qr.make(fit=True)
+    print("Open the Nelson app -> Scan QR code, and point it at this:\n")
+    qr.print_ascii(invert=True)
+    print(f"\n(or type it in)  Address: {url}\n                  Key:     {key}")
+
+
+def cmd_demo(cfg, args):
+    from nelson.demo import run_demo
+    cfg.app.enabled = True
+    cfg.app.host = args.host
+    cfg.app.api_key = args.key
+    cfg.log_dir = "demo_logs"
+    print(f"DEMO mode - practice prices, no broker. In the app use address http://<this computer's IP>:{cfg.app.port} "
+          f"and key {args.key}")
+    run_demo(cfg, args.seconds_per_bar)
+
+
 def cmd_live(cfg, args):
     from nelson.live import NelsonBot
     NelsonBot(cfg).run()
@@ -142,6 +181,13 @@ def main():
     d.add_argument("--end", required=True)
     d.add_argument("--out", default="data/xauusd_m5.csv")
     sub.add_parser("live")
+    ap = sub.add_parser("app-setup", help="create the key and QR code for the Nelson phone app")
+    ap.add_argument("--url", default="", help="the https address the phone will use")
+    ap.add_argument("--new-key", action="store_true")
+    dm = sub.add_parser("demo", help="run on practice prices so you can try the app without MT5")
+    dm.add_argument("--host", default="0.0.0.0")
+    dm.add_argument("--key", default="nelson-demo-key-not-for-real-trading")
+    dm.add_argument("--seconds-per-bar", type=float, default=5.0)
     tg = sub.add_parser("telegram-setup", help="connect Nelson to your phone via Telegram")
     tg.add_argument("--token", default="")
     args = p.parse_args()
@@ -149,7 +195,7 @@ def main():
     _setup_logging(cfg.log_dir)
     {"backtest": cmd_backtest, "optimize": cmd_optimize, "brief": cmd_brief,
      "download": cmd_download, "live": cmd_live,
-     "telegram-setup": cmd_telegram_setup}[args.cmd](cfg, args)
+     "telegram-setup": cmd_telegram_setup, "app-setup": cmd_app_setup, "demo": cmd_demo}[args.cmd](cfg, args)
 
 
 if __name__ == "__main__":

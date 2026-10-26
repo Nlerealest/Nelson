@@ -102,7 +102,10 @@ Nelson only answers the chat IDs listed in `config.yaml`. Anyone else who finds 
 | `/closeall` | Closes every Nelson trade and cancels its orders. You must confirm with `/closeall yes`, and Nelson then pauses. |
 | `/risk 0.5` | Change the risk per trade. It can never exceed `telegram.max_risk_pct` (1% by default). |
 
-### 4. Watch the trades in the MT5 app
+### 4. The Nelson app (Android)
+For a full dashboard instead of chat messages, install the **Nelson app**: account, open trades, a live chart with liquidity levels, Nelson's market read, news, the journal, and the pause/resume, risk and close-all controls. It connects privately through Tailscale. See [`../nelson-app/README.md`](../nelson-app/README.md). To try it without MT5, run `python run_nelson.py demo`.
+
+### 5. Watch the trades in the MT5 app
 Install **MetaTrader 5** from the Play Store or App Store and log in to the **same account**. Nelson's trades appear on the chart with their stop and target. To be able to look but not trade from the phone, log in with the account's **investor (read-only) password**.
 
 ---
@@ -174,6 +177,8 @@ nelson/optimizer.py    walk-forward learning
 nelson/live.py         the live MT5 loop and trade management
 nelson/mt5_broker.py   everything that talks to MetaTrader 5
 nelson/telegram.py     phone alerts and commands
+nelson/api.py          private API for the Nelson phone app
+nelson/demo.py         practice-price replay for trying the app
 tests/                 unit tests:  python -m unittest discover -s tests
 ```
 

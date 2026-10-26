@@ -62,3 +62,9 @@ telegram:                     # control Nelson from your phone - see README "Use
   chat_ids: []                # your chat id from: python run_nelson.py telegram-setup --token <TOKEN>
   daily_summary_utc: "21:05"
   max_risk_pct: 1.0           # /risk from the phone can never go above this
+
+app:                          # the Nelson phone app - run: python run_nelson.py app-setup --url https://...
+  enabled: false
+  host: 127.0.0.1             # publish with "tailscale serve --bg 8765" rather than opening a port
+  port: 8765
+  api_key: ""                 # or env NELSON_APP_KEY

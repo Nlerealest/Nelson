@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Nelson",
+    "slug": "nelson-gold",
+    "scheme": "nelsongold",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0b1120",
+    "description": "Monitor and control the Nelson XAUUSD trading bot running on your MT5 VPS.",
+    "ios": {
+      "bundleIdentifier": "com.nelson.gold",
+      "supportsTablet": true,
+      "config": { "usesNonExemptEncryption": false }
+    },
+    "android": {
+      "package": "com.nelson.gold",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#0b1120",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "blockedPermissions": ["android.permission.RECORD_AUDIO"]
+    },
+    "web": { "favicon": "./assets/favicon.png", "output": "single" },
+    "plugins": [
+      ["expo-router", { "root": "./src/app" }],
+      "expo-status-bar",
+      "expo-secure-store",
+      ["expo-camera", {
+        "cameraPermission": "Nelson uses the camera only to scan the connection QR code.",
+        "recordAudioAndroid": false
+      }],
+      ["expo-build-properties", { "android": { "usesCleartextTraffic": true } }],
+      ["expo-splash-screen", { "image": "./assets/splash-icon.png", "imageWidth": 160, "backgroundColor": "#0b1120" }],
+      "expo-font"
+    ]
+  }
+}
