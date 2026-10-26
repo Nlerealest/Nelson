@@ -134,7 +134,11 @@ def run_demo(cfg, seconds_per_bar: float = 5.0) -> None:
     st.avoid_friday_after_utc = ""
     cfg.risk.close_friday_utc = ""
     bars = practice_prices()
-    broker = ReplayBroker(cfg, bars, start=len(bars) - 288 * 3, seconds_per_bar=seconds_per_bar)
+    # start the replay ~15 candles before a setup, so a trade shows up within a minute or two
+    from .strategy import NelsonStrategy, prepare
+    found = [x.index for x in NelsonStrategy(cfg.strategy).scan(prepare(bars, cfg.strategy, 5)) if x.index >= 3015]
+    start = found[0] - 15 if found else len(bars) - 288 * 3
+    broker = ReplayBroker(cfg, bars, start=start, seconds_per_bar=seconds_per_bar)
     live.MT5Broker = lambda _cfg: broker   # the bot talks to the replay instead of MT5
     # keep demo state apart from the real bot's pause/risk/trade files, and start fresh each time
     Path(cfg.log_dir).mkdir(parents=True, exist_ok=True)

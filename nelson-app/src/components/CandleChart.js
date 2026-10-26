@@ -5,7 +5,7 @@ import Svg, { G, Line, Rect, Text as SvgText } from 'react-native-svg';
 import { C } from '../theme';
 import { price, priceRange } from '../format';
 
-const AXIS = 58;          // room on the right for price labels
+const AXIS = 68;          // room on the right for price labels
 
 export default function CandleChart({ candles, levels = [], lines = [], lastPrice, height = 320, showLevels = true }) {
   const [width, setWidth] = useState(0);
