@@ -9,6 +9,15 @@ where python >nul 2>nul || (
   exit /b
 )
 
+rem A .venv copied from another PC points to that PC's Python and cannot run here: rebuild it
+if exist .venv\Scripts\python.exe (
+  .venv\Scripts\python -c "import sys" >nul 2>nul
+  if errorlevel 1 (
+    echo The .venv folder was made on another computer - rebuilding it...
+    rmdir /s /q .venv
+  )
+)
+
 if not exist .venv\Scripts\python.exe (
   echo First run: setting up Nelson...
   python -m venv .venv
