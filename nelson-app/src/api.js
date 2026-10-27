@@ -25,7 +25,10 @@ async function request(conn, path, { method = 'GET', body, timeoutMs = 15000 } =
     if (!res.ok && !data.message) throw new Error(data.error || `Nelson answered ${res.status}`);
     return data;
   } catch (e) {
-    if (e.name === 'AbortError') throw new Error('No answer from Nelson (timed out). Is the PC on and Nelson running?');
+    if (e.name === 'AbortError' || /cancel|abort/i.test(String(e.message))) {
+      throw new Error('No answer from Nelson. Check: the address starts with https://, Tailscale is on (phone and PC), '
+        + 'Nelson is running on the PC, and "tailscale serve --bg 8765" was run there.');
+    }
     if (e instanceof TypeError) throw new Error('Cannot reach Nelson. Check the address, your internet, and Tailscale.');
     throw e;
   } finally {

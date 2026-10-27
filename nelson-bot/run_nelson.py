@@ -145,6 +145,9 @@ def cmd_app_setup(cfg, args):
     import secrets
     key = cfg.app.api_key if len(cfg.app.api_key) >= 24 and not args.new_key else secrets.token_urlsafe(32)
     url = args.url.strip().rstrip("/")
+    if url.startswith("http://") and url.split("/")[2].endswith(".ts.net"):
+        url = "https://" + url[len("http://"):]   # tailscale serve only answers https
+        print(f"Note: using {url} (Tailscale addresses must start with https://)\n")
     topic = cfg.notify.topic or f"nelson-{secrets.token_hex(8)}"
     saved = _save_section(args.config, "app", ["enabled: true", "host: 127.0.0.1", f"port: {cfg.app.port}",
                                                f'api_key: "{key}"'], "the Nelson phone app (written by app-setup)")

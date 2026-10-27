@@ -25,6 +25,8 @@ test('times from Nelson are UTC', () => {
 test('connection url and QR', () => {
   assert.equal(normaliseUrl(' nelson.tail1.ts.net/ '), 'https://nelson.tail1.ts.net');
   assert.equal(normaliseUrl('http://192.168.1.5:8765/api'), 'http://192.168.1.5:8765');
+  assert.equal(normaliseUrl('http://desktop-cmh441j.tail0ac9cf.ts.net'), 'https://desktop-cmh441j.tail0ac9cf.ts.net');
+  assert.equal(normaliseUrl('http://pc.tail1.ts.net:8765'), 'http://pc.tail1.ts.net:8765');
   assert.deepEqual(parseConnectionQr('{"url":"https://a.ts.net","key":"abcdefghijklmnopqrstuvwxyz"}'),
     { url: 'https://a.ts.net', key: 'abcdefghijklmnopqrstuvwxyz' });
   assert.equal(parseConnectionQr('hello'), null);

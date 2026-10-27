@@ -57,6 +57,8 @@ export function normaliseUrl(raw) {
   let u = String(raw || '').trim();
   if (!u) return '';
   if (!/^https?:\/\//i.test(u)) u = `https://${u}`;
+  // "tailscale serve" only answers https; a typed http:// Tailscale name (no port) can never connect
+  u = u.replace(/^http:\/\/([^/:]+\.ts\.net)(?=\/|$)/i, 'https://$1');
   return u.replace(/\/+$/, '').replace(/\/api$/, '');
 }
 
