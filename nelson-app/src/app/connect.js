@@ -6,9 +6,10 @@ import { Banner, Button, Card, T } from '../components/ui';
 import { C } from '../theme';
 import { isInsecureRemote, normaliseUrl, parseConnectionQr } from '../format';
 import { confirm } from '../confirm';
+import NotifyCard from '../components/NotifyCard';
 
 export default function Connect() {
-  const { conn, connect, disconnect } = useNelson();
+  const { conn, connect, disconnect, snap } = useNelson();
   const params = useLocalSearchParams();
   const [url, setUrl] = useState(params.url ? String(params.url) : conn?.url || '');
   const [key, setKey] = useState(params.key ? String(params.key) : conn?.key || '');
@@ -54,7 +55,7 @@ export default function Connect() {
         <Card>
           <T bold style={{ fontSize: 18, marginBottom: 6 }}>Link this phone to Nelson</T>
           <T muted>
-            On the VPS run{'\n'}
+            On the PC run{'\n'}
             <T mono color={C.gold}>python run_nelson.py app-setup --url https://…</T>
             {'\n'}then scan the QR code it shows, or paste the connection code below.
           </T>
@@ -63,7 +64,7 @@ export default function Connect() {
 
         <Card title="Or paste / type it in">
           <T small muted style={{ marginBottom: 10 }}>
-            Tip: copy the connection code from nelson_app_link.txt on the VPS and paste it into Address. Both boxes fill in.
+            Tip: copy the connection code from nelson_app_link.txt on the PC and paste it into Address. Both boxes fill in.
           </T>
           <T small muted>Address</T>
           <TextInput
@@ -105,6 +106,8 @@ export default function Connect() {
           />
           {testing ? <ActivityIndicator color={C.gold} style={{ marginTop: 10 }} /> : null}
         </Card>
+
+        {conn ? <NotifyCard notify={snap?.notify} /> : null}
 
         {conn ? (
           <Card title="Connected">

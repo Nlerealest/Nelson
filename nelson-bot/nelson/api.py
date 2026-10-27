@@ -39,6 +39,7 @@ class AppServer:
         if len(api_key) < 24:
             raise ValueError("app.api_key must be at least 24 characters - run: python run_nelson.py app-setup")
         self.host, self.port, self.key = host, port, api_key
+        self.practice = False      # True when this is the practice demo (run_nelson.py demo)
         self._snapshot: dict = {"ready": False}
         self._lock = threading.Lock()
         self._actions: queue.Queue[_Pending] = queue.Queue()
@@ -96,7 +97,7 @@ class AppServer:
                 if not ok:
                     time.sleep(1.0)   # slow down guessing
                     log.warning("Rejected app request from %s (bad key)", self.client_address[0])
-                    self._send(401, {"error": "wrong or missing app key"})
+                    self._send(401, {"error": "wrong or missing app key", "practice": server.practice})
                 return ok
 
             def do_GET(self):
@@ -130,7 +131,11 @@ class AppServer:
                     return
                 self._send(200 if pending.result.get("ok") else 400, pending.result)
 
-        self._httpd = ThreadingHTTPServer((self.host, self.port), Handler)
+        try:
+            self._httpd = ThreadingHTTPServer((self.host, self.port), Handler)
+        except OSError as exc:
+            raise RuntimeError(f"Port {self.port} is already in use. Is the practice demo (run_nelson.py demo) or "
+                               "another Nelson window still open? Close it and start Nelson again.") from exc
         self._httpd.daemon_threads = True
         threading.Thread(target=self._httpd.serve_forever, name="nelson-api", daemon=True).start()
         log.info("App API listening on http://%s:%s", self.host, self.port)
@@ -248,4 +253,7 @@ def build_snapshot(bot, now: pd.Timestamp, acc) -> dict:
         "news": {"available": news_ok, "blocked_now": bool(blocked), "reason": str(ev) if blocked else "", "events": news},
         "journal": journal,
         "stats": stats,
+        "signals": bot.signals.recent(60),
+        "notify": {"enabled": bool(bot.pusher), "server": bot.cfg.notify.server,
+                   "topic": bot.cfg.notify.topic if bot.pusher else ""},
     }

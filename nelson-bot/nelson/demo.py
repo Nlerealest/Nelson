@@ -48,6 +48,7 @@ class ReplayBroker:
         self.orders_: list = []
         self.positions_: list = []
         self.results: dict[int, float] = {}
+        self.reasons: dict[int, str] = {}
         self.next_ticket = 5001
         self.spread_usd = 0.25
 
@@ -78,6 +79,7 @@ class ReplayBroker:
                 pnl = (exit_px - p.price_open) * p.d * p.volume * cs + p.realised
                 self.balance += (exit_px - p.price_open) * p.d * p.volume * cs
                 self.results[p.ticket] = pnl
+                self.reasons[p.ticket] = "sl" if exit_px == p.sl else "tp"
                 self.positions_.remove(p)
 
     # ---------- MT5Broker interface
@@ -119,6 +121,7 @@ class ReplayBroker:
             self.positions_.remove(p)
     def modify_sl(self, p, sl): p.sl = sl
     def position_result(self, ticket): return self.results.get(int(ticket), 0.0)
+    def position_close(self, ticket): return self.results.get(int(ticket), 0.0), self.reasons.get(int(ticket), "closed")
 
 
 def run_demo(cfg, seconds_per_bar: float = 5.0) -> None:
@@ -143,7 +146,7 @@ def run_demo(cfg, seconds_per_bar: float = 5.0) -> None:
     # keep demo state apart from the real bot's pause/risk/trade files, and start fresh each time
     Path(cfg.log_dir).mkdir(parents=True, exist_ok=True)
     live.STATE, live.CONTROL = Path(cfg.log_dir) / "demo_state.json", Path(cfg.log_dir) / "demo_control.json"
-    for f in (live.STATE, live.CONTROL):
+    for f in (live.STATE, live.CONTROL, Path(cfg.log_dir) / "signals.json"):
         f.unlink(missing_ok=True)
     bot = live.NelsonBot(cfg)
     # a couple of made-up upcoming events so the News screen has something to show
@@ -154,4 +157,8 @@ def run_demo(cfg, seconds_per_bar: float = 5.0) -> None:
     bot.news.refresh = lambda force=False: None
     bot.strategy.news = bot.news
     bot.poll_seconds = min(5.0, seconds_per_bar / 2)
+    if bot.app:
+        bot.app.practice = True
+    if bot.pusher:
+        bot.pusher.prefix = "[PRACTICE] "
     bot.run()

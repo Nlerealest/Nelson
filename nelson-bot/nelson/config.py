@@ -127,6 +127,15 @@ class TelegramConfig:
 
 
 @dataclass
+class NotifyConfig:
+    """Phone notifications through the free ntfy app (set up by app-setup)."""
+    enabled: bool = False
+    server: str = "https://ntfy.sh"
+    topic: str = ""                      # private random channel name; anyone who knows it can read the alerts
+    signals: bool = True                 # alert on every new signal (with entry, stop and target)
+
+
+@dataclass
 class AppConfig:
     """The private API the Nelson phone app connects to."""
     enabled: bool = False
@@ -151,6 +160,7 @@ class Config:
     mt5: MT5Config = field(default_factory=MT5Config)
     telegram: TelegramConfig = field(default_factory=TelegramConfig)
     app: AppConfig = field(default_factory=AppConfig)
+    notify: NotifyConfig = field(default_factory=NotifyConfig)
 
     def to_dict(self) -> dict:
         return asdict(self)

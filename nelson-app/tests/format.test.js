@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   money, signedMoney, pct, timeAgo, timeUntil, utcClock, normaliseUrl, parseConnectionQr,
-  isInsecureRemote, journalText, journalTone, priceRange,
+  isInsecureRemote, journalText, journalTone, priceRange, signalStatus, signalResult, ntfyLinks,
 } from '../src/format.js';
 
 test('money formatting', () => {
@@ -51,4 +51,17 @@ test('journal wording and colours', () => {
 test('chart price range includes trade lines', () => {
   const r = priceRange([[0, 10, 12, 9, 11]], [15]);
   assert.ok(r.lo < 9 && r.hi > 15);
+});
+
+test('signal status and result', () => {
+  assert.deepEqual(signalStatus('tp'), { label: 'Take profit', tone: 'good' });
+  assert.equal(signalStatus('sl').tone, 'bad');
+  assert.equal(signalResult({ pnl: 120.5 }), '+$120.50');
+  assert.equal(signalResult({ pnl: null, result_r: 2.5 }), '+2.5R');
+  assert.equal(signalResult({ pnl: null, result_r: -1 }), '-1R');
+  assert.equal(signalResult({ status: 'waiting' }), '');
+});
+
+test('ntfy subscribe links', () => {
+  assert.deepEqual(ntfyLinks('https://ntfy.sh/', 'nelson-abc'), { app: 'ntfy://ntfy.sh/nelson-abc', web: 'https://ntfy.sh/nelson-abc' });
 });

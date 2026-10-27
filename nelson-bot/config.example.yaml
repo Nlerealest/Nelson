@@ -68,3 +68,9 @@ app:                          # the Nelson phone app - run: python run_nelson.py
   host: 127.0.0.1             # publish with "tailscale serve --bg 8765" rather than opening a port
   port: 8765
   api_key: ""                 # or env NELSON_APP_KEY
+
+notify:                       # phone alerts via the free ntfy app - app-setup fills this in
+  enabled: false
+  server: "https://ntfy.sh"
+  topic: ""                   # private random channel name, e.g. nelson-3f9a1c...
+  signals: true               # alert on every new signal (entry, stop, target)

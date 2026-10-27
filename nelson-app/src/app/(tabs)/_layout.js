@@ -6,6 +6,7 @@ import { C } from '../../theme';
 
 const TABS = [
   ['index', 'Nelson', 'speedometer'],
+  ['signals', 'Signals', 'flash'],
   ['chart', 'Chart', 'stats-chart'],
   ['market', 'Market', 'compass'],
   ['journal', 'Journal', 'list'],

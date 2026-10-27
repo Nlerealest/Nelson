@@ -43,7 +43,7 @@ export default function Scan() {
       <View style={styles.frame} pointerEvents="none" />
       <View style={styles.bottom}>
         {error ? <Banner tone="bad" icon="alert-circle">{error}</Banner> : (
-          <T style={{ textAlign: 'center' }}>Point at the QR code shown by app-setup on the VPS</T>
+          <T style={{ textAlign: 'center' }}>Point at the QR code shown by app-setup on the PC</T>
         )}
       </View>
     </View>

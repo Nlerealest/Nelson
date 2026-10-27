@@ -149,3 +149,38 @@ export function priceRange(candles, extra = []) {
   const pad = Math.max((hi - lo) * 0.06, 0.5);
   return { lo: lo - pad, hi: hi + pad };
 }
+
+// ---------- signals
+export const SIGNAL_STATUS = {
+  waiting: ['Waiting for entry', 'warn'],
+  active: ['Entered', 'info'],
+  tp: ['Take profit', 'good'],
+  sl: ['Stop loss', 'bad'],
+  breakeven: ['Break-even', 'neutral'],
+  closed: ['Closed', 'neutral'],
+  stop_out: ['Stopped out', 'bad'],
+  expired: ['Expired', 'neutral'],
+  missed: ['Missed', 'neutral'],
+  not_taken: ['Not taken', 'neutral'],
+  skipped: ['Skipped', 'neutral'],
+};
+
+export function signalStatus(status) {
+  const [label, tone] = SIGNAL_STATUS[status] || [status, 'neutral'];
+  return { label, tone };
+}
+
+// Result in R (risk units) or money, for a finished signal
+export function signalResult(sig) {
+  if (sig.pnl !== null && sig.pnl !== undefined) return signedMoney(sig.pnl);
+  if (sig.result_r !== null && sig.result_r !== undefined) return `${sig.result_r > 0 ? '+' : ''}${sig.result_r}R`;
+  return '';
+}
+
+// ntfy links: open the ntfy app on this topic, or the web page as a fallback
+export function ntfyLinks(server, topic) {
+  const host = String(server || 'https://ntfy.sh').replace(/^https?:\/\//, '').replace(/\/+$/, '');
+  return { app: `ntfy://${host}/${topic}`, web: `https://${host}/${topic}` };
+}
+
+export const NTFY_PLAY_STORE = 'https://play.google.com/store/apps/details?id=io.heckel.ntfy';

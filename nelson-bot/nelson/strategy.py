@@ -30,7 +30,7 @@ from .indicators import atr as atr_fn
 from .indicators import confirmed_pivots
 from .liquidity import LiquidityBook, asia_levels, daily_levels
 from .orderflow import bar_delta_proxy, relative_volume
-from .sessions import friday_cutoff, in_windows
+from .sessions import friday_cutoff, in_windows, session_name
 from .structure import htf_context
 
 
@@ -50,6 +50,7 @@ class Setup:
     fvg_low: float
     fvg_high: float
     reasons: list[str] = field(default_factory=list)
+    steps: list[dict] = field(default_factory=list)   # how the setup was found, for the app
 
     @property
     def side(self) -> str:
@@ -103,6 +104,7 @@ class NelsonStrategy:
         self.news = news_filter
         self.book: LiquidityBook | None = None
         self.rejected: list[tuple[int, str, str]] = []   # (bar, side, reason) for the journal
+        self.skipped: list[dict] = []                     # the same, with levels and steps, for the app
 
     def scan(self, f: pd.DataFrame) -> list[Setup]:
         """Walks bar by bar through prepared data and returns every confirmed setup."""
@@ -117,6 +119,7 @@ class NelsonStrategy:
             "pdh", "pdl", "asia_high", "asia_low", "rel_volume", "sh_confirmed", "sh_price", "sl_confirmed", "sl_price"))
         self.book = book = LiquidityBook(c.equal_level_tolerance_atr, c.max_level_age_hours)
         self.rejected = []
+        self.skipped = []
         pending: dict[int, _Sweep | None] = {1: None, -1: None}
         asia_added = None
         setups: list[Setup] = []
@@ -200,39 +203,84 @@ class NelsonStrategy:
         trend = int(f["htf_trend"].iat[i])
         eq = f["htf_equilibrium"].iat[i]
         delta = float(f["delta"].iloc[p.index + 1:i + 1].sum())
+        body_atr = abs(float(f["close"].iat[i]) - float(f["open"].iat[i])) / ai
+        close_time = f["time"].iat[i] + pd.Timedelta(minutes=bar_minutes)
+        trend_word = "bullish" if trend > 0 else "bearish" if trend < 0 else "unclear"
         reasons = [
             f"swept {p.level_name} {p.level_price:.2f} (wick to {p.extreme:.2f}, volume x{p.rel_volume:.1f})",
             f"displacement closed through internal swing {p.internal:.2f}",
             f"fair value gap {gap_lo:.2f}-{gap_hi:.2f}",
-            f"H1 trend {'bullish' if trend > 0 else 'bearish' if trend < 0 else 'unclear'}",
+            f"H1 trend {trend_word}",
             f"delta {delta:+.0f}",
+        ]
+
+        blocked, event = (False, None)
+        if self.news is not None:
+            blocked, event = self.news.blocked(close_time)
+        in_zone = bool(f["in_killzone"].iat[i])
+        friday = bool(f["friday_late"].iat[i])
+        sl_ok = c.min_sl_atr * ai <= risk <= c.max_sl_atr * ai
+        trend_ok = not c.use_htf_bias or trend == d
+        pd_ok = not c.use_premium_discount or np.isnan(eq) or (entry < eq if d > 0 else entry > eq)
+        vol_ok = not c.require_volume_spike or p.volume_ok
+        delta_ok = not c.require_delta_confirmation or delta * d > 0
+        stops = "sell stops below" if d > 0 else "buy stops above"
+        zone = "" if np.isnan(eq) else ("discount" if entry < eq else "premium")
+        off = " (filter switched off)"
+        good_zone = "discount" if d > 0 else "premium"
+
+        # How Nelson found it, step by step, in the order a trader reads the chart
+        steps = [
+            {"title": "H1 market structure", "ok": trend_ok, "off": not c.use_htf_bias,
+             "detail": f"H1 is {trend_word}; this is a {side}" + ("" if c.use_htf_bias else off)},
+            {"title": "Premium / discount", "ok": pd_ok, "off": not c.use_premium_discount,
+             "detail": (f"Entry {entry:.2f} is in {zone} (H1 midpoint {eq:.2f}): "
+                        + ("the right side for a " + side if zone == good_zone else f"{side}s belong in {good_zone}")
+                        if zone else "H1 range not known yet") + ("" if c.use_premium_discount else off)},
+            {"title": "Liquidity sweep", "ok": True,
+             "detail": f"Price ran the {p.level_name} {p.level_price:.2f} (wick to {p.extreme:.2f}) and closed back "
+                       f"inside: the {stops} were taken"},
+            {"title": "Stop-run volume", "ok": vol_ok, "off": not c.require_volume_spike,
+             "detail": f"Sweep candle volume x{p.rel_volume:.1f} normal" + ("" if c.require_volume_spike else off)},
+            {"title": "Change of character", "ok": True,
+             "detail": f"A strong candle (body {body_atr:.1f}x ATR) closed {'above' if d > 0 else 'below'} the "
+                       f"internal swing {p.internal:.2f}"},
+            {"title": "Fair value gap", "ok": True,
+             "detail": f"Gap {gap_lo:.2f}-{gap_hi:.2f} left behind; limit entry at {entry:.2f}"},
+            {"title": "Order flow", "ok": delta_ok, "off": not c.require_delta_confirmation,
+             "detail": f"Delta {delta:+.0f}: {'buyers' if delta > 0 else 'sellers'} more aggressive"
+                       + ("" if c.require_delta_confirmation else off)},
+            {"title": "Session", "ok": in_zone and not friday,
+             "detail": session_name(close_time) + (" (killzone)" if in_zone else " (outside the killzones)")
+                       + (", late Friday" if friday else "")},
+            {"title": "News", "ok": not blocked,
+             "detail": f"High-impact news: {event}" if blocked else "No high-impact USD news nearby"},
+            {"title": "Risk", "ok": risk > 0 and sl_ok,
+             "detail": f"Stop {abs(risk):.2f} away ({abs(risk) / ai:.1f} ATR), target {c.rr_target:g}R"},
         ]
 
         checks = [
             (risk > 0, "stop on wrong side of entry"),
-            (bool(f["in_killzone"].iat[i]), "outside London/New York killzones"),
-            (not bool(f["friday_late"].iat[i]), "late Friday"),
-            (c.min_sl_atr * ai <= risk <= c.max_sl_atr * ai, f"stop {risk:.2f} outside {c.min_sl_atr}-{c.max_sl_atr} ATR"),
-            (not c.use_htf_bias or trend == d, "against H1 structure"),
-            (not c.use_premium_discount or np.isnan(eq) or (entry < eq if d > 0 else entry > eq),
-             "buying in premium" if d > 0 else "selling in discount"),
-            (not c.require_volume_spike or p.volume_ok, f"sweep volume only x{p.rel_volume:.1f}"),
-            (not c.require_delta_confirmation or delta * d > 0, f"delta {delta:+.0f} disagrees"),
+            (in_zone, "outside London/New York killzones"),
+            (not friday, "late Friday"),
+            (sl_ok, f"stop {risk:.2f} outside {c.min_sl_atr}-{c.max_sl_atr} ATR"),
+            (trend_ok, "against H1 structure"),
+            (pd_ok, "buying in premium" if d > 0 else "selling in discount"),
+            (vol_ok, f"sweep volume only x{p.rel_volume:.1f}"),
+            (delta_ok, f"delta {delta:+.0f} disagrees"),
+            (not blocked, f"news: {event}"),
         ]
-        for ok, why in checks:
-            if not ok:
-                self.rejected.append((i, side, why))
-                return None
-        if self.news is not None:
-            close_time = f["time"].iat[i] + pd.Timedelta(minutes=bar_minutes)
-            blocked, event = self.news.blocked(close_time)
-            if blocked:
-                self.rejected.append((i, side, f"news: {event}"))
-                return None
+        why = next((w for ok, w in checks if not ok), None)
+        if why is not None:
+            self.rejected.append((i, side, why))
+            self.skipped.append({"index": i, "time": f["time"].iat[i], "side": side, "entry": round(entry, 2),
+                                 "sl": round(sl, 2), "tp": round(tp, 2), "reason": why, "steps": steps})
+            return None
         return Setup(
             index=i, time=f["time"].iat[i], direction=d, entry=round(entry, 2), sl=round(sl, 2), tp=round(tp, 2),
             expiry_index=i + c.order_expiry_bars, atr=float(ai), level_name=p.level_name,
             level_price=p.level_price, sweep_extreme=p.extreme, fvg_low=gap_lo, fvg_high=gap_hi, reasons=reasons,
+            steps=steps,
         )
 
 

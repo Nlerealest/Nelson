@@ -211,6 +211,16 @@ class MT5Broker:
         deals = mt5.history_deals_get(position=int(ticket)) or []
         return float(sum(d.profit + d.commission + d.swap + getattr(d, "fee", 0.0) for d in deals))
 
+    def position_close(self, ticket: int) -> tuple[float, str | None]:
+        """Result of a closed position and why it closed: "tp", "sl", "stop_out" or "closed" (manual/Nelson)."""
+        deals = mt5.history_deals_get(position=int(ticket)) or []
+        pnl = float(sum(d.profit + d.commission + d.swap + getattr(d, "fee", 0.0) for d in deals))
+        outs = [d for d in deals if d.entry in (mt5.DEAL_ENTRY_OUT, mt5.DEAL_ENTRY_OUT_BY)]
+        if not outs:
+            return pnl, None
+        reasons = {mt5.DEAL_REASON_SL: "sl", mt5.DEAL_REASON_TP: "tp", mt5.DEAL_REASON_SO: "stop_out"}
+        return pnl, reasons.get(outs[-1].reason, "closed")
+
     def is_buy(self, position) -> bool:
         return position.type == mt5.POSITION_TYPE_BUY
 

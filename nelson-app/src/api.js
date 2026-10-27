@@ -1,4 +1,4 @@
-// Talks to the Nelson bot's private API (nelson/api.py on the VPS).
+// Talks to the Nelson bot's private API (nelson/api.py on the PC).
 
 async function request(conn, path, { method = 'GET', body, timeoutMs = 15000 } = {}) {
   const controller = new AbortController();
@@ -16,11 +16,16 @@ async function request(conn, path, { method = 'GET', body, timeoutMs = 15000 } =
     } catch {
       // empty or non-JSON body
     }
-    if (res.status === 401) throw new Error('Wrong app key. Check the key from "app-setup" on the VPS.');
+    if (res.status === 401) {
+      if (data.practice) {
+        throw new Error('This address is running the practice demo, not your real Nelson. On the PC, close the demo window (Ctrl+C) and start Nelson with the launcher.');
+      }
+      throw new Error('Wrong app key. On the PC run app-setup again, restart Nelson, then scan or paste the new code.');
+    }
     if (!res.ok && !data.message) throw new Error(data.error || `Nelson answered ${res.status}`);
     return data;
   } catch (e) {
-    if (e.name === 'AbortError') throw new Error('No answer from Nelson (timed out). Is the VPS on and Nelson running?');
+    if (e.name === 'AbortError') throw new Error('No answer from Nelson (timed out). Is the PC on and Nelson running?');
     if (e instanceof TypeError) throw new Error('Cannot reach Nelson. Check the address, your internet, and Tailscale.');
     throw e;
   } finally {

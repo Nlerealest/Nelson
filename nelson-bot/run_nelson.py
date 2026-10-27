@@ -123,16 +123,16 @@ def cmd_telegram_setup(cfg, args):
           f"  token: \"{token}\"\n  chat_ids: [{cid}]\n")
 
 
-def _save_app_section(path: str, key: str, port: int) -> bool:
-    """Writes the app: section of config.yaml (replacing an existing one). Returns False if there is no config."""
+def _save_section(path: str, name: str, lines: list[str], comment: str = "") -> bool:
+    """Writes a top-level section of config.yaml (replacing an existing one). False if there is no config."""
     import re
     cfg_file = Path(path)
     if not cfg_file.exists():
         return False
-    block = (f"app:                          # the Nelson phone app (written by app-setup)\n"
-             f"  enabled: true\n  host: 127.0.0.1\n  port: {port}\n  api_key: \"{key}\"\n")
+    head = f"{name}:" + (f"{' ' * max(1, 30 - len(name) - 1)}# {comment}" if comment else "")
+    block = head + "\n" + "".join(f"  {ln}\n" for ln in lines)
     text = cfg_file.read_text(encoding="utf-8")
-    pattern = re.compile(r"^app:.*\n(?:[ \t]+.*\n?|[ \t]*\n)*", re.MULTILINE)
+    pattern = re.compile(rf"^{name}:.*\n(?:[ \t]+.*\n?|[ \t]*\n)*", re.MULTILINE)
     if pattern.search(text):
         text = pattern.sub(lambda _m: block + "\n", text, count=1).rstrip("\n") + "\n"
     else:
@@ -145,8 +145,14 @@ def cmd_app_setup(cfg, args):
     import secrets
     key = cfg.app.api_key if len(cfg.app.api_key) >= 24 and not args.new_key else secrets.token_urlsafe(32)
     url = args.url.strip().rstrip("/")
-    if _save_app_section(args.config, key, cfg.app.port):
-        print(f"Saved the app key in {args.config}. Restart Nelson for it to take effect.\n")
+    topic = cfg.notify.topic or f"nelson-{secrets.token_hex(8)}"
+    saved = _save_section(args.config, "app", ["enabled: true", "host: 127.0.0.1", f"port: {cfg.app.port}",
+                                               f'api_key: "{key}"'], "the Nelson phone app (written by app-setup)")
+    if saved:
+        _save_section(args.config, "notify", ["enabled: true", f'server: "{cfg.notify.server}"', f'topic: "{topic}"',
+                                              f"signals: {'true' if cfg.notify.signals else 'false'}"],
+                      "phone notifications via the free ntfy app (written by app-setup)")
+        print(f"Saved the app key and notification channel in {args.config}. Restart Nelson for it to take effect.\n")
     else:
         print("Put this in config.yaml (then restart Nelson):\n")
         print(f"app:\n  enabled: true\n  host: 127.0.0.1\n  port: {cfg.app.port}\n  api_key: \"{key}\"\n")

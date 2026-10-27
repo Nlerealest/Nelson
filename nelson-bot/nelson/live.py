@@ -19,10 +19,12 @@ from .config import Config
 from .journal import Journal
 from .mt5_broker import TIMEFRAMES, MT5Broker
 from .news import NewsFilter
+from .notify import Pusher
 from .orderflow import bar_delta_proxy, tick_delta
 from .report import market_brief
 from .risk import RiskManager
 from .sessions import _minutes
+from .signals import LABELS, SignalBook
 from .strategy import NelsonStrategy, prepare
 from .telegram import HELP, TelegramLink
 
@@ -52,6 +54,9 @@ class NelsonBot:
         tg = cfg.telegram
         self.phone = TelegramLink(tg.token, tg.chat_ids) if tg.enabled and tg.token and tg.chat_ids else None
         self.app = AppServer(cfg.app.host, cfg.app.port, cfg.app.api_key) if cfg.app.enabled else None
+        self.signals = SignalBook(Path(cfg.log_dir) / "signals.json", spread=cfg.backtest.spread_usd)
+        nc = cfg.notify
+        self.pusher = Pusher(nc.server, nc.topic) if nc.enabled and nc.topic else None
         self.last_f = None
         self.poll_seconds = 5.0
         self.last_setups = []
@@ -65,6 +70,24 @@ class NelsonBot:
         log.info(text)
         if self.phone:
             self.phone.send(text)
+
+    def push(self, title: str, message: str, priority: int = 3, tags: tuple[str, ...] = ()) -> None:
+        """Phone notification through ntfy (if set up)."""
+        if self.pusher:
+            self.pusher.push(title, message, priority, tags)
+
+    @staticmethod
+    def _levels(x) -> str:
+        return f"Entry {x.entry:.2f} | SL {x.sl:.2f} | TP {x.tp:.2f}"
+
+    def _signal_alert(self, s, note: str = "") -> None:
+        if not self.cfg.notify.signals:
+            return
+        arrow = "BUY" if s.direction > 0 else "SELL"
+        self.push(f"{arrow} signal XAUUSD{' - ' + note if note else ''}",
+                  f"{self._levels(s)} ({self.cfg.strategy.rr_target:g}R)\nWhy: swept {s.level_name}; "
+                  + "; ".join(s.reasons[1:3]),
+                  priority=4, tags=("chart_with_upwards_trend" if s.direction > 0 else "chart_with_downwards_trend",))
 
     # ---------- start-up
     def start(self) -> None:
@@ -83,6 +106,8 @@ class NelsonBot:
             self.phone.start()
         if self.app:
             self.app.start()
+        self.push("Nelson started", f"{self.cfg.mode.upper()} mode on {self.cfg.symbol}, {kind} account. "
+                  f"Placing orders: {'yes' if self.trading else 'no (signals only)'}", priority=2, tags=("robot",))
         self.notify(f"Nelson started: {self.cfg.mode.upper()} mode, {self.cfg.symbol}, {kind} account, "
                     f"balance {acc.balance:.2f}. Placing orders: {'YES' if self.trading else 'NO (analysis only)'}"
                     f"{' - PAUSED' if self.paused else ''}. Send /help for commands.")
@@ -99,9 +124,13 @@ class NelsonBot:
                     if time.time() - self.last_error_alert > 1800:
                         self.last_error_alert = time.time()
                         self.notify(f"Nelson error (still running): {exc!r}")
+                        self.push("Nelson error", f"Still running. {exc!r}"[:300], priority=4, tags=("warning",))
                 time.sleep(self.poll_seconds)
         except KeyboardInterrupt:
             self.notify("Nelson stopped from the computer. Open trades keep their stop and target in MT5.")
+            self.push("Nelson stopped", "Stopped on the PC. Open trades keep their stop and target in MT5.",
+                      priority=4, tags=("stop_sign",))
+            time.sleep(1.5)   # let the notification go out
         finally:
             if self.phone:
                 self.phone.stop()
@@ -136,7 +165,30 @@ class NelsonBot:
         if self.app:
             self.app.publish(build_snapshot(self, now, self.broker.account()))
 
+    def _follow_signals(self, bars: pd.DataFrame) -> None:
+        """Moves paper signals through every bar closed since the last check and alerts on each change."""
+        last = self.signals.last_bar
+        todo = bars.tail(1) if last is None else bars[bars["time"] > pd.Timestamp(last)]
+        for t, h, lo in zip(todo["time"], todo["high"], todo["low"]):
+            for x, status in self.signals.on_bar(t, h, lo):
+                self._signal_event_alert(x, status)
+        if len(todo):
+            self.signals.last_bar = pd.Timestamp(todo["time"].iloc[-1]).isoformat()
+            self.signals.save()
+
+    def _signal_event_alert(self, x: dict, status: str) -> None:
+        side, lv = x["side"], f"Entry {x['entry']:.2f} | SL {x['sl']:.2f} | TP {x['tp']:.2f}"
+        if status == "active":
+            self.push(f"Signal entered: {side} XAUUSD at {x['entry']:.2f}", lv, priority=4, tags=("dart",))
+        elif status == "tp":
+            self.push(f"TAKE PROFIT hit: {side} signal +{x['rr']:g}R", lv, priority=4, tags=("white_check_mark",))
+        elif status == "sl":
+            self.push(f"STOP LOSS hit: {side} signal -1R", lv, priority=4, tags=("x",))
+        elif status in ("expired", "missed"):
+            self.push(f"Signal {LABELS[status].lower()}: {side} XAUUSD", lv, priority=2, tags=("hourglass",))
+
     def _on_new_bar(self, bars: pd.DataFrame, now: pd.Timestamp) -> None:
+        self._follow_signals(bars)
         # real tick delta for recent bars (better than the OHLC estimate)
         recent = bars.tail(60)
         ticks = self.broker.ticks(recent["time"].iloc[0], recent["time"].iloc[-1] + pd.Timedelta(minutes=self.minutes))
@@ -156,14 +208,26 @@ class NelsonBot:
             if i == last:
                 log.info("Setup %s seen but skipped: %s", side, why)
                 self.journal.write("skipped", side=side, details=why)
+        for sk in self.strategy.skipped:
+            if sk["index"] == last:
+                self.signals.add_skipped(sk, self.minutes)
         for s in (s for s in setups if s.index == last):
             self._take(s)
+
+    def _add_signal(self, s, track: str, status: str = "waiting", note: str = "", ticket=None) -> None:
+        self.signals.add_setup(s, self.minutes, self.cfg.strategy.order_expiry_bars, self.cfg.strategy.rr_target,
+                               track, status, note, ticket)
+
+    def _not_taken(self, s, why: str) -> None:
+        self._add_signal(s, "none", "not_taken", why)
+        self._signal_alert(s, f"not taken ({why})")
 
     def _take(self, s) -> None:
         log.info("SETUP: %s", s.describe())
         if self.paused:
             self.journal.write("paused", side=s.side, price=s.entry, sl=s.sl, tp=s.tp, details="paused from phone")
             self.notify(f"Setup seen while PAUSED (not taken): {s.describe()}")
+            self._not_taken(s, "paused")
             return
         acc = self.broker.account()
         open_count = len(self.broker.positions()) + len(self.broker.orders())
@@ -173,26 +237,36 @@ class NelsonBot:
             if ("limit" in why or "halted" in why or "in a row" in why) and self.limit_alert_day != self.risk.state.day:
                 self.limit_alert_day = self.risk.state.day
                 self.notify(f"Nelson has stopped taking trades: {why}")
+                self.push("Nelson stopped trading for now", why, priority=4, tags=("no_entry",))
             self.journal.write("blocked", side=s.side, price=s.entry, sl=s.sl, tp=s.tp, details=why)
+            self._not_taken(s, why)
             return
         tick = self.broker.tick()
         market = tick.ask if s.direction > 0 else tick.bid
         if (market - s.entry) * s.direction <= 0:
             log.info("Price already beyond the entry - not chasing")
             self.journal.write("missed", side=s.side, price=s.entry, details="price already through entry")
+            self._not_taken(s, "price already past the entry")
             return
         step, vmin, vmax = self.broker.volume_limits()
         loss = self.broker.loss_per_lot(s.direction, s.entry, s.sl) + self.cfg.backtest.commission_per_lot
         lots = self.risk.lot_size(acc.balance, loss, step, vmin, vmax)
         if lots <= 0:
             log.warning("Balance too small to risk %.2f%% with the minimum lot - skipped", self.cfg.risk.risk_per_trade_pct)
+            self._not_taken(s, "balance too small for the minimum lot")
             return
         if not self.trading:
             self.notify(f"[PAPER - no order sent] {s.describe()} | {lots:.2f} lots")
             self.journal.write("paper_signal", side=s.side, price=s.entry, sl=s.sl, tp=s.tp, lots=lots,
                                details="; ".join(s.reasons))
+            self._add_signal(s, "price")
+            self._signal_alert(s)
             return
         res = self.broker.place_limit(s.direction, lots, s.entry, s.sl, s.tp, f"Nelson {s.level_name}")
+        self._add_signal(s, "trade", ticket=res.order)
+        self.push(f"ENTRY ORDER: {s.side} {lots:.2f} lots XAUUSD", f"{self._levels(s)} (risking {lots * loss:.2f})\n"
+                  f"Why: swept {s.level_name}; " + "; ".join(s.reasons[1:3]), priority=4,
+                  tags=("chart_with_upwards_trend" if s.direction > 0 else "chart_with_downwards_trend",))
         self.trades[str(res.order)] = {"risk": s.risk, "partial": False, "dir": s.direction, "entry": s.entry,
                                        "expires": str(pd.Timestamp(s.time) + pd.Timedelta(minutes=self.minutes * (self.cfg.strategy.order_expiry_bars + 1)))}
         self._save()
@@ -216,6 +290,9 @@ class NelsonBot:
                 self.trades.pop(str(o.ticket), None)
                 self.journal.write("cancel", ticket=o.ticket, details=flatten or "order expired unfilled")
                 self.notify(f"Cancelled order #{o.ticket}: {flatten or 'not filled in time'}")
+                self.signals.update_ticket(o.ticket, "expired", now, note=flatten or "not filled in time")
+                self.push("Order cancelled", f"#{o.ticket}: {flatten or 'price did not come back to the entry in time'}",
+                          priority=2, tags=("hourglass",))
 
         sc = self.cfg.strategy
         for p in self.broker.positions():
@@ -225,12 +302,17 @@ class NelsonBot:
                 self.broker.close(p, comment="Nelson flat")
                 self.journal.write("flatten", ticket=p.ticket, details=flatten)
                 self.notify(f"Closed #{p.ticket} early because of {flatten}")
+                info["flattened"] = flatten
                 continue
             if not info.get("filled"):
                 info["filled"] = True
                 self.risk.on_open()
                 self.journal.write("filled", ticket=p.ticket, price=p.price_open, lots=p.volume)
                 self.notify(f"FILLED #{p.ticket} at {p.price_open:.2f}, {p.volume:.2f} lots")
+                self.signals.update_ticket(p.ticket, "active", now)
+                side = "BUY" if info["dir"] > 0 else "SELL"
+                self.push(f"ENTERED: {side} {p.volume:.2f} lots XAUUSD at {p.price_open:.2f}",
+                          f"SL {p.sl:.2f} | TP {p.tp:.2f}", priority=5, tags=("dart",))
             d, risk = info["dir"], info["risk"]
             if risk <= 0:
                 continue
@@ -242,18 +324,24 @@ class NelsonBot:
                     self.broker.close(p, part, comment="Nelson partial")
                     self.journal.write("partial", ticket=p.ticket, lots=part, price=p.price_current)
                     self.notify(f"#{p.ticket}: took partial profit on {part:.2f} lots at {p.price_current:.2f}")
+                    self.push("Partial profit taken", f"#{p.ticket}: closed {part:.2f} lots at {p.price_current:.2f}",
+                              priority=3, tags=("moneybag",))
                 info["partial"] = True
             if sc.breakeven_at_r > 0 and gained >= sc.breakeven_at_r and (p.price_open - p.sl) * d > 0:
                 self.broker.modify_sl(p, p.price_open)
                 self.journal.write("breakeven", ticket=p.ticket, sl=p.price_open)
                 self.notify(f"#{p.ticket}: stop moved to break-even ({p.price_open:.2f}) - this trade can no longer lose")
+                info["be"] = True
+                self.push("Stop moved to break-even", f"#{p.ticket}: this trade can no longer lose", priority=2,
+                          tags=("shield",))
         self._save()
 
     def _sync_closed(self, balance: float) -> None:
         live = {str(p.ticket) for p in self.broker.positions()} | {str(o.ticket) for o in self.broker.orders()}
         for ticket in [t for t in self.trades if t not in live]:
             info = self.trades.pop(ticket)
-            pnl = self.broker.position_result(int(ticket))
+            close = getattr(self.broker, "position_close", None)
+            pnl, reason = close(int(ticket)) if close else (self.broker.position_result(int(ticket)), None)
             if info.get("filled") or pnl != 0:   # pnl != 0 also catches a fill + exit between two polls
                 if not info.get("filled"):
                     self.risk.on_open()
@@ -261,7 +349,38 @@ class NelsonBot:
                 self.journal.write("closed", ticket=ticket, pnl=round(pnl, 2))
                 self.notify(f"{'WIN' if pnl > 0 else 'LOSS' if pnl < 0 else 'FLAT'} #{ticket} closed: {pnl:+.2f}. "
                             f"Balance {balance:.2f}")
+                self._closed_alert(ticket, info, pnl, reason, balance)
         self._save()
+
+    def _closed_alert(self, ticket, info: dict, pnl: float, reason: str | None, balance: float) -> None:
+        if reason == "sl" and info.get("be"):
+            reason = "breakeven"
+        if reason is None:
+            reason = "closed"
+        if info.get("flattened"):
+            reason = "closed"
+        x = self.signals.update_ticket(ticket, reason, self.broker.now_utc(), pnl=round(pnl, 2))
+        if x is not None and reason == "tp":
+            x["result_r"] = x.get("rr")
+        elif x is not None and reason == "sl":
+            x["result_r"] = -1.0
+        self.signals.save()
+        side = "BUY" if info.get("dir", 1) > 0 else "SELL"
+        money = f"{pnl:+.2f}"
+        if reason == "tp":
+            self.push(f"TAKE PROFIT hit: {side} XAUUSD {money}", f"#{ticket} closed in profit. Balance {balance:.2f}",
+                      priority=5, tags=("white_check_mark", "moneybag"))
+        elif reason == "sl":
+            self.push(f"STOP LOSS hit: {side} XAUUSD {money}", f"#{ticket} closed at the stop. Balance {balance:.2f}",
+                      priority=5, tags=("x",))
+        elif reason == "breakeven":
+            self.push(f"Break-even stop hit: {side} XAUUSD {money}",
+                      f"#{ticket} closed at entry after the partial. Balance {balance:.2f}", priority=4,
+                      tags=("shield",))
+        else:
+            why = info.get("flattened") or reason.replace("_", " ")
+            self.push(f"Trade closed: {side} XAUUSD {money}", f"#{ticket} ({why}). Balance {balance:.2f}",
+                      priority=4, tags=("information_source",))
 
     def _save(self) -> None:
         STATE.write_text(json.dumps(self.trades, indent=1))
