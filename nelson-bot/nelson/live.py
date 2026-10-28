@@ -70,6 +70,9 @@ class NelsonBot:
         self.last_summary_day = None
         self.limit_alert_day = None
         self.confirm_close_until = 0.0
+        self.mt5_lost_since: float | None = None
+        self.next_reconnect = 0.0
+        self.next_clock_check = time.time() + 3600
 
     def notify(self, text: str) -> None:
         """Logs a message and sends it to your phone (if Telegram is set up)."""
@@ -144,10 +147,43 @@ class NelsonBot:
                 self.app.stop()
             self.broker.shutdown()
 
+    # ---------- MT5 connection
+    def _mt5_lost(self) -> None:
+        """MT5 stopped answering (closed, logged out, no internet): say so once, then keep reconnecting."""
+        if self.mt5_lost_since is None:
+            self.mt5_lost_since = time.time()
+            self.notify("Lost the connection to MetaTrader 5 (closed, logged out or no internet). Nelson is not "
+                        "trading and will keep trying to reconnect. Open trades keep their stop and target in MT5.")
+            self.push("Nelson lost MT5", "Not trading until MT5 is back. Reconnecting every 30 s.", priority=5,
+                      tags=("rotating_light",))
+        if time.time() < self.next_reconnect:
+            return
+        self.next_reconnect = time.time() + 30
+        reconnect = getattr(self.broker, "reconnect", None)
+        try:
+            back = bool(reconnect and reconnect())
+        except Exception as exc:
+            log.warning("Reconnecting to MT5 failed: %s", exc)
+            back = False
+        if back:
+            minutes = (time.time() - self.mt5_lost_since) / 60
+            self.mt5_lost_since = None
+            self.notify(f"Reconnected to MetaTrader 5 after {minutes:.0f} min. Setups missed meanwhile show in the "
+                        "Missed tab.")
+            self.push("Nelson reconnected to MT5", f"Back after {minutes:.0f} min.", priority=3, tags=("electric_plug",))
+
     # ---------- main step
     def step(self) -> None:
         now = self.broker.now_utc()
         acc = self.broker.account()
+        if acc is None:
+            self._mt5_lost()
+            return
+        if time.time() >= self.next_clock_check:
+            self.next_clock_check = time.time() + 3600
+            check = getattr(self.broker, "check_offset", None)
+            if check:
+                check()
         self.risk.new_day(now.normalize(), acc.balance)
         self.news.refresh()
         if self.phone:
@@ -262,6 +298,11 @@ class NelsonBot:
             self.push(f"Signal {LABELS[status].lower()}: {side} XAUUSD", lv, priority=2, tags=("hourglass",))
 
     def _on_new_bar(self, bars: pd.DataFrame, now: pd.Timestamp) -> None:
+        last_t = pd.Timestamp(bars["time"].iloc[-1])
+        if self.signals.last_bar is not None and pd.Timestamp(self.signals.last_bar) > last_t:
+            log.warning("The last candle Nelson recorded (%s) is later than the newest candle (%s): an earlier run "
+                        "read the broker clock wrongly. Starting that record again.", self.signals.last_bar, last_t)
+            self.signals.last_bar = None
         # real tick delta for recent bars (better than the OHLC estimate)
         recent = bars.tail(60)
         ticks = self.broker.ticks(recent["time"].iloc[0], recent["time"].iloc[-1] + pd.Timedelta(minutes=self.minutes))

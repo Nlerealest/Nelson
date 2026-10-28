@@ -8,6 +8,7 @@ learned_params.json
 .news_cache.json
 .venv/
 nelson_state.json
+broker_clock.json
 nelson_control.json
 demo_logs/
 nelson_app_link.txt

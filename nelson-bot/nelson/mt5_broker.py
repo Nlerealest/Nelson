@@ -5,9 +5,11 @@ stay testable without MT5.
 """
 from __future__ import annotations
 
+import json
 import logging
 import time
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pandas as pd
 
@@ -45,6 +47,9 @@ def find_gold_symbol(symbols) -> str | None:
     # exact XAUUSD first, then names that start with it (XAUUSDm, XAUUSD.r), then the shortest
     matches.sort(key=lambda s: (s.name.upper() != "XAUUSD", not s.name.upper().startswith("XAUUSD"), len(s.name)))
     return matches[0].name
+
+
+CLOCK = Path("broker_clock.json")   # last broker clock offset measured on a fresh tick
 
 
 class MT5Broker:
@@ -85,22 +90,72 @@ class MT5Broker:
     def shutdown(self) -> None:
         mt5.shutdown()
 
+    def reconnect(self) -> bool:
+        """After MT5 was closed, logged out or lost the internet. True once the account answers again."""
+        mt5.shutdown()
+        self.connect()
+        return mt5.account_info() is not None
+
     def account_kind(self) -> str:
         mode = mt5.account_info().trade_mode
         return {mt5.ACCOUNT_TRADE_MODE_DEMO: "demo", mt5.ACCOUNT_TRADE_MODE_CONTEST: "contest"}.get(mode, "real")
+
+    def _fresh_tick_offset(self, wait_seconds: float = 15.0) -> int | None:
+        """Broker clock offset measured on a tick that arrives while we watch.
+
+        The last tick can be hours old (market closed, MT5 just reconnected), and its time then gives a
+        wrong offset - so only a tick that changes while we wait is trusted."""
+        first = mt5.symbol_info_tick(self.symbol)
+        if first is None:
+            return None
+        deadline = time.time() + wait_seconds
+        while time.time() < deadline:
+            time.sleep(0.25)
+            tick = mt5.symbol_info_tick(self.symbol)
+            if tick is None or tick.time_msc == first.time_msc:
+                continue
+            off = (tick.time - time.time()) / 3600
+            if abs(off) <= 14 and abs(off - round(off)) < 0.05:
+                return int(round(off))
+            return None
+        return None
 
     def _detect_offset(self) -> int:
         setting = self.cfg.mt5.server_utc_offset_hours
         if setting != "auto":
             return int(setting)
-        tick = mt5.symbol_info_tick(self.symbol)
-        if tick is not None:
-            off = (tick.time - time.time()) / 3600
-            if abs(off) <= 14 and abs(off - round(off)) < 0.1:   # a fresh tick: offset is a whole hour
-                return int(round(off))
+        off = self._fresh_tick_offset()
+        if off is not None:
+            self._save_offset(off)
+            return off
+        try:
+            saved = int(json.loads(CLOCK.read_text())["offset_hours"])
+            log.warning("No fresh tick to read the broker clock (market closed?) - using the last measured "
+                        "offset UTC%+d.", saved)
+            return saved
+        except (OSError, ValueError, KeyError, TypeError):
+            pass
         log.warning("Could not detect the broker clock offset (market closed?) - assuming UTC+2. "
                     "Set mt5.server_utc_offset_hours in config.yaml to be sure.")
         return 2
+
+    @staticmethod
+    def _save_offset(off: int) -> None:
+        try:
+            CLOCK.write_text(json.dumps({"offset_hours": off}))
+        except OSError:
+            pass
+
+    def check_offset(self) -> None:
+        """Re-measures the broker clock (e.g. after a daylight-saving change) and fixes it if it moved."""
+        if self.cfg.mt5.server_utc_offset_hours != "auto":
+            return
+        off = self._fresh_tick_offset(wait_seconds=3.0)
+        if off is not None and off != self.offset_hours:
+            log.warning("Broker clock changed from UTC%+d to UTC%+d - using the new offset.", self.offset_hours, off)
+            self.offset_hours = off
+        if off is not None:
+            self._save_offset(off)
 
     def server_to_utc(self, secs) -> pd.Series:
         return pd.to_datetime(secs, unit="s") - pd.Timedelta(hours=self.offset_hours)
