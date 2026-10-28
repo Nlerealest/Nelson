@@ -7,6 +7,8 @@ import { C } from '../../theme';
 const TABS = [
   ['index', 'Nelson', 'speedometer'],
   ['signals', 'Signals', 'flash'],
+  ['missed', 'Missed', 'moon'],
+  ['learn', 'Learn', 'school'],
   ['chart', 'Chart', 'stats-chart'],
   ['market', 'Market', 'compass'],
   ['journal', 'Journal', 'list'],
@@ -36,6 +38,7 @@ export default function TabsLayout() {
         tabBarStyle: { backgroundColor: C.card, borderTopColor: C.line },
         tabBarActiveTintColor: C.gold,
         tabBarInactiveTintColor: C.muted,
+        tabBarLabelStyle: { fontSize: 10 },
         sceneStyle: { backgroundColor: C.bg },
       }}
     >
@@ -45,7 +48,8 @@ export default function TabsLayout() {
           name={name}
           options={{
             title,
-            headerTitle: name === 'index' ? 'Nelson · XAUUSD' : title,
+            headerTitle: name === 'index' ? 'Nelson · XAUUSD' : name === 'missed' ? 'Missed while off'
+              : name === 'learn' ? 'Learning' : title,
             tabBarIcon: ({ color, size }) => <Ionicons name={icon} color={color} size={size} />,
           }}
         />

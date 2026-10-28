@@ -4,6 +4,10 @@ Every few seconds: manage open trades (partials, break-even, news and weekend
 flattening), expire stale orders. On every new closed bar: rebuild the
 analysis, and if a setup confirmed on that bar passes the risk checks, place
 a limit order.
+
+When candles closed that Nelson did not see (it was off, or lost MT5), the
+setups in them are recorded as missed and followed on price, and every
+finished result feeds the learner (nelson/learning.py).
 """
 from __future__ import annotations
 
@@ -17,6 +21,7 @@ import pandas as pd
 from .api import AppServer, build_snapshot, run_action
 from .config import Config
 from .journal import Journal
+from .learning import Learner
 from .mt5_broker import TIMEFRAMES, MT5Broker
 from .news import NewsFilter
 from .notify import Pusher
@@ -55,6 +60,7 @@ class NelsonBot:
         self.phone = TelegramLink(tg.token, tg.chat_ids) if tg.enabled and tg.token and tg.chat_ids else None
         self.app = AppServer(cfg.app.host, cfg.app.port, cfg.app.api_key) if cfg.app.enabled else None
         self.signals = SignalBook(Path(cfg.log_dir) / "signals.json", spread=cfg.backtest.spread_usd)
+        self.learner = Learner(Path(cfg.log_dir) / "learning.json", cfg.learning, cfg.strategy.rr_target)
         nc = cfg.notify
         self.pusher = Pusher(nc.server, nc.topic) if nc.enabled and nc.topic else None
         self.last_f = None
@@ -166,15 +172,83 @@ class NelsonBot:
             self.app.publish(build_snapshot(self, now, self.broker.account()))
 
     def _follow_signals(self, bars: pd.DataFrame) -> None:
-        """Moves paper signals through every bar closed since the last check and alerts on each change."""
+        """Moves paper signals (and would-be results) through every bar closed since the last check and
+        alerts on each change of a real paper signal."""
         last = self.signals.last_bar
-        todo = bars.tail(1) if last is None else bars[bars["time"] > pd.Timestamp(last)]
+        if last is None:   # first run: replay the look-back, so setups found in it get their result
+            last = bars["time"].iloc[-1] - pd.Timedelta(hours=self.cfg.learning.first_run_lookback_hours)
+        todo = bars[bars["time"] > pd.Timestamp(last)]
         for t, h, lo in zip(todo["time"], todo["high"], todo["low"]):
             for x, status in self.signals.on_bar(t, h, lo):
-                self._signal_event_alert(x, status)
+                if x.get("track") == "price" and not x.get("offline"):
+                    self._signal_event_alert(x, status)
         if len(todo):
             self.signals.last_bar = pd.Timestamp(todo["time"].iloc[-1]).isoformat()
             self.signals.save()
+
+    def _catch_up(self, f: pd.DataFrame, setups: list) -> str | None:
+        """Records the setups in candles that closed while Nelson was not watching. Returns the window id."""
+        lc = self.cfg.learning
+        times = f["time"]
+        last_t = times.iat[-1]
+        prev = self.signals.last_bar
+        first_run = prev is None
+        start = last_t - pd.Timedelta(hours=lc.first_run_lookback_hours) if first_run else pd.Timestamp(prev)
+        gap = f.index[(times > start) & (times < last_t)]
+        if not len(gap):
+            return None
+        lo, hi = int(gap[0]), int(gap[-1])
+        found = [s for s in setups if lo <= s.index <= hi]
+        skipped = [sk for sk in self.strategy.skipped if lo <= sk["index"] <= hi]
+        if len(gap) < lc.min_offline_bars and not found and not skipped:
+            return None
+        wid = f"{times.iat[lo]:%Y%m%d%H%M}"
+        sc, m = self.cfg.strategy, self.minutes
+        for s in found:
+            self.signals.add_setup(s, m, sc.order_expiry_bars, sc.rr_target, "shadow", "offline",
+                                   "Found later: Nelson was off when this setup formed", offline=wid,
+                                   experience=self.learner.experience(s.features))
+        for sk in skipped:
+            self.signals.add_skipped(sk, m, sc.order_expiry_bars, sc.rr_target, offline=wid)
+        window = {
+            "id": wid, "start": times.iat[lo].isoformat(),
+            "end": (times.iat[hi] + pd.Timedelta(minutes=m)).isoformat(),
+            "bars": len(gap), "market_hours": round(len(gap) * m / 60, 1), "first_run": first_run,
+            "limited": not first_run and pd.Timestamp(prev) < times.iat[0] - pd.Timedelta(minutes=m),
+        }
+        self.signals.add_window(window)
+        what = "before Nelson's first start" if first_run else "while Nelson was off"
+        log.info("Checked %d candles %s (%s to %s): %d setup(s), %d skipped", len(gap), what, window["start"],
+                 window["end"], len(found), len(skipped))
+        self.journal.write("offline", details=f"{len(gap)} candles {what}: {len(found)} setup(s) found, "
+                                              f"{len(skipped)} skipped")
+        return wid
+
+    def _missed_alert(self, wid: str) -> None:
+        w = next((w for w in self.signals.windows if w["id"] == wid), None)
+        r = self.signals.window_result(wid)
+        if w is None or not r["setups"]:
+            return
+        what = "Before Nelson's first start" if w["first_run"] else f"While Nelson was off ({w['market_hours']:g} market hours)"
+        parts = [f"{r['trades']} setup(s) Nelson would have traded"]
+        if r["wins"] or r["losses"]:
+            parts.append(f"{r['wins']} would have hit the target, {r['losses']} the stop ({r['result_r']:+g}R)")
+        if r["open"]:
+            parts.append(f"{r['open']} still open")
+        self.push("Missed while off", f"{what}: " + "; ".join(parts) + ". See the Missed tab.", priority=3,
+                  tags=("hourglass",))
+
+    def _learn(self, f: pd.DataFrame) -> None:
+        try:
+            lessons = self.learner.update(self.signals.items, f)
+        except Exception:
+            log.exception("Learning step failed (trading continues)")
+            return
+        for les in lessons:
+            text = " ".join(les["notes"][:2])
+            log.info("LESSON (%s %s): %s - %s", les["side"], les["level"], les["title"], text)
+            self.journal.write("lesson", side=les["side"], price=les.get("entry"), details=f"{les['title']}: {text}")
+            self.push(f"Lesson from a loss: {les['title']}", text[:300], priority=3, tags=("books",))
 
     def _signal_event_alert(self, x: dict, status: str) -> None:
         side, lv = x["side"], f"Entry {x['entry']:.2f} | SL {x['sl']:.2f} | TP {x['tp']:.2f}"
@@ -188,7 +262,6 @@ class NelsonBot:
             self.push(f"Signal {LABELS[status].lower()}: {side} XAUUSD", lv, priority=2, tags=("hourglass",))
 
     def _on_new_bar(self, bars: pd.DataFrame, now: pd.Timestamp) -> None:
-        self._follow_signals(bars)
         # real tick delta for recent bars (better than the OHLC estimate)
         recent = bars.tail(60)
         ticks = self.broker.ticks(recent["time"].iloc[0], recent["time"].iloc[-1] + pd.Timedelta(minutes=self.minutes))
@@ -199,6 +272,10 @@ class NelsonBot:
         setups = self.strategy.scan(f)
         self.last_f, self.last_setups = f, setups
         last = len(f) - 1
+        missed = self._catch_up(f, setups) if self.cfg.learning.track_missed else None
+        self._follow_signals(bars)
+        if missed:
+            self._missed_alert(missed)
 
         if now.hour != self.last_brief_hour:
             self.last_brief_hour = now.hour
@@ -208,18 +285,20 @@ class NelsonBot:
             if i == last:
                 log.info("Setup %s seen but skipped: %s", side, why)
                 self.journal.write("skipped", side=side, details=why)
+        sc = self.cfg.strategy
         for sk in self.strategy.skipped:
             if sk["index"] == last:
-                self.signals.add_skipped(sk, self.minutes)
+                self.signals.add_skipped(sk, self.minutes, sc.order_expiry_bars, sc.rr_target)
         for s in (s for s in setups if s.index == last):
             self._take(s)
+        self._learn(f)
 
     def _add_signal(self, s, track: str, status: str = "waiting", note: str = "", ticket=None) -> None:
         self.signals.add_setup(s, self.minutes, self.cfg.strategy.order_expiry_bars, self.cfg.strategy.rr_target,
-                               track, status, note, ticket)
+                               track, status, note, ticket, experience=self.learner.experience(s.features))
 
     def _not_taken(self, s, why: str) -> None:
-        self._add_signal(s, "none", "not_taken", why)
+        self._add_signal(s, "shadow", "not_taken", why)   # still followed on price, so Nelson learns from it
         self._signal_alert(s, f"not taken ({why})")
 
     def _take(self, s) -> None:
@@ -228,6 +307,13 @@ class NelsonBot:
             self.journal.write("paused", side=s.side, price=s.entry, sl=s.sl, tp=s.tp, details="paused from phone")
             self.notify(f"Setup seen while PAUSED (not taken): {s.describe()}")
             self._not_taken(s, "paused")
+            return
+        rule = self.learner.blocking_rule(s.features)
+        if rule is not None:
+            why = f"lesson: {rule['label'].lower()} won {rule['wins']} of {rule['n']} ({rule['avg_r']:+.2f}R)"
+            log.info("Not taken: %s", why)
+            self.journal.write("blocked", side=s.side, price=s.entry, sl=s.sl, tp=s.tp, details=why)
+            self._not_taken(s, why)
             return
         acc = self.broker.account()
         open_count = len(self.broker.positions()) + len(self.broker.orders())
@@ -444,6 +530,20 @@ class NelsonBot:
                 return "News calendar unavailable - Nelson is not opening trades until it loads."
             return "High-impact USD news (next 48h):\n" + ("\n".join(
                 f"- {e}{' [TIER 1]' if e.tier1 else ''}" for e in up) or "none")
+        if cmd == "/missed":
+            m = self.signals.missed(20)
+            if not m["windows"]:
+                return "Nothing missed: Nelson has not been off since it started keeping track."
+            lines = ["Missed while Nelson was off:"]
+            for w in m["windows"][:5]:
+                lines.append(f"- {w['start'][:16].replace('T', ' ')} UTC, {w['market_hours']:g} market h: "
+                             f"{w['trades']} trade(s), {w['wins']} target / {w['losses']} stop ({w['result_r']:+g}R)")
+            return "\n".join(lines)
+        if cmd == "/lessons":
+            les = self.learner.lessons[-5:]
+            if not les:
+                return "No lessons yet - Nelson writes one after every loss."
+            return "Latest lessons:\n" + "\n".join(f"- {x['title']}: {x['notes'][0]}" for x in reversed(les))
         if cmd == "/journal":
             rows = self.journal.path.read_text(encoding="utf-8").strip().splitlines()[1:][-10:]
             return "Last journal entries:\n" + ("\n".join(r[:300] for r in rows) or "empty")

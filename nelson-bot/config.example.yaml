@@ -69,6 +69,15 @@ app:                          # the Nelson phone app - run: python run_nelson.py
   port: 8765
   api_key: ""                 # or env NELSON_APP_KEY
 
+learning:                     # learning from real-market results - see README "Learning from the real market"
+  enabled: true
+  track_missed: true          # on start, check the candles Nelson missed while it was off (never traded late)
+  first_run_lookback_hours: 24
+  apply_lessons: true         # skip kinds of setup that keep losing (after min_samples results)
+  min_samples: 8
+  avoid_below_r: -0.3
+  review_bars: 24             # after a stop-out, check where price went over the next 24 candles
+
 notify:                       # phone alerts via the free ntfy app - app-setup fills this in
   enabled: false
   server: "https://ntfy.sh"

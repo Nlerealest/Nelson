@@ -67,3 +67,21 @@ test('signal status and result', () => {
 test('ntfy subscribe links', () => {
   assert.deepEqual(ntfyLinks('https://ntfy.sh/', 'nelson-abc'), { app: 'ntfy://ntfy.sh/nelson-abc', web: 'https://ntfy.sh/nelson-abc' });
 });
+
+test('missed and learning helpers', async () => {
+  const { wouldBe, hoursLabel, windowText, recordText } = await import('../src/format.js');
+  assert.equal(wouldBe({}), null);
+  assert.deepEqual(wouldBe({ sim: { status: 'tp', result_r: 2.5 } }), { label: 'Would have hit the target', tone: 'good', result: '+2.5R' });
+  assert.equal(wouldBe({ sim: { status: 'sl', result_r: -1 } }).result, '-1R');
+  assert.equal(wouldBe({ sim: { status: 'waiting', result_r: null } }).result, '');
+  assert.equal(hoursLabel(0.25), '15 min');
+  assert.equal(hoursLabel(3.25), '3.3 h');
+  assert.equal(hoursLabel(72), '3 days');
+  assert.equal(windowText({ trades: 0, setups: 0 }), 'No setups formed');
+  assert.equal(windowText({ trades: 0, setups: 2 }), 'No tradeable setups, 2 skipped by filters');
+  assert.equal(windowText({ trades: 3, wins: 1, losses: 1, open: 0, no_fill: 1, result_r: 1.5 }),
+    '3 would-be trades: 1 target, 1 stop, 1 no fill · +1.5R');
+  assert.equal(windowText({ trades: 1, wins: 0, losses: 0, open: 1, no_fill: 0, result_r: 0 }), '1 would-be trade: 1 still open');
+  assert.equal(recordText({ wins: 3, losses: 5, avg_r: -0.31 }), '3W / 5L · -0.31R avg');
+  assert.equal(signalStatus('offline').label, 'Nelson was off');
+});

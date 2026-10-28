@@ -136,6 +136,20 @@ class NotifyConfig:
 
 
 @dataclass
+class LearningConfig:
+    """Learning from real-market results while Nelson runs (see nelson/learning.py)."""
+    enabled: bool = True
+    track_missed: bool = True            # when Nelson starts, check the candles it missed while it was off
+    first_run_lookback_hours: float = 24.0   # with no record of the last run, look this far back
+    min_offline_bars: int = 3            # shorter gaps are not reported as "Nelson was off"
+    apply_lessons: bool = True           # skip kinds of setup that keep losing (needs min_samples results)
+    min_samples: int = 8
+    avoid_below_r: float = -0.3          # ...and an average result at or below this many R
+    window: int = 40                     # judge each kind of setup on its latest N results
+    review_bars: int = 24                # bars after a stop-out to check where price went next
+
+
+@dataclass
 class AppConfig:
     """The private API the Nelson phone app connects to."""
     enabled: bool = False
@@ -161,6 +175,7 @@ class Config:
     telegram: TelegramConfig = field(default_factory=TelegramConfig)
     app: AppConfig = field(default_factory=AppConfig)
     notify: NotifyConfig = field(default_factory=NotifyConfig)
+    learning: LearningConfig = field(default_factory=LearningConfig)
 
     def to_dict(self) -> dict:
         return asdict(self)

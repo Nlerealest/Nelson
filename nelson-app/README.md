@@ -2,7 +2,11 @@
 
 A phone app for the Nelson XAUUSD bot. It shows your account and today's result, Nelson's open trades and orders, a live gold chart with liquidity levels and entry/stop/target lines, Nelson's market read (structure, liquidity, order flow, news), and the full journal. From the app you can pause or resume Nelson, change the risk per trade, and close every trade.
 
-The **Signals** tab lists every setup Nelson finds, with the step-by-step reasoning behind it (H1 structure, premium/discount, the liquidity sweep, volume, change of character, fair value gap, order flow, session, news, risk) and how it ended: entered, take profit, stop loss, expired. Setups that failed a step are under **Skipped**, with the reason.
+The **Signals** tab lists every setup Nelson finds, with the step-by-step reasoning behind it (H1 structure, premium/discount, the liquidity sweep, volume, change of character, fair value gap, order flow, session, news, risk) and how it ended: entered, take profit, stop loss, expired. Setups that failed a step are under **Skipped**, with the reason, and with what they *would* have done.
+
+The **Missed** tab shows what happened while Nelson was off. It lists every setup Nelson would have spotted in the candles it didn't see, with the result on real prices: target, stop, or no fill.
+
+The **Learn** tab shows what Nelson has learned from the real market: a lesson for every loss (checked again two hours later), the kinds of setup working best and worst, the rules it now follows, and suggestions.
 
 **Phone alerts** for new signals, entries, take profit and stop loss come through the free **ntfy** app, even when the Nelson app is closed. `app-setup` creates your private alert channel; then tap **Turn on alerts** on the Signals tab.
 

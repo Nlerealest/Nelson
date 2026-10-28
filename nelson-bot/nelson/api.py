@@ -254,6 +254,8 @@ def build_snapshot(bot, now: pd.Timestamp, acc) -> dict:
         "journal": journal,
         "stats": stats,
         "signals": bot.signals.recent(60),
+        "missed": bot.signals.missed(80),
+        "learning": bot.learner.summary(),
         "notify": {"enabled": bool(bot.pusher), "server": bot.cfg.notify.server,
                    "topic": bot.cfg.notify.topic if bot.pusher else ""},
     }

@@ -146,7 +146,7 @@ def run_demo(cfg, seconds_per_bar: float = 5.0) -> None:
     # keep demo state apart from the real bot's pause/risk/trade files, and start fresh each time
     Path(cfg.log_dir).mkdir(parents=True, exist_ok=True)
     live.STATE, live.CONTROL = Path(cfg.log_dir) / "demo_state.json", Path(cfg.log_dir) / "demo_control.json"
-    for f in (live.STATE, live.CONTROL, Path(cfg.log_dir) / "signals.json"):
+    for f in (live.STATE, live.CONTROL, Path(cfg.log_dir) / "signals.json", Path(cfg.log_dir) / "learning.json"):
         f.unlink(missing_ok=True)
     bot = live.NelsonBot(cfg)
     # a couple of made-up upcoming events so the News screen has something to show

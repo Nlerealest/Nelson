@@ -21,6 +21,8 @@ HELP = """Nelson - XAUUSD bot commands
 /brief - Nelson's read of gold right now
 /news - high-impact USD news coming up
 /journal - last 10 events from the journal
+/missed - what Nelson missed while it was off
+/lessons - the latest lessons from losses
 /pause - stop opening new trades (open trades are still managed)
 /resume - allow new trades again
 /closeall - close every Nelson trade and cancel orders

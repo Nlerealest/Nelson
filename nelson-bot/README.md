@@ -45,6 +45,19 @@ Only the unseen results are reported. Fitting settings to all of history would l
 
 The optimiser scores **expectancy and drawdown, not win rate**. A 2.5R strategy can be very profitable at a 40–45% win rate. A strategy tuned for a 90% win rate usually has tiny wins and occasional huge losses.
 
+### Learning from the real market while it runs
+Every setup Nelson sees ends with a result on real prices. That includes its trades and paper signals, setups a filter skipped, setups it didn't take (paused, a risk limit), and setups missed while it was off. Nelson follows each one to the target, the stop, or no fill, and stores it with what the setup looked like: the level swept, the session, H1 structure, premium/discount, sweep volume, order flow, stop size and displacement strength. From that record (`logs/learning.json`):
+
+* **A lesson after every loss.** Nelson says what went wrong in plain words: against H1 structure, a weak sweep, a tight stop, a failed entry, the H1 structure flipping, a thin session, or a clean loss that needs no change. Two hours later it checks again. If price went on to the target, the stop was hunted. If price kept going, the market really turned.
+* **A scorecard per kind of setup**, for example "sweeps of the Asia high" or "New York session". Each signal shows Nelson's record on setups like it.
+* **Rules from evidence.** When a kind of setup has at least 8 results, loses on average, and wins clearly less often than the target needs to break even, Nelson stops taking it. Those setups are still followed on price, so the rule lifts by itself once they start winning again. To turn this off, set `learning.apply_lessons: false`.
+* **Suggestions, not silent changes.** If a filter keeps skipping setups that would have won, or the same cause keeps losing (for example stops getting hunted), Nelson says so in the app. It doesn't loosen a filter itself, because a few lucky results aren't proof. Test a change with `optimize` first.
+
+Small samples lie. This cuts out what keeps losing; it can't promise profits.
+
+### Missed while off
+When Nelson starts again, or gets MT5 back after losing it, it reads the candles it didn't see (MT5 keeps about 10 days of M5). It finds every setup it would have spotted and replays the real prices to show what each would have done. On its very first start it checks the last 24 hours. These setups are **never traded late**. They appear in the app's **Missed** tab, a phone alert sums them up, and Nelson learns from them like any other result. You can also send `/missed` and `/lessons` in Telegram.
+
 ---
 
 ## Use Nelson from your phone
@@ -174,6 +187,7 @@ nelson/news.py         economic calendar filter
 nelson/risk.py         position sizing and loss limits
 nelson/backtest.py     realistic backtester
 nelson/optimizer.py    walk-forward learning
+nelson/learning.py     learning from live results: lessons, scorecards, rules
 nelson/live.py         the live MT5 loop and trade management
 nelson/mt5_broker.py   everything that talks to MetaTrader 5
 nelson/telegram.py     phone alerts and commands

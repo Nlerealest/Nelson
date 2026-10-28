@@ -51,6 +51,7 @@ class Setup:
     fvg_high: float
     reasons: list[str] = field(default_factory=list)
     steps: list[dict] = field(default_factory=list)   # how the setup was found, for the app
+    features: dict = field(default_factory=dict)      # what the setup looked like, for learning
 
     @property
     def side(self) -> str:
@@ -270,17 +271,27 @@ class NelsonStrategy:
             (delta_ok, f"delta {delta:+.0f} disagrees"),
             (not blocked, f"news: {event}"),
         ]
+        # The same facts as plain values, so Nelson can learn which kinds of setup work
+        features = {
+            "side": side, "level": p.level_name, "session": session_name(close_time), "hour": int(close_time.hour),
+            "trend_aligned": trend == d, "zone_ok": None if not zone else zone == good_zone,
+            "volume_spike": bool(p.volume_ok), "rel_volume": round(float(p.rel_volume), 2),
+            "delta_agrees": delta * d > 0, "body_atr": round(body_atr, 2),
+            "sl_atr": round(abs(risk) / ai, 2), "fvg_atr": round((gap_hi - gap_lo) / ai, 2),
+        }
+
         why = next((w for ok, w in checks if not ok), None)
         if why is not None:
             self.rejected.append((i, side, why))
             self.skipped.append({"index": i, "time": f["time"].iat[i], "side": side, "entry": round(entry, 2),
-                                 "sl": round(sl, 2), "tp": round(tp, 2), "reason": why, "steps": steps})
+                                 "sl": round(sl, 2), "tp": round(tp, 2), "reason": why, "steps": steps,
+                                 "features": features})
             return None
         return Setup(
             index=i, time=f["time"].iat[i], direction=d, entry=round(entry, 2), sl=round(sl, 2), tp=round(tp, 2),
             expiry_index=i + c.order_expiry_bars, atr=float(ai), level_name=p.level_name,
             level_price=p.level_price, sweep_extreme=p.extreme, fvg_low=gap_lo, fvg_high=gap_hi, reasons=reasons,
-            steps=steps,
+            steps=steps, features=features,
         )
 
 

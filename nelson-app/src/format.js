@@ -165,6 +165,7 @@ export const SIGNAL_STATUS = {
   missed: ['Missed', 'neutral'],
   not_taken: ['Not taken', 'neutral'],
   skipped: ['Skipped', 'neutral'],
+  offline: ['Nelson was off', 'warn'],
 };
 
 export function signalStatus(status) {
@@ -177,6 +178,52 @@ export function signalResult(sig) {
   if (sig.pnl !== null && sig.pnl !== undefined) return signedMoney(sig.pnl);
   if (sig.result_r !== null && sig.result_r !== undefined) return `${sig.result_r > 0 ? '+' : ''}${sig.result_r}R`;
   return '';
+}
+
+function rText(r) {
+  if (r === null || r === undefined) return '';
+  const v = Math.round(Number(r) * 100) / 100;
+  return `${v > 0 ? '+' : ''}${v}R`;
+}
+
+// What a setup Nelson did not trade would have done (it is still followed on real prices)
+const WOULD = {
+  waiting: ['Would be waiting for entry', 'warn'],
+  active: ['Would be in the trade', 'info'],
+  tp: ['Would have hit the target', 'good'],
+  sl: ['Would have hit the stop', 'bad'],
+  expired: ['Would not have filled', 'neutral'],
+  missed: ['Ran to target without a fill', 'neutral'],
+};
+
+export function wouldBe(sig) {
+  const s = sig && sig.sim;
+  if (!s) return null;
+  const [label, tone] = WOULD[s.status] || [s.status, 'neutral'];
+  return { label, tone, result: rText(s.result_r) };
+}
+
+export function hoursLabel(h) {
+  const v = Number(h) || 0;
+  if (v < 1) return `${Math.max(1, Math.round(v * 60))} min`;
+  if (v < 48) return `${Math.round(v * 10) / 10} h`;
+  return `${Math.round(v / 24 * 10) / 10} days`;
+}
+
+// One line for a time Nelson was off: what it would have traded and how that went
+export function windowText(w) {
+  if (!w.trades) return w.setups ? `No tradeable setups, ${w.setups} skipped by filters` : 'No setups formed';
+  const parts = [];
+  if (w.wins) parts.push(`${w.wins} target`);
+  if (w.losses) parts.push(`${w.losses} stop`);
+  if (w.open) parts.push(`${w.open} still open`);
+  if (w.no_fill) parts.push(`${w.no_fill} no fill`);
+  const head = `${w.trades} would-be trade${w.trades === 1 ? '' : 's'}`;
+  return `${head}: ${parts.join(', ') || 'waiting'}${w.wins || w.losses ? ` · ${rText(w.result_r)}` : ''}`;
+}
+
+export function recordText(b) {
+  return `${b.wins}W / ${b.losses}L · ${rText(b.avg_r) || '0R'} avg`;
 }
 
 // ntfy links: open the ntfy app on this topic, or the web page as a fallback
