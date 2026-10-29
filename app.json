@@ -9,14 +9,14 @@
     "userInterfaceStyle": "automatic",
     "description": "Track income, expenses, budgets, savings goals, bills and loans in Kwacha.",
     "ios": {
-      "bundleIdentifier": "com.ndalama.app",
+      "bundleIdentifier": "mw.nelson.ndalama",
       "supportsTablet": true,
       "config": {
         "usesNonExemptEncryption": false
       }
     },
     "android": {
-      "package": "com.ndalama.app",
+      "package": "mw.nelson.ndalama",
       "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#0b6b3a",
@@ -26,6 +26,11 @@
       "permissions": [
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.RECEIVE_BOOT_COMPLETED"
+      ],
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
       ]
     },
     "web": {
@@ -58,7 +63,8 @@
           "backgroundColor": "#0b6b3a"
         }
       ],
-      "expo-font"
+      "expo-font",
+      "./plugins/withReleaseSigning"
     ]
   }
 }

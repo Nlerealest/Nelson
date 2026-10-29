@@ -82,7 +82,7 @@ Apple doesn't allow installing apps from a link the way Android does. You have t
 ## Publish on the Google Play Store
 
 1. **Create a Google Play Developer account** at [play.google.com/console](https://play.google.com/console). It costs a one-time US$25, and Google asks for ID verification.
-2. **Choose your app ID.** `app.json` currently uses `com.ndalama.app`. Change `android.package` (and `ios.bundleIdentifier`) to something you own, for example `mw.yourname.ndalama`, **before the first upload**. It can never be changed afterwards.
+2. **Choose your app ID.** `app.json` uses `mw.nelson.ndalama`. It can never be changed after the first upload.
 3. **Build the store version.** This produces an Android App Bundle (.aab), the format Play requires:
 
    ```bash

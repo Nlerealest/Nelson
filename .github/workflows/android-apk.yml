@@ -2,6 +2,11 @@
 # publishes it as the "ndalama-latest" release, so testers always download
 # the newest build from the same link:
 # https://github.com/Nlerealest/Nelson/releases/download/ndalama-latest/ndalama.apk
+#
+# With the ANDROID_KEYSTORE_BASE64 and ANDROID_KEYSTORE_PASSWORD repository
+# secrets set, the APK is signed with Ndalama's own release key and is ready
+# for app stores. Without them it is signed with the shared debug key, which
+# is only fit for testing.
 name: Android APK
 
 on:
@@ -44,20 +49,49 @@ jobs:
       - name: Generate native Android project
         run: npx expo prebuild --platform android --no-install
 
-      # The release build is signed with the debug key: fine for testing
-      # and sideloading, not for the Play Store (use EAS for that).
+      - name: Write release signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/ndalama-release.p12"
+            echo "NDALAMA_KEYSTORE_FILE=$RUNNER_TEMP/ndalama-release.p12" >> "$GITHUB_ENV"
+            echo "SIGNED_WITH=release" >> "$GITHUB_ENV"
+          else
+            echo "::warning::No release key secrets: signing with the debug key (testing only)."
+            echo "SIGNED_WITH=debug" >> "$GITHUB_ENV"
+          fi
+
       - name: Build APK
         working-directory: android
+        env:
+          NDALAMA_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
+
+      - name: Check signature
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk ndalama.apk
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$APKSIGNER" verify --print-certs ndalama.apk | tee signer.txt
+          if [ "$SIGNED_WITH" = release ] && grep -q "CN=Android Debug" signer.txt; then
+            echo "::error::Release key was provided but the APK is debug-signed."
+            exit 1
+          fi
+          echo "CERT_SHA256=$(grep -m1 'SHA-256 digest' signer.txt | awk '{print $NF}')" >> "$GITHUB_ENV"
+          echo "APK_VERSION=$(node -p "require('./app.json').expo.version")" >> "$GITHUB_ENV"
 
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp android/app/build/outputs/apk/release/app-release.apk ndalama.apk
+          if [ "$SIGNED_WITH" = release ]; then
+            NOTE="Ndalama $APK_VERSION, signed with the Ndalama release key (certificate SHA-256: $CERT_SHA256). Ready for app stores."
+          else
+            NOTE="Test build signed with the shared debug key. Not for app stores."
+          fi
           gh release delete ndalama-latest --yes --cleanup-tag || true
           gh release create ndalama-latest ndalama.apk \
             --target "$GITHUB_SHA" \
             --prerelease \
-            --title "Ndalama test build" \
-            --notes "Test build from ${GITHUB_SHA::7}. On your Android phone: download ndalama.apk, open it and allow installing from your browser if asked."
+            --title "Ndalama $APK_VERSION" \
+            --notes "$NOTE From commit ${GITHUB_SHA::7}. On your Android phone: download ndalama.apk, open it and allow installing from your browser if asked."
