@@ -9,16 +9,15 @@ import { C } from '../../theme';
 import { price, trendLabel, utcClock } from '../../format';
 
 const HOW = [
-  ['H1 market structure', 'Only buy when the H1 trend is bullish, only sell when it is bearish.'],
-  ['Premium / discount', 'Buy below the middle of the H1 range, sell above it.'],
-  ['Liquidity sweep', 'Price wicks through a level where stops rest (previous day, Asian range, equal highs/lows) and closes back inside.'],
-  ['Stop-run volume', 'The sweep candle trades more than normal: real stops were hit.'],
-  ['Change of character', 'A strong candle breaks the swing that led into the sweep.'],
+  ['Daily bias', 'Only buy when the daily structure is bullish, only sell when it is bearish (the last daily close beyond a swing).'],
+  ['Liquidity sweep', 'Price wicks through a level where stops rest (previous day, Asian or London range, equal highs/lows) and closes back inside.'],
+  ['Break of structure', 'A candle then closes through the swing that led into the sweep: the market has turned.'],
   ['Fair value gap', 'That move leaves a gap; Nelson places a limit order inside it.'],
-  ['Order flow', 'Buying or selling pressure (delta) agrees with the new direction.'],
-  ['Session and news', 'Only in the London or New York sessions, never around high-impact USD news.'],
-  ['Risk', 'Stop beyond the sweep wick, target 2.5x the risk, a fixed small % of the balance.'],
-];
+  ['Premium / discount', 'Buy only in the lower half of the leg from the sweep to the break, sell only in the upper half.'],
+  ['Session and news', 'Between 06:00 and 17:00 UTC. No trading on CPI, PPI, FOMC or NFP days, half size on other news days.'],
+  ['Targets', 'The next liquidity levels: half closed at the first (stop to break-even), the rest at the next, up to 3R.'],
+  ['Risk', 'Stop beyond the sweep wick, a fixed small % of the balance per trade.'],
+]
 
 const FILTERS = [['signals', 'Signals'], ['skipped', 'Skipped'], ['all', 'All']];
 
@@ -49,7 +48,7 @@ export default function Signals() {
                 </View>
               </View>
             ))}
-            <T small muted style={{ marginTop: 10 }}>A signal needs every step. If one fails, it shows under Skipped with the reason.</T>
+            <T small muted style={{ marginTop: 10 }}>This is the TJR bootcamp method. A signal needs every step; if one fails, it shows under Skipped with the reason.</T>
           </View>
         ) : null}
       </Card>

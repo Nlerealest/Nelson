@@ -16,8 +16,8 @@ import pandas as pd
 from .sessions import _minutes
 
 # Higher number = more significant level (more stops resting there)
-PRIORITY = {"PDH": 4, "PDL": 4, "Asia high": 3, "Asia low": 3, "Equal highs": 3, "Equal lows": 3,
-            "Swing high": 1, "Swing low": 1}
+PRIORITY = {"PDH": 4, "PDL": 4, "Asia high": 3, "Asia low": 3, "London high": 3, "London low": 3,
+            "Equal highs": 3, "Equal lows": 3, "Swing high": 1, "Swing low": 1}
 
 
 @dataclass
@@ -39,6 +39,12 @@ def daily_levels(df: pd.DataFrame) -> pd.DataFrame:
     daily = df.groupby(day).agg(high=("high", "max"), low=("low", "min"))
     prev = daily.shift(1)
     return pd.DataFrame({"pdh": day.map(prev["high"]).to_numpy(), "pdl": day.map(prev["low"]).to_numpy()}, index=df.index)
+
+
+def session_levels(df: pd.DataFrame, session: tuple[str, str], bar_minutes: int, prefix: str) -> pd.DataFrame:
+    """A session's high/low (e.g. London), available only once the session has closed."""
+    out = asia_levels(df, session, bar_minutes)
+    return out.rename(columns={"asia_high": f"{prefix}_high", "asia_low": f"{prefix}_low"})
 
 
 def asia_levels(df: pd.DataFrame, session: tuple[str, str], bar_minutes: int) -> pd.DataFrame:

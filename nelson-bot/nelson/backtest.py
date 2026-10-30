@@ -145,14 +145,16 @@ def simulate(f: pd.DataFrame, setups: list[Setup], cfg: Config) -> BacktestResul
             if (best - s.tp) * d >= 0:
                 close(tr, tr.open_lots, s.tp, i, "target", True)
                 continue
-            if sc.partial_at_r > 0 and not tr.partial_done:
-                p_price = s.entry + d * sc.partial_at_r * s.risk
+            part_r = s.partial_r if s.partial_r is not None else sc.partial_at_r
+            be_r = s.partial_r if s.partial_r is not None else sc.breakeven_at_r
+            if part_r > 0 and not tr.partial_done:
+                p_price = s.entry + d * part_r * s.risk
                 if (best - p_price) * d >= 0:
                     part = round(np.floor(tr.lots * sc.partial_fraction / b.volume_step) * b.volume_step, 2)
                     tr.partial_done = True
                     if 0 < part < tr.open_lots:
                         close(tr, part, p_price, i, "partial", False)
-            if sc.breakeven_at_r > 0 and not tr.at_breakeven and (best - (s.entry + d * sc.breakeven_at_r * s.risk)) * d >= 0:
+            if be_r > 0 and not tr.at_breakeven and (best - (s.entry + d * be_r * s.risk)) * d >= 0:
                 tr.sl, tr.at_breakeven = s.entry, True
 
         # --- pending limit orders
@@ -187,7 +189,15 @@ def simulate(f: pd.DataFrame, setups: list[Setup], cfg: Config) -> BacktestResul
             if lots <= 0:
                 skipped["balance too small for min lot"] = skipped.get("balance too small for min lot", 0) + 1
                 continue
-            pending.append(Trade(setup=s, lots=lots, risk_money=lots * loss_per_lot))
+            tr = Trade(setup=s, lots=lots, risk_money=lots * loss_per_lot)
+            if s.market:   # filled now at the close (buys pay the spread); managed from the next bar
+                tr.fill_index, tr.fill_time, tr.open_lots, tr.sl = i, t_arr.iat[i], lots, s.sl
+                if s.direction > 0:
+                    s.entry = round(s.entry + spread, 2)
+                open_.append(tr)
+                risk.on_open()
+            else:
+                pending.append(tr)
 
         eq_t.append(t_arr.iat[i])
         eq_v.append(balance)

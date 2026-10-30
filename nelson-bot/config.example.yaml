@@ -26,20 +26,31 @@ risk:
   close_friday_utc: "20:30"
   flatten_minutes_before_tier1: 10
 
-strategy:
-  killzones_utc: [["07:00", "10:30"], ["12:30", "16:00"]]   # London open, New York open
-  rr_target: 2.5
-  displacement_atr: 1.0
-  sweep_max_age_bars: 12
-  use_htf_bias: true
-  use_premium_discount: true
-  require_volume_spike: true
-  require_delta_confirmation: true
-  partial_at_r: 1.0
+strategy:                     # TJR bootcamp model - see docs/TJR_METHOD.md
+  use_daily_bias: true        # trade only with the daily market structure
+  use_h4_bias: false          # also require the 4-hour structure (fewer, cleaner trades)
+  use_htf_bias: false         # the older H1-only bias
+  use_premium_discount: true  # buy in discount / sell in premium...
+  premium_discount_mode: leg  # ...of the leg from the sweep to the break of structure
+  use_london_levels: true     # London session high/low count as liquidity
+  killzones_utc: [["06:00", "17:00"]]   # London open to the New York afternoon
+  sweep_max_age_bars: 24      # the break of structure must come within 24 candles of the sweep
+  displacement_atr: 0.0       # any candle closing through the swing counts (TJR)
+  require_volume_spike: false
+  require_delta_confirmation: false
+  entry_mode: fvg_mid         # limit order in the fair value gap left by the break
+  target_mode: liquidity      # take profit at the next liquidity levels...
+  tp1_min_rr: 1.0             # ...first one (half closed, stop to break-even) at least 1R away
+  final_max_rr: 3.0           # ...final one at most 3R away
+  rr_target: 2.5              # used only when no liquidity level is found
   partial_fraction: 0.5
-  breakeven_at_r: 1.0
+  # The settings before the TJR update were: use_htf_bias true, use_daily_bias false, target_mode rr,
+  # premium_discount_mode htf_range, killzones 07:00-10:30 + 12:30-16:00, displacement_atr 1.0,
+  # sweep_max_age_bars 12, require_volume_spike true, require_delta_confirmation true.
 
 news:
+  skip_day_keywords: ["CPI", "PPI", "FOMC", "Federal Funds Rate", "Non-Farm"]   # TJR: no trading those whole days
+  news_day_risk_factor: 0.5   # TJR: half size on days with other high-impact USD news
   enabled: true
   minutes_before: 30
   minutes_after: 30

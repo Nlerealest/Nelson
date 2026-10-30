@@ -3,6 +3,22 @@ import numpy as np
 import pandas as pd
 
 
+def classic(cfg):
+    """The strategy settings Nelson used before the TJR update. The planted setup below is built for them,
+    so tests of order handling, alerts and the app keep a known setup to work with."""
+    st = cfg.strategy
+    st.use_daily_bias = False
+    st.use_london_levels = False
+    st.target_mode = "rr"
+    st.premium_discount_mode = "htf_range"
+    st.displacement_atr = 1.0
+    st.sweep_max_age_bars = 12
+    st.require_volume_spike = st.require_delta_confirmation = True
+    st.killzones_utc = [("07:00", "10:30"), ("12:30", "16:00")]
+    st.use_htf_bias = st.use_premium_discount = False
+    return cfg
+
+
 def random_walk(days: int = 20, seed: int = 1, start: str = "2025-03-03") -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     n = days * 288

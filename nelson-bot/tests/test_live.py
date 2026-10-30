@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import nelson.live as live
 from nelson.config import Config
 from nelson.news import NewsFilter
-from synthetic import planted_short, random_walk
+from synthetic import classic, planted_short, random_walk
 
 
 class FakeBroker:
@@ -70,11 +70,9 @@ class TestLiveLoop(unittest.TestCase):
         os.chdir(self.tmp.name)
         df, self.i = planted_short(random_walk(10, seed=3), "2025-03-06 08:30")
         self.df = df
-        self.cfg = Config()
+        self.cfg = classic(Config())
         self.cfg.mode = "demo"
         self.cfg.log_dir = "logs"
-        self.cfg.strategy.use_htf_bias = False
-        self.cfg.strategy.use_premium_discount = False
 
     def tearDown(self):
         os.chdir(self.cwd)

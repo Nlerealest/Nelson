@@ -29,11 +29,10 @@ from .strategy import NelsonStrategy, prepare
 log = logging.getLogger("nelson.optimizer")
 
 DEFAULT_GRID = {
-    "displacement_atr": [0.8, 1.0, 1.3],
-    "rr_target": [1.5, 2.0, 2.5, 3.0],
-    "sweep_max_age_bars": [6, 12],
-    "require_volume_spike": [True, False],
-    "use_premium_discount": [True, False],
+    "final_max_rr": [2.0, 3.0, 4.0],
+    "sweep_max_age_bars": [12, 24],
+    "use_h4_bias": [True, False],
+    "displacement_atr": [0.0, 0.5],
 }
 
 

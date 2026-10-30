@@ -17,14 +17,11 @@ from nelson.orderflow import bar_delta_proxy, tick_delta
 from nelson.risk import RiskManager
 from nelson.strategy import NelsonStrategy, Setup, prepare
 from nelson.structure import market_structure
-from synthetic import planted_short, random_walk
+from synthetic import classic, planted_short, random_walk
 
 
 def loose_cfg() -> Config:
-    cfg = Config()
-    cfg.strategy.use_htf_bias = False
-    cfg.strategy.use_premium_discount = False
-    return cfg
+    return classic(Config())
 
 
 class TestPivotsAndStructure(unittest.TestCase):
@@ -141,7 +138,13 @@ class TestNews(unittest.TestCase):
         self.assertEqual([e.title for e in self.nf.events], ["Non-Farm Employment Change", "Retail Sales m/m"])
         self.assertTrue(self.nf.events[0].tier1)
 
+    def test_nfp_day_is_skipped_all_day(self):
+        blocked, why = self.nf.blocked(pd.Timestamp("2025-03-07 19:00"))     # hours after NFP
+        self.assertTrue(blocked)
+        self.assertIn("no trading all day", why)
+
     def test_windows(self):
+        self.cfg.skip_day_keywords = []          # only the time windows around each release
         nfp = pd.Timestamp("2025-03-07 13:30")   # 08:30 EST = 13:30 UTC
         self.assertTrue(self.nf.blocked(nfp - pd.Timedelta(minutes=55))[0])    # tier 1: 60 min before
         self.assertFalse(self.nf.blocked(nfp - pd.Timedelta(minutes=65))[0])

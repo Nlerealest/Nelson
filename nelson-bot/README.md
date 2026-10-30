@@ -8,15 +8,17 @@ Nelson trades **gold against the US dollar (XAUUSD)** on your MT5 account. It re
 
 ## How Nelson trades
 
+Since the TJR update Nelson follows the method from TJR's free bootcamps, tested on 17 months of real gold prices. [`docs/TJR_METHOD.md`](docs/TJR_METHOD.md) has the full notes and the backtest results.
+
 | Step | What Nelson checks |
 | --- | --- |
-| **1. Bias** | The H1 market structure (breaks of structure, BOS, and changes of character, CHoCH). It only buys when H1 is bullish and only sells when H1 is bearish. It buys in **discount** (below the middle of the H1 range) and sells in **premium**. |
-| **2. Liquidity map** | Where stop orders are resting: **previous day high/low**, **Asian session high/low**, **equal highs/lows** and recent swing points. |
-| **3. Liquidity sweep** | During the **London (07:00–10:30 UTC)** or **New York (12:30–16:00 UTC)** killzone, price wicks through one of those levels and **closes back inside**, meaning the stops were taken and the move was rejected. |
-| **4. Order flow** | The sweep candle must carry above-normal **volume** (a real stop run). **Delta** (aggressive buying minus selling, from the MT5 tick stream) must agree with the reversal. |
-| **5. Shift** | A strong **displacement** candle (body ≥ 1× ATR) closes through the internal swing that led into the sweep, leaving a **fair value gap (FVG)**. |
-| **6. Entry** | A limit order in the FVG. The stop goes beyond the sweep wick plus a buffer. The target is 2.5R. Half the position closes at 1R and the stop moves to break-even. Orders not filled within 1 hour are cancelled. |
-| **7. News** | No new trades 30 minutes either side of high-impact USD news, or 60 minutes for NFP, CPI, FOMC, Powell, PCE and GDP. Open trades are closed 10 minutes before those tier-1 events. If the calendar can't be loaded, Nelson doesn't trade. |
+| **1. Daily bias** | The **daily market structure**: the direction of the last daily candle that **closed** beyond the most recent swing (a break of structure). Nelson only buys when the daily is bullish and only sells when it is bearish. The 4-hour can be required to agree too (`use_h4_bias`). |
+| **2. Liquidity map** | Where stop orders are resting: **previous day high/low**, **Asian** and **London session highs/lows**, **equal highs/lows** and recent swing points. |
+| **3. Liquidity sweep** | Between **06:00 and 17:00 UTC** (London open to the New York afternoon), price wicks through one of those levels and **closes back inside**, so the stops were taken and the move was rejected. |
+| **4. Break of structure** | Within 24 candles, a candle **closes** through the swing that led into the sweep: the market structure has shifted, leaving a **fair value gap (FVG)**. |
+| **5. Entry** | A limit order in the FVG, only if it sits in **discount** (buys) or **premium** (sells) of the leg from the sweep to the break. The stop goes beyond the sweep wick plus a buffer. |
+| **6. Targets** | The next **liquidity levels**. At the first one (at least 1R away) half the position closes and the stop moves to break-even. The rest runs to the next level, at most 3R away. Orders not filled within 1 hour are cancelled. |
+| **7. News** | **No trading at all on CPI, PPI, FOMC and NFP days.** On other high-impact USD days Nelson trades **half size** and keeps 30 minutes either side of each release clear. Open trades are closed 10 minutes before tier-1 events. If the calendar can't be loaded, Nelson doesn't trade. |
 
 **Risk rules** (all in `config.yaml`):
 * 0.5% risk per trade.

@@ -131,7 +131,7 @@ def run_demo(cfg, seconds_per_bar: float = 5.0) -> None:
     cfg.mode = "demo"
     # practice prices are random, so relax the filters or the demo would almost never trade
     st = cfg.strategy
-    st.use_htf_bias = st.use_premium_discount = st.require_volume_spike = False
+    st.use_htf_bias = st.use_premium_discount = st.require_volume_spike = st.use_daily_bias = False
     st.displacement_atr, st.min_fvg_atr = 0.6, 0.05
     st.killzones_utc = [("00:00", "23:59")]
     st.avoid_friday_after_utc = ""

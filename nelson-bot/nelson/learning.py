@@ -83,6 +83,12 @@ def buckets(ft: dict) -> list[tuple[str, str]]:
     if "delta_agrees" in ft:
         out.append(("delta:agrees" if ft["delta_agrees"] else "delta:disagrees",
                     "Order flow agreed" if ft["delta_agrees"] else "Order flow disagreed"))
+    if "daily_aligned" in ft:
+        out.append(("daily:with" if ft["daily_aligned"] else "daily:against",
+                    "With the daily bias" if ft["daily_aligned"] else "Against the daily bias"))
+    if "h4_aligned" in ft:
+        out.append(("h4:with" if ft["h4_aligned"] else "h4:against",
+                    "4-hour structure agreeing" if ft["h4_aligned"] else "4-hour structure against"))
     sl = ft.get("sl_atr")
     if sl is not None:
         kind = "tight" if sl < 0.8 else "wide" if sl > 2.5 else "normal"

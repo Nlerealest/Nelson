@@ -73,6 +73,8 @@ class NelsonBot:
         self.mt5_lost_since: float | None = None
         self.next_reconnect = 0.0
         self.next_clock_check = time.time() + 3600
+        self.history: pd.DataFrame | None = None   # long M5 history for the daily / 4-hour structure
+        self.history_at = 0.0
 
     def notify(self, text: str) -> None:
         """Logs a message and sends it to your phone (if Telegram is set up)."""
@@ -309,7 +311,7 @@ class NelsonBot:
         if not ticks.empty:
             bars["delta"] = bar_delta_proxy(bars)
             bars.loc[recent.index, "delta"] = tick_delta(ticks, recent["time"], self.minutes).to_numpy()
-        f = prepare(bars, self.cfg.strategy, self.minutes)
+        f = prepare(bars, self.cfg.strategy, self.minutes, self._history(bars))
         setups = self.strategy.scan(f)
         self.last_f, self.last_setups = f, setups
         last = len(f) - 1
@@ -334,9 +336,27 @@ class NelsonBot:
             self._take(s)
         self._learn(f)
 
+    def _history(self, bars: pd.DataFrame) -> pd.DataFrame | None:
+        """Months of M5 bars for the daily and 4-hour structure, refreshed hourly (the scan uses ~10 days)."""
+        if time.time() - self.history_at > 3600 or self.history is None:
+            try:
+                self.history = self.broker.bars(self.cfg.mt5.history_bars)
+            except TypeError:            # a broker without a bar count (demo replay, tests)
+                self.history = None
+            except Exception as exc:
+                log.warning("Could not load the long history (%s) - using the recent bars only", exc)
+                self.history = None
+            self.history_at = time.time()
+        if self.history is None:
+            return None
+        newer = bars[bars["time"] > self.history["time"].iloc[-1]]
+        return pd.concat([self.history, newer], ignore_index=True) if len(newer) else self.history
+
     def _add_signal(self, s, track: str, status: str = "waiting", note: str = "", ticket=None) -> None:
-        self.signals.add_setup(s, self.minutes, self.cfg.strategy.order_expiry_bars, self.cfg.strategy.rr_target,
-                               track, status, note, ticket, experience=self.learner.experience(s.features))
+        self.signals.add_setup(s, self.minutes, self.cfg.strategy.order_expiry_bars, s.rr or self.cfg.strategy.rr_target,
+                               "price" if track == "price" else track,
+                               "active" if s.market and status == "waiting" else status, note, ticket,
+                               experience=self.learner.experience(s.features))
 
     def _not_taken(self, s, why: str) -> None:
         self._add_signal(s, "shadow", "not_taken", why)   # still followed on price, so Nelson learns from it
@@ -370,14 +390,17 @@ class NelsonBot:
             return
         tick = self.broker.tick()
         market = tick.ask if s.direction > 0 else tick.bid
-        if (market - s.entry) * s.direction <= 0:
+        if not s.market and (market - s.entry) * s.direction <= 0:
             log.info("Price already beyond the entry - not chasing")
             self.journal.write("missed", side=s.side, price=s.entry, details="price already through entry")
             self._not_taken(s, "price already past the entry")
             return
         step, vmin, vmax = self.broker.volume_limits()
         loss = self.broker.loss_per_lot(s.direction, s.entry, s.sl) + self.cfg.backtest.commission_per_lot
-        lots = self.risk.lot_size(acc.balance, loss, step, vmin, vmax)
+        factor = self.news.risk_factor(self.broker.now_utc())
+        lots = self.risk.lot_size(acc.balance * factor, loss, step, vmin, vmax)
+        if factor < 1 and lots > 0:
+            log.info("High-impact news today: trading at %.0f%% of normal size", factor * 100)
         if lots <= 0:
             log.warning("Balance too small to risk %.2f%% with the minimum lot - skipped", self.cfg.risk.risk_per_trade_pct)
             self._not_taken(s, "balance too small for the minimum lot")
@@ -389,15 +412,20 @@ class NelsonBot:
             self._add_signal(s, "price")
             self._signal_alert(s)
             return
-        res = self.broker.place_limit(s.direction, lots, s.entry, s.sl, s.tp, f"Nelson {s.level_name}")
+        if s.market:
+            res = self.broker.place_market(s.direction, lots, s.sl, s.tp, f"Nelson {s.level_name}")
+        else:
+            res = self.broker.place_limit(s.direction, lots, s.entry, s.sl, s.tp, f"Nelson {s.level_name}")
         self._add_signal(s, "trade", ticket=res.order)
         self.push(f"ENTRY ORDER: {s.side} {lots:.2f} lots XAUUSD", f"{self._levels(s)} (risking {lots * loss:.2f})\n"
                   f"Why: swept {s.level_name}; " + "; ".join(s.reasons[1:3]), priority=4,
                   tags=("chart_with_upwards_trend" if s.direction > 0 else "chart_with_downwards_trend",))
         self.trades[str(res.order)] = {"risk": s.risk, "partial": False, "dir": s.direction, "entry": s.entry,
+                                       "partial_r": s.partial_r,
                                        "expires": str(pd.Timestamp(s.time) + pd.Timedelta(minutes=self.minutes * (self.cfg.strategy.order_expiry_bars + 1)))}
         self._save()
-        self.notify(f"ORDER #{res.order}: {s.side} {lots:.2f} lots XAUUSD limit {s.entry:.2f}, SL {s.sl:.2f}, "
+        self.notify(f"ORDER #{res.order}: {s.side} {lots:.2f} lots XAUUSD {'market' if s.market else 'limit'} "
+                    f"{s.entry:.2f}, SL {s.sl:.2f}, "
                     f"TP {s.tp:.2f} (risking {lots * loss:.2f})\nWhy: " + "; ".join(s.reasons))
         self.journal.write("order", side=s.side, price=s.entry, sl=s.sl, tp=s.tp, lots=lots, ticket=res.order,
                            details="; ".join(s.reasons))
@@ -445,7 +473,9 @@ class NelsonBot:
                 continue
             gained = (p.price_current - p.price_open) * d / risk
             step, vmin, _ = self.broker.volume_limits()
-            if sc.partial_at_r > 0 and not info["partial"] and gained >= sc.partial_at_r:
+            part_r = info.get("partial_r") or sc.partial_at_r      # TJR: the first liquidity target
+            be_r = info.get("partial_r") or sc.breakeven_at_r
+            if part_r > 0 and not info["partial"] and gained >= part_r:
                 part = round(int(p.volume * sc.partial_fraction / step) * step, 2)
                 if vmin <= part < p.volume:
                     self.broker.close(p, part, comment="Nelson partial")
@@ -454,7 +484,7 @@ class NelsonBot:
                     self.push("Partial profit taken", f"#{p.ticket}: closed {part:.2f} lots at {p.price_current:.2f}",
                               priority=3, tags=("moneybag",))
                 info["partial"] = True
-            if sc.breakeven_at_r > 0 and gained >= sc.breakeven_at_r and (p.price_open - p.sl) * d > 0:
+            if be_r > 0 and gained >= be_r and (p.price_open - p.sl) * d > 0:
                 self.broker.modify_sl(p, p.price_open)
                 self.journal.write("breakeven", ticket=p.ticket, sl=p.price_open)
                 self.notify(f"#{p.ticket}: stop moved to break-even ({p.price_open:.2f}) - this trade can no longer lose")

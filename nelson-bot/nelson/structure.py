@@ -37,11 +37,33 @@ def market_structure(df: pd.DataFrame, k: int) -> pd.DataFrame:
     return pd.DataFrame({"trend": trend, "bos": bos, "swing_high": last_sh, "swing_low": last_sl}, index=df.index)
 
 
-def resample(df: pd.DataFrame, minutes: int) -> pd.DataFrame:
-    """Aggregate bars to a higher timeframe. Index = bar open time."""
+def resample(df: pd.DataFrame, minutes: int, offset_hours: float = 0.0) -> pd.DataFrame:
+    """Aggregate bars to a higher timeframe. Index = bar open time.
+
+    offset_hours moves the bar boundaries, e.g. -2 makes daily bars start at 22:00 UTC (the New York
+    close, where forex and gold daily candles start)."""
     agg = {"open": "first", "high": "max", "low": "min", "close": "last", "tick_volume": "sum"}
-    out = df.set_index("time")[list(agg)].resample(f"{minutes}min", label="left", closed="left").agg(agg)
+    kw = {"offset": pd.Timedelta(hours=offset_hours)} if offset_hours else {}
+    out = df.set_index("time")[list(agg)].resample(f"{minutes}min", label="left", closed="left", **kw).agg(agg)
     return out.dropna(subset=["open"]).reset_index()
+
+
+def htf_trend(df: pd.DataFrame, entry_minutes: int, htf_minutes: int, k: int,
+              source: pd.DataFrame | None = None, offset_hours: float = 0.0) -> pd.DataFrame:
+    """Structure trend of a higher timeframe (+1 / -1 / 0) and its latest swing high/low, on each entry bar.
+
+    `source` can be a longer history of the same entry-timeframe bars (live, where the bars Nelson scans
+    only cover ~10 days - too few daily candles). Only fully closed HTF bars are used."""
+    htf = resample(df if source is None else source, htf_minutes, offset_hours)
+    htf = pd.concat([htf, market_structure(htf, k)], axis=1)
+    htf["available"] = htf["time"] + pd.Timedelta(minutes=htf_minutes)
+    left = pd.DataFrame({"close_time": df["time"] + pd.Timedelta(minutes=entry_minutes), "_i": np.arange(len(df))})
+    merged = pd.merge_asof(left.sort_values("close_time"),
+                           htf[["available", "trend", "swing_high", "swing_low"]].sort_values("available"),
+                           left_on="close_time", right_on="available", direction="backward").sort_values("_i")
+    return pd.DataFrame({"trend": merged["trend"].fillna(0).astype(int).to_numpy(),
+                         "swing_high": merged["swing_high"].to_numpy(),
+                         "swing_low": merged["swing_low"].to_numpy()}, index=df.index)
 
 
 def htf_context(df: pd.DataFrame, entry_minutes: int, htf_minutes: int, k: int, range_bars: int = 24) -> pd.DataFrame:

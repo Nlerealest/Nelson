@@ -17,7 +17,7 @@ from nelson.config import Config, LearningConfig
 from nelson.learning import Learner, buckets
 from nelson.news import NewsFilter
 from nelson.signals import SignalBook
-from synthetic import planted_short, random_walk
+from synthetic import classic, planted_short, random_walk
 from test_live import FakeBroker
 
 T0 = pd.Timestamp("2026-03-04 08:00")
@@ -139,11 +139,9 @@ class TestMissedWhileOff(unittest.TestCase):
         self.cwd = os.getcwd()
         os.chdir(self.tmp.name)
         self.df, self.i = planted_short(random_walk(10, seed=3), "2025-03-06 08:30")
-        self.cfg = Config()
+        self.cfg = classic(Config())
         self.cfg.mode = "demo"
         self.cfg.log_dir = "logs"
-        self.cfg.strategy.use_htf_bias = False
-        self.cfg.strategy.use_premium_discount = False
 
     def tearDown(self):
         os.chdir(self.cwd)

@@ -238,6 +238,26 @@ class MT5Broker:
         }
         return self._send(req)
 
+    def place_market(self, direction: int, lots: float, sl: float, tp: float, comment: str):
+        t = self.tick()
+        d = self.info.digits
+        return self._send({
+            "action": mt5.TRADE_ACTION_DEAL, "symbol": self.symbol, "volume": float(lots),
+            "type": mt5.ORDER_TYPE_BUY if direction > 0 else mt5.ORDER_TYPE_SELL,
+            "price": t.ask if direction > 0 else t.bid, "sl": round(sl, d), "tp": round(tp, d),
+            "deviation": self.cfg.mt5.deviation_points, "magic": self.cfg.magic, "comment": comment[:31],
+        })
+
+    def place_market(self, direction: int, lots: float, sl: float, tp: float, comment: str):
+        t = self.tick()
+        d = self.info.digits
+        return self._send({
+            "action": mt5.TRADE_ACTION_DEAL, "symbol": self.symbol, "volume": float(lots),
+            "type": mt5.ORDER_TYPE_BUY if direction > 0 else mt5.ORDER_TYPE_SELL,
+            "price": t.ask if direction > 0 else t.bid, "sl": round(sl, d), "tp": round(tp, d),
+            "deviation": self.cfg.mt5.deviation_points, "magic": self.cfg.magic, "comment": comment[:31],
+        })
+
     def cancel(self, ticket: int):
         return mt5.order_send({"action": mt5.TRADE_ACTION_REMOVE, "order": int(ticket)})
 

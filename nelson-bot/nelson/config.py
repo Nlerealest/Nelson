@@ -27,17 +27,22 @@ class StrategyConfig:
     # Liquidity
     use_prev_day_levels: bool = True     # previous day high / low
     use_asia_levels: bool = True         # Asian session high / low
+    use_london_levels: bool = True       # London session high / low (liquidity for New York)
+    london_session_utc: tuple[str, str] = ("07:00", "12:00")
     use_swing_levels: bool = True        # recent swing highs / lows (resting stops)
     asia_session_utc: tuple[str, str] = ("00:00", "06:00")
     equal_level_tolerance_atr: float = 0.10   # two swings this close count as equal highs/lows
     max_level_age_hours: float = 48.0
 
     # Sweep -> displacement -> fair value gap
-    sweep_max_age_bars: int = 12     # displacement must happen within this many bars of the sweep
+    sweep_max_age_bars: int = 24     # the break of structure must happen within this many bars of the sweep
     choch_lookback_bars: int = 10    # bars before the sweep that define the internal swing to break
-    displacement_atr: float = 1.0    # displacement candle body must be >= this x ATR
+    displacement_atr: float = 0.0    # body of the breaking candle >= this x ATR (TJR: any body close counts)
     min_fvg_atr: float = 0.10        # minimum fair value gap size (x ATR)
-    entry_mode: str = "fvg_mid"      # "fvg_mid" (50% of gap) or "fvg_edge" (first touch of gap)
+    entry_mode: str = "fvg_mid"      # "fvg_mid" (50% of gap), "fvg_edge" (first touch of gap),
+                                     # "ob" (order block: body edge of the sweep candle) or
+                                     # "bos_close" (market order on the candle that breaks structure)
+    require_fvg: bool = True         # the shift must leave a fair value gap (TJR: not needed for OB entries)
     order_expiry_bars: int = 12      # cancel the limit order if not filled in time
 
     # Stops and targets
@@ -45,18 +50,27 @@ class StrategyConfig:
     min_sl_atr: float = 0.5
     max_sl_atr: float = 4.0
     rr_target: float = 2.5           # take profit at this many R
+    target_mode: str = "liquidity"   # "rr" (fixed R) or "liquidity" (TJR: the next liquidity levels)
+    tp1_min_rr: float = 1.0          # liquidity mode: first target (partial + break-even) at least this far
+    final_min_rr: float = 2.0        # liquidity mode: final target at least this far...
+    final_max_rr: float = 3.0        # ...and at most this far (capped)
     partial_at_r: float = 1.0        # take partial profit at this R (0 = off)
     partial_fraction: float = 0.5
     breakeven_at_r: float = 1.0      # move stop to entry at this R (0 = off)
 
     # Filters
-    use_htf_bias: bool = True            # trade only with the H1 market structure
+    use_htf_bias: bool = False           # trade only with the H1 market structure
+    use_daily_bias: bool = True          # TJR: trade only with the daily market structure
+    use_h4_bias: bool = False            # TJR: ...and with the 4-hour structure
+    bias_swing_length: int = 1           # candles each side for daily / 4h swings (TJR: a 2-candle turn)
+    day_start_utc: float = 22.0          # daily candles start at the New York close (22:00 UTC)
+    premium_discount_mode: str = "leg"   # "leg" (TJR: the sweep-to-break leg) or "htf_range" (H1 range)
     use_premium_discount: bool = True    # buy in discount, sell in premium of the H1 dealing range
-    require_volume_spike: bool = True    # sweep candle must carry above-normal volume (stop run)
+    require_volume_spike: bool = False   # sweep candle must carry above-normal volume (stop run)
     sweep_volume_mult: float = 1.2
-    require_delta_confirmation: bool = True   # order-flow delta must agree with the displacement
+    require_delta_confirmation: bool = False  # order-flow delta must agree with the displacement
     killzones_utc: list[tuple[str, str]] = field(
-        default_factory=lambda: [("07:00", "10:30"), ("12:30", "16:00")]  # London open, New York open
+        default_factory=lambda: [("06:00", "17:00")]  # London open to the New York afternoon
     )
     avoid_friday_after_utc: str = "18:00"
 
@@ -85,8 +99,13 @@ class NewsConfig:
     minutes_after: int = 30
     # Tier-1 events move gold the most; wider window and optionally flatten before them
     tier1_keywords: list[str] = field(default_factory=lambda: [
-        "Non-Farm", "CPI", "FOMC", "Federal Funds Rate", "Fed Chair", "Powell", "PCE", "GDP",
+        "Non-Farm", "CPI", "PPI", "FOMC", "Federal Funds Rate", "Fed Chair", "Powell", "PCE", "GDP",
     ])
+    # TJR: no trading at all on CPI, PPI, FOMC and NFP days (the whole UTC day)
+    skip_day_keywords: list[str] = field(default_factory=lambda: [
+        "CPI", "PPI", "FOMC", "Federal Funds Rate", "Non-Farm",
+    ])
+    news_day_risk_factor: float = 0.5    # TJR: half size on days with other high-impact USD news
     tier1_minutes_before: int = 60
     tier1_minutes_after: int = 60
     flatten_before_tier1: bool = True
@@ -115,6 +134,8 @@ class MT5Config:
     server_utc_offset_hours: Any = "auto"  # broker clock offset from UTC, or "auto"
     deviation_points: int = 30
     bars_to_load: int = 3000
+    history_bars: int = 30000            # longer M5 history for the daily / 4-hour structure (refreshed hourly)
+    history_bars: int = 30000            # longer M5 history for the daily / 4-hour structure (refreshed hourly)
 
 
 @dataclass

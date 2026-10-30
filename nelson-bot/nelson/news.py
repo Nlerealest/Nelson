@@ -117,6 +117,9 @@ class NewsFilter:
             return False, None
         if not self.available:
             return (True, "news calendar unavailable") if self.cfg.block_if_unavailable else (False, None)
+        whole_day = self.skip_day(t)
+        if whole_day is not None:
+            return True, f"{whole_day.title} day - no trading all day"
         for e in self.events:
             start, end = self._window(e)
             if start <= t <= end:
@@ -124,6 +127,34 @@ class NewsFilter:
             if start > t:
                 break
         return False, None
+
+    def skip_day(self, t: pd.Timestamp) -> Event | None:
+        """TJR: an event that rules out the whole UTC day (CPI, PPI, FOMC, NFP)."""
+        keys = [k.lower() for k in self.cfg.skip_day_keywords]
+        day = pd.Timestamp(t).normalize()
+        return next((e for e in self.events if e.time.normalize() == day
+                     and any(k in e.title.lower() for k in keys)), None)
+
+    def risk_factor(self, t: pd.Timestamp) -> float:
+        """Size multiplier for the day: lower when high-impact news is due (TJR de-risks those days)."""
+        if not self.cfg.enabled or not self.available:
+            return 1.0
+        day = pd.Timestamp(t).normalize()
+        return self.cfg.news_day_risk_factor if any(e.time.normalize() == day for e in self.events) else 1.0
+
+    def skip_day(self, t: pd.Timestamp) -> Event | None:
+        """TJR: an event that rules out the whole UTC day (CPI, PPI, FOMC, NFP)."""
+        keys = [k.lower() for k in self.cfg.skip_day_keywords]
+        day = pd.Timestamp(t).normalize()
+        return next((e for e in self.events if e.time.normalize() == day
+                     and any(k in e.title.lower() for k in keys)), None)
+
+    def risk_factor(self, t: pd.Timestamp) -> float:
+        """Size multiplier for the day: lower when high-impact news is due (TJR de-risks those days)."""
+        if not self.cfg.enabled or not self.available:
+            return 1.0
+        day = pd.Timestamp(t).normalize()
+        return self.cfg.news_day_risk_factor if any(e.time.normalize() == day for e in self.events) else 1.0
 
     def tier1_within(self, t: pd.Timestamp, minutes: int) -> Event | None:
         for e in self.events:
