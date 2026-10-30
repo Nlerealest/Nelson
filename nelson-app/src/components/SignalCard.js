@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Card, Pill, T } from './ui';
 import { C, TONE } from '../theme';
-import { price, signalResult, signalStatus, timeAgo, utcClock, wouldBe } from '../format';
+import { price, signalResult, signalStatus, strategyName, timeAgo, utcClock, wouldBe } from '../format';
 
 // One setup: levels, status, what it would have done if not traded, and the steps that found it
 export default function SignalCard({ sig }) {
@@ -32,6 +32,7 @@ export default function SignalCard({ sig }) {
             Stop {sig.sl_pips} pips · Target {sig.tp_pips} pips{sig.rr ? ` · ${sig.rr}R` : ''}
           </T>
         ) : null}
+        {sig.strategy ? <T small color={C.gold} style={{ marginTop: 2 }}>{strategyName(sig.strategy)}</T> : null}
         <View style={[styles.between, { marginTop: 4 }]}>
           <T small muted>{utcClock(sig.confirmed)}{sig.level ? ` · swept ${sig.level}` : ''}</T>
           <T small color={C.gold}>{open ? 'Hide steps' : 'How it was found'}</T>

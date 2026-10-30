@@ -8,6 +8,8 @@ Nelson trades **gold against the US dollar (XAUUSD)** on your MT5 account. It re
 
 ## How Nelson trades
 
+Nelson runs several strategies side by side: see [`docs/PLAYBOOK.md`](docs/PLAYBOOK.md) for the rules and backtests of each. The table below is the main one.
+
 Since the TJR update Nelson follows the method from TJR's free bootcamps, tested on 17 months of real gold prices. [`docs/TJR_METHOD.md`](docs/TJR_METHOD.md) has the full notes and the backtest results.
 
 | Step | What Nelson checks |

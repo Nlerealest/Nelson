@@ -15,6 +15,9 @@ def classic(cfg):
     st.sweep_max_age_bars = 12
     st.require_volume_spike = st.require_delta_confirmation = True
     st.killzones_utc = [("07:00", "10:30"), ("12:30", "16:00")]
+    st.use_h4_bias = False
+    cfg.playbook.enabled, cfg.playbook.watch = ["tjr_bootcamp"], []
+    cfg.risk.max_open_positions, cfg.risk.max_trades_per_day = 1, 3
     st.use_htf_bias = st.use_premium_discount = False
     return cfg
 

@@ -174,6 +174,24 @@ export function signalStatus(status) {
 }
 
 // Result in R (risk units) or money, for a finished signal
+const STRATEGIES = {
+  tjr_bootcamp: 'TJR bootcamp',
+  tjr_2026: 'TJR 2026',
+  ict_ote: 'ICT optimal trade entry',
+  ict_silver_bullet: 'ICT silver bullet',
+  ict_judas: 'ICT Judas swing',
+  orb_gold: 'Opening range (07:00 ET)',
+  orb_asia: 'Asia opening range',
+  continuation: 'Break and retest',
+  trend: 'Trend following',
+  momentum: 'Momentum',
+  mean_reversion: 'Mean reversion',
+};
+
+export function strategyName(key) {
+  return STRATEGIES[key] || key;
+}
+
 export function pipsText(p) {
   if (p === null || p === undefined || p === '') return '';
   const v = Math.round(Number(p) * 10) / 10;

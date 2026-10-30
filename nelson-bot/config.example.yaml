@@ -26,9 +26,13 @@ risk:
   close_friday_utc: "20:30"
   flatten_minutes_before_tier1: 10
 
+playbook:                     # see docs/PLAYBOOK.md
+  enabled: [tjr_bootcamp, mean_reversion, continuation, momentum]   # these place trades
+  watch: [tjr_2026, ict_ote, ict_silver_bullet, ict_judas, orb_gold, orb_asia, trend]   # followed on price to learn, no trades
+
 strategy:                     # TJR bootcamp model - see docs/TJR_METHOD.md
   use_daily_bias: true        # trade only with the daily market structure
-  use_h4_bias: false          # also require the 4-hour structure (fewer, cleaner trades)
+  use_h4_bias: true           # also require the 4-hour structure (fewer, cleaner trades)
   use_htf_bias: false         # the older H1-only bias
   use_premium_discount: true  # buy in discount / sell in premium...
   premium_discount_mode: leg  # ...of the leg from the sweep to the break of structure

@@ -54,6 +54,8 @@ class Setup:
     features: dict = field(default_factory=dict)      # what the setup looked like, for learning
     market: bool = False                              # enter at market now (True) or with a limit order
     partial_r: float | None = None                    # where to take the partial (R); None = config value
+    strategy: str = "tjr_bootcamp"                    # which strategy in the playbook found it
+    watch_only: bool = False                          # followed on price to learn from, never traded
 
     @property
     def side(self) -> str:

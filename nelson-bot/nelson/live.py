@@ -30,7 +30,8 @@ from .report import market_brief
 from .risk import RiskManager
 from .sessions import _minutes
 from .signals import LABELS, SignalBook
-from .strategy import NelsonStrategy, prepare
+from .playbook import Playbook
+from .strategy import prepare
 from .telegram import HELP, TelegramLink
 
 log = logging.getLogger("nelson")
@@ -43,7 +44,7 @@ class NelsonBot:
         self.cfg = cfg
         self.broker = MT5Broker(cfg)
         self.news = NewsFilter(cfg.news)
-        self.strategy = NelsonStrategy(cfg.strategy, self.news)
+        self.strategy = Playbook(cfg.strategy, cfg.playbook, self.news)
         self.journal = Journal(cfg.log_dir)
         self.minutes = TIMEFRAMES[cfg.timeframe]
         self.last_bar = None
@@ -334,7 +335,10 @@ class NelsonBot:
             if sk["index"] == last:
                 self.signals.add_skipped(sk, self.minutes, sc.order_expiry_bars, sc.rr_target)
         for s in (s for s in setups if s.index == last):
-            self._take(s)
+            if s.watch_only:
+                self._add_signal(s, "shadow", "not_taken", "watch only: learning from this strategy")
+            else:
+                self._take(s)
         self._learn(f)
 
     def _history(self, bars: pd.DataFrame) -> pd.DataFrame | None:

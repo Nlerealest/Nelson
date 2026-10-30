@@ -62,7 +62,7 @@ class StrategyConfig:
     # Filters
     use_htf_bias: bool = False           # trade only with the H1 market structure
     use_daily_bias: bool = True          # TJR: trade only with the daily market structure
-    use_h4_bias: bool = False            # TJR: ...and with the 4-hour structure
+    use_h4_bias: bool = True            # TJR: ...and with the 4-hour structure
     bias_swing_length: int = 1           # candles each side for daily / 4h swings (TJR: a 2-candle turn)
     day_start_utc: float = 22.0          # daily candles start at the New York close (22:00 UTC)
     premium_discount_mode: str = "leg"   # "leg" (TJR: the sweep-to-break leg) or "htf_range" (H1 range)
@@ -77,13 +77,46 @@ class StrategyConfig:
 
 
 @dataclass
+class PlaybookConfig:
+    """The strategies Nelson hunts with (see nelson/playbook.py and docs/PLAYBOOK.md)."""
+    enabled: list[str] = field(default_factory=lambda: [      # these place trades
+        "tjr_bootcamp", "mean_reversion", "continuation", "momentum"])
+    watch: list[str] = field(default_factory=lambda: [        # followed on price only, so Nelson learns from them
+        "tjr_2026", "ict_ote", "ict_silver_bullet", "ict_judas", "orb_gold", "orb_asia", "trend"])
+    need_h4: list[str] = field(default_factory=lambda: ["continuation", "mean_reversion"])  # 4-hour must agree
+    hours_utc: dict[str, list] = field(default_factory=lambda: {   # time-of-day filter per strategy
+        "continuation": [("00:00", "12:00")], "momentum": [("12:00", "16:00")]})
+    min_rr: float = 1.0              # skip a setup whose target is closer than this
+    target_rr: float = 2.0           # final target at least this far...
+    max_rr: float = 3.0              # ...and at most this far
+    confirm_bars: int = 24           # the break or inverse gap must come within this many candles of the sweep
+    retrace_bars: int = 24           # TJR 2026: the retrace and break back must follow within this many
+    ote_level: float = 0.705         # ICT optimal trade entry
+    orb_min_range_atr: float = 0.5   # opening range width limits, in ATR
+    orb_max_range_atr: float = 4.0
+    orb_expansion: float = 1.0       # fast ATR / slow ATR on the break (volatility expansion)
+    orb_volume: float = 1.0          # relative volume on the break
+    cont_body_atr: float = 0.8       # continuation: size of the candle that breaks the level
+    trend_adx: float = 25.0
+    mom_body_atr: float = 1.0
+    mom_expansion: float = 1.2
+    mom_volume: float = 1.3
+    mom_adx: float = 20.0
+    mom_stop_atr: float = 1.5
+    mr_adx: float = 20.0             # mean reversion only when ADX is below this (a range)...
+    mr_max_vol: float = 1.0          # ...and volatility is not expanding
+    mr_rsi: float = 30.0
+    mr_stop_atr: float = 0.3
+
+
+@dataclass
 class RiskConfig:
     risk_per_trade_pct: float = 0.5      # % of balance lost if the stop is hit
     max_daily_loss_pct: float = 2.0      # stop trading for the day after this loss
     max_total_drawdown_pct: float = 10.0  # stop trading completely (needs a human) after this drawdown
-    max_trades_per_day: int = 3
+    max_trades_per_day: int = 5
     max_consecutive_losses: int = 3      # stop for the day after this many losses in a row
-    max_open_positions: int = 1
+    max_open_positions: int = 2
     max_spread_usd: float = 0.50         # skip if spread is wider than this (gold, in dollars)
     max_lot: float = 5.0                 # hard cap whatever the maths says
     close_friday_utc: str = "20:30"      # flatten before the weekend gap ("" = off)
@@ -190,6 +223,7 @@ class Config:
     log_dir: str = "logs"
     learned_params_file: str = "learned_params.json"
     strategy: StrategyConfig = field(default_factory=StrategyConfig)
+    playbook: PlaybookConfig = field(default_factory=PlaybookConfig)
     risk: RiskConfig = field(default_factory=RiskConfig)
     news: NewsConfig = field(default_factory=NewsConfig)
     backtest: BacktestConfig = field(default_factory=BacktestConfig)

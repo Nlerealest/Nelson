@@ -79,6 +79,7 @@ class SignalBook:
             "side": s.side, "dir": s.direction, "entry": s.entry, "sl": s.sl, "tp": s.tp, "rr": rr,
             "risk": round(s.risk, 2), "level": s.level_name, "steps": s.steps, "reasons": s.reasons,
             "sl_pips": self.pips(s.entry, s.sl), "tp_pips": self.pips(s.entry, s.tp),
+            "strategy": getattr(s, "strategy", "tjr_bootcamp"),
             "features": getattr(s, "features", {}) or {},
             "status": status, "status_time": confirmed.isoformat(), "note": note, "track": track,
             "ticket": ticket, "result_r": None, "pnl": None,

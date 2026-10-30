@@ -106,7 +106,8 @@ def simulate(f: pd.DataFrame, setups: list[Setup], cfg: Config) -> BacktestResul
     days = t_arr.dt.normalize().to_numpy()
     by_index: dict[int, list[Setup]] = {}
     for s in setups:
-        by_index.setdefault(s.index, []).append(s)
+        if not s.watch_only:
+            by_index.setdefault(s.index, []).append(s)
 
     balance = b.initial_balance
     risk = RiskManager(cfg.risk, balance)

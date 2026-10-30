@@ -65,6 +65,10 @@ def _wilson(wins: int, n: int, z: float = 1.0) -> tuple[float, float]:
 def buckets(ft: dict) -> list[tuple[str, str]]:
     """The kinds a setup belongs to, as (key, plain label)."""
     out = []
+    if ft.get("strategy"):
+        out.append((f"strategy:{ft['strategy']}", f"Strategy: {ft['strategy'].replace('_', ' ')}"))
+    if ft.get("regime"):
+        out.append((f"regime:{ft['regime']}", f"{ft['regime'].capitalize()} market"))
     if ft.get("level"):
         out.append((f"level:{ft['level']}", f"Sweeps of the {ft['level']}"))
     if ft.get("session"):
