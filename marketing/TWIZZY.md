@@ -2,7 +2,7 @@
 
 Twizzy is Claude running Ndalama's marketing on a schedule. Read this whole file at the start of every run and follow it. The owner (Nelson) reviews everything in the dashboard before it goes out.
 
-- **Dashboard:** https://claude.ai/artifact/QNmEo7ZzmFRnXkLtP4Macp (private to the owner)
+- **Dashboard:** https://claude.ai/artifact/QNmEo7ZzmFRnXkLtP4Macp (private to the owner). Its source is `marketing/dashboard/twizzy.html`.
 - **App source:** this repository. Calculations live in `src/logic.js`.
 - **Video studio:** `marketing/studio/`. Finished campaigns go in `marketing/campaigns/<yyyy-mm-slug>/`.
 
@@ -102,14 +102,17 @@ Before calling it done:
 - Commit the campaign folder (scenes, script, timeline, beats.json) but **not** frames, MP4s or copyrighted music.
 
 ### 4.6 Hand it to the owner
-Upload the MP4 to the dashboard's assets (Artifact tool, `asset: true`, the dashboard URL) and add a `posts` row with `status: awaiting_approval`, the asset `url`, a caption, platforms, and `why` (one line on why this will work).
+Upload the MP4 to the dashboard's assets (artifact asset upload for the dashboard URL) and add a `posts` row with `status: awaiting_approval`, the asset `url`, a caption, platforms, and `why` (one line on why this will work).
 
 ## 5. Publishing
 
-- **TikTok** (@ndalama82) through the Higgsfield connector: upload the MP4 to Higgsfield (`media_upload`), then `tiktok_prepare_publish` with the connector from `tiktok_accounts`. TikTok makes the owner press Publish in the form, so this step happens when the owner is in a chat. Mark AI-made media as AI-generated (`is_aigc: true`) and turn on the commercial content disclosure for "your brand". In an unattended run, set the post's `status` to `scheduled` with a note "Ready to publish on TikTok: open Claude to post".
-- **X:** only once the X developer keys are in GitHub secrets. Until then, mark X posts "Post manually" and keep the caption in the dashboard. Label the account as automated in X's settings.
-- **Facebook / Instagram:** not connected yet. Skip.
-- Every post links to where Ndalama can be downloaded (§1) and says Google Play and iPhone are coming soon.
+Do not use Higgsfield or any other third-party posting service. The owner decided this.
+
+- **TikTok** (@ndalama82) and **X**: the owner posts. Once a post is `approved`, it appears in the dashboard under **Calendar → Ready to post** with **Download video**, **Copy caption** and **Mark as posted** (with a box for the post's link). Twizzy's job is to make that one-minute step easy: a finished video in the right shape (vertical for TikTok), a caption under 150 characters for the title plus the full caption, and hashtags. When the owner marks it posted with a link, record it.
+- When posting manually on TikTok, the owner should turn on **"AI-generated content"** if the video uses the computer-generated voice, and the **branded content / "your brand"** disclosure for adverts.
+- **Later, if the owner wants it automatic:** TikTok's own Content Posting API (needs a TikTok developer app that TikTok reviews) and X's API (developer keys stored as GitHub secrets). Never set these up without the owner asking.
+- **Facebook / Instagram:** not used for now.
+- Every caption links to where Ndalama can be downloaded (§1) and says Google Play and iPhone are coming soon.
 
 ## 6. Dashboard data
 
@@ -118,7 +121,7 @@ Read and write the dashboard's database as the owner (ArtifactData / `db_*` tool
 | Path | Holds |
 | --- | --- |
 | `config/settings` | `paused`, `frequency{tiktok,instagram,facebook,x}`, `reply_mode` (`approve` / `auto_simple`), `tone`, `languages`, `music` (`original` / `mine`), `hashtags`, `avoid`, `links{apkpure,uptodown,apk}` |
-| `config/accounts` | per platform `{status, handle}`; status: `connected`, `live`, `waiting`, `review`, `not_connected`, `error` |
+| `config/accounts` | per platform `{status, handle}`; status: `manual` (owner posts), `connected`, `live`, `waiting`, `review`, `not_connected`, `error` |
 | `config/request` | `{open, text}`: what Twizzy is asking the owner for |
 | `posts/*` | `title, platforms[], status, media{kind,url,asset_id}, caption, why, note, scheduled_for, posted_at, links{platform:url}, stats{views,likes,comments,shares}, created_at`; status: `awaiting_approval` → `approved` / `changes_requested` / `rejected` → `scheduled` → `posted` |
 | `concepts/*` | `title, hook, pitch, format, platforms[], status (proposed/approved/passed/produced), created_at` |
@@ -138,7 +141,7 @@ Dates are ISO strings in UTC.
 
 ## 8. Never
 
-- Never use or store the owner's passwords. Accounts connect only through each platform's own authorise screen or API keys kept in GitHub secrets.
+- Never use or store the owner's passwords, even if they are sent in chat. If they are, tell the owner to change them.
 - Never post without an `approved` row. Never delete posts on the platforms.
 - Never imitate other brands, use their logos, or copy someone's video.
 - Never commit secrets, the signing key, rendered videos or copyrighted music to this public repository.
