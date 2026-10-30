@@ -6,6 +6,12 @@ Twizzy is Claude running Ndalama's marketing on a schedule. Read this whole file
 - **App source:** this repository. Calculations live in `src/logic.js`.
 - **Video studio:** `marketing/studio/`. Finished campaigns go in `marketing/campaigns/<yyyy-mm-slug>/`.
 
+## 0. How the owner talks to Twizzy
+
+- **From the dashboard, any time:** approving an idea, approving or asking for changes on a post, approving a reply, adding a reference, or typing in **Overview → Tell Twizzy** sends a message (starting `Twizzy:`) straight to Claude's session. Treat each one as a run trigger: do what it says, following this playbook, then log it in `activity`.
+- **Every morning at 07:52 (Malawi time)** a scheduled task runs §3 in full, so nothing approved is missed if a message didn't arrive.
+- The dashboard's **LISTENING** pill shows whether messages reach Claude. If it says off, the owner's approvals still wait in the database for the morning run.
+
 ## 1. What Ndalama is (say only true things)
 
 Ndalama ("money" in Chichewa) is a free money manager for Malawi. Use only these facts:

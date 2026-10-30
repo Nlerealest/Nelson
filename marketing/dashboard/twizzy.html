@@ -147,7 +147,7 @@ label.f { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font
 <script>
 const PLAT = { tiktok: ['TT', 'TikTok'], instagram: ['IG', 'Instagram'], facebook: ['FB', 'Facebook'], x: ['X', 'X'], apkpure: ['AP', 'APKPure'], uptodown: ['UD', 'Uptodown'] };
 const state = { posts: [], concepts: [], inbox: [], refs: [], activity: [], settings: null, accounts: null, request: null, loaded: false, offline: false, canWrite: true };
-let db = null, assets = null, downloads = null, view = 'overview';
+let db = null, assets = null, downloads = null, comments = null, listening = 'unknown', view = 'overview';
 const VIEWS = ['overview', 'approvals', 'calendar', 'ideas', 'inbox', 'references', 'prefs'];
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -179,6 +179,29 @@ async function write(fn, okMsg) {
   }
 }
 const nowIso = () => new Date().toISOString();
+
+// Twizzy is Claude watching this dashboard. Sending a note "to Claude" wakes it.
+async function checkListening() {
+  if (!comments?.canSendToClaude) { listening = 'off'; return; }
+  try { listening = await comments.canSendToClaude(); } catch { listening = 'off'; }
+}
+// Tell Twizzy about something the owner just did. Must run from the owner's tap.
+async function tellTwizzy(el, text, quiet) {
+  if (!comments) return false;
+  try {
+    if (listening !== 'available') await checkListening();
+    if (listening !== 'available') { if (!quiet) toast('Saved. Twizzy will pick this up on its next daily run.'); return false; }
+    const anchor = await comments.anchorFor(el || document.querySelector('h1'));
+    await comments.sendToClaude({ anchor, text: 'Twizzy: ' + text });
+    db && db.collection('activity').add({ text: 'Sent to Twizzy: ' + text.slice(0, 140), kind: 'you', at: nowIso() }).catch(() => {});
+    return true;
+  } catch (e) {
+    if (e?.code === 'rate_limited') toast('Saved. Sending to Twizzy is busy, so it will be picked up on the next run.');
+    else if (e?.code !== 'consent_required') toast('Saved, but Twizzy couldn’t be reached right now. It will be picked up on the next daily run.');
+    return false;
+  }
+}
+const LISTEN = { available: ['Twizzy is listening', 'ok'], no_session: ['Twizzy is offline, daily run only', 'warn'], writers_only: ['Only the owner can command Twizzy', ''], off: ['Commands unavailable here', ''], unknown: ['Connecting…', ''] };
 const logActivity = (text) => db && db.collection('activity').add({ text, kind: 'you', at: nowIso() }).catch(() => {});
 
 // ---------- views ----------
@@ -216,7 +239,14 @@ function vOverview() {
   const feed = [...state.activity].sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 8);
   return `
   <div class="head"><div><h1>${greeting()}</h1><p class="sub">Here’s what Twizzy is doing for Ndalama. Anything that needs you is at the top.</p></div>
-    <span class="pill ${state.settings?.paused ? 'warn' : 'ok'}">${state.settings?.paused ? 'Twizzy is paused' : 'Twizzy is active'}</span></div>
+    <div class="row"><span class="pill ${state.settings?.paused ? 'warn' : 'ok'}">${state.settings?.paused ? 'Twizzy is paused' : 'Twizzy is active'}</span><span class="pill ${(LISTEN[listening] || LISTEN.off)[1]}">${(LISTEN[listening] || LISTEN.off)[0]}</span></div></div>
+  <section class="card" id="cmd-card"><div class="card-head"><h2>Tell Twizzy</h2></div>
+    <form id="cmd-form" class="row">
+      <input type="text" id="cmd-text" placeholder="e.g. Make a vertical version of the launch advert with original music" style="flex:1;min-width:220px" maxlength="600">
+      <button class="btn primary" type="submit" ${state.canWrite && listening === 'available' ? '' : 'disabled'}>Send</button>
+    </form>
+    <p class="notice" style="margin:8px 0 0">${listening === 'available' ? 'Twizzy starts on it straight away and updates this dashboard as it goes.' : 'When Twizzy is offline, approvals are still saved and picked up on its next daily run.'}</p>
+  </section>
   ${state.request?.open ? `<div class="ask"><div class="mark" aria-hidden="true">T</div><div><strong>Twizzy is asking:</strong> ${esc(state.request.text)} <a href="#references">Add a reference</a></div></div>` : ''}
   <div class="grid kpis">
     <div class="card kpi"><span class="label">Waiting for you</span><span class="value">${c.a + c.m + c.i}</span><span class="hint">${c.a} posts · ${c.m} replies · ${c.i} ideas</span></div>
@@ -419,16 +449,20 @@ document.addEventListener('click', async (ev) => {
       const status = act === 'approve' ? 'approved' : act === 'changes' ? 'changes_requested' : 'rejected';
       if (act === 'changes' && !note) { card.querySelector('[data-note]').focus(); return toast('Write a short note so Twizzy knows what to change.'); }
       await write(() => db.doc('posts/' + id).update({ status, caption, note: note || p.note || '', decided_at: nowIso() }), { approved: 'Approved. Twizzy will post it.', changes_requested: 'Sent to Twizzy for changes.', rejected: 'Rejected.' }[status]);
+      if (act === 'changes') tellTwizzy(card, `Remake post "${p.title}" (posts/${id}). Note: ${note}`);
+      else if (act === 'approve') tellTwizzy(card, `Post "${p.title}" (posts/${id}) is approved and ready to post.`, true);
       logActivity(`You ${act === 'approve' ? 'approved' : act === 'changes' ? 'asked for changes to' : 'rejected'} “${p.title}”`);
     } else if (act === 'idea-yes' || act === 'idea-no') {
       const c = state.concepts.find((x) => x._id === id); if (!c) return;
       await write(() => db.doc('concepts/' + id).update({ status: act === 'idea-yes' ? 'approved' : 'passed', decided_at: nowIso() }), act === 'idea-yes' ? 'Twizzy will make it.' : 'Passed.');
+      if (act === 'idea-yes') tellTwizzy(card, `Make the idea "${c.title}" (concepts/${id}) into a video and put it in Approvals.`);
       logActivity(`You ${act === 'idea-yes' ? 'approved the idea' : 'passed on'} “${c.title}”`);
     } else if (['send', 'sent', 'skip'].includes(act)) {
       const x = state.inbox.find((y) => y._id === id); if (!x) return;
       const reply = card.querySelector('[data-reply]')?.value || x.draft_reply || '';
       const status = act === 'send' ? 'approved' : act === 'sent' ? 'sent' : 'skipped';
       await write(() => db.doc('inbox/' + id).update({ status, final_reply: reply, decided_at: nowIso() }), { approved: 'Approved. Twizzy will reply.', sent: 'Marked as replied.', skipped: 'Won’t reply.' }[status]);
+      if (status === 'approved') tellTwizzy(card, `Send the approved reply to ${x.author} (inbox/${id}).`, true);
     } else if (act === 'dl') {
       const p = state.posts.find((x) => x._id === id); if (!p?.media?.url) return;
       b.disabled = true; const label = b.textContent; b.textContent = 'Preparing…';
@@ -481,6 +515,13 @@ document.addEventListener('submit', async (ev) => {
     };
     await write(() => db.doc('config/settings').set(next), 'Settings saved.');
   }
+  if (ev.target.id === 'cmd-form') {
+    const t = document.getElementById('cmd-text'); const text = t.value.trim();
+    if (!text) return toast('Type what you want Twizzy to do.');
+    const ok = await tellTwizzy(document.getElementById('cmd-card'), text);
+    if (ok) { t.value = ''; toast('Sent. Twizzy is on it.'); }
+    return;
+  }
   if (ev.target.id === 'ref-form') {
     const url = document.getElementById('ref-url').value.trim();
     const file = document.getElementById('ref-file').files?.[0];
@@ -500,6 +541,7 @@ document.addEventListener('submit', async (ev) => {
       await db.collection('references').add(row);
       if (state.request?.open) await db.doc('config/request').update({ open: false, answered_at: nowIso() });
     }, 'Reference added. Twizzy will study it.');
+    tellTwizzy(ev.target, `Study the new reference "${row.title || row.url}" and use its style in the next videos.`, true);
     ev.target.reset();
   }
 });
@@ -512,8 +554,9 @@ route();
 (async () => {
   const claude = window.claude;
   if (!claude?.use) { state.offline = true; render(); return; }
-  const [d, u, a, dl] = await Promise.all([claude.use('db'), claude.use('user'), claude.use('assets'), claude.use('downloads')]);
-  db = d; assets = a; downloads = dl; render();
+  const [d, u, a, dl, cm] = await Promise.all([claude.use('db'), claude.use('user'), claude.use('assets'), claude.use('downloads'), claude.use('comments')]);
+  db = d; assets = a; downloads = dl; comments = cm; await checkListening(); render();
+  setInterval(() => checkListening().then(render), 60000);
   if (u) { const w = await u.can?.('data.write'); if (w === false) state.canWrite = false; }
   if (!db) { state.offline = true; render(); return; }
   const timer = setTimeout(() => { if (!state.loaded) { state.offline = true; render(); } }, 10000);
