@@ -281,12 +281,19 @@ function media(p) {
   if (m.url) return `<div class="media"><img alt="" src="${esc(m.url)}"></div>`;
   return `<div class="media">Preview not ready</div>`;
 }
+// Download button for a post's video or image (falls back to opening it).
+function dlButton(p, primary = true) {
+  if (!p.media?.url) return '';
+  const what = p.media.kind === 'video' ? 'video' : 'image';
+  return downloads ? `<button class="btn ${primary ? 'primary' : ''}" data-act="dl">⬇ Download ${what}</button>`
+    : `<a class="btn ${primary ? 'primary' : ''}" href="${esc(p.media.url)}" target="_blank" rel="noopener" download>⬇ Download ${what}</a>`;
+}
 function vApprovals() {
   const list = state.posts.filter((p) => ['awaiting_approval', 'changes_requested'].includes(p.status)).sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
   return `<div class="head"><div><h1>Approvals</h1><p class="sub">Watch each post, check the caption, then approve it or tell Twizzy what to change. Nothing is posted without your OK.</p></div></div>
   ${list.length ? list.map((p) => `
     <section class="card approval" data-id="${esc(p._id)}">
-      ${media(p)}
+      <div style="display:flex;flex-direction:column;gap:10px;min-width:0">${media(p)}<div class="row">${dlButton(p)}</div></div>
       <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
         <div class="row">${(p.platforms || []).map(plat).join('')}${pill(POST_STATUS, p.status)}${p.scheduled_for ? `<span class="pill info">${esc(when(p.scheduled_for))}</span>` : ''}</div>
         <h2>${esc(p.title)}</h2>
@@ -311,11 +318,12 @@ function vCalendar() {
   const row = (p) => `<div class="item" data-id="${esc(p._id)}">${(p.platforms || []).map(plat).join('')}<div class="grow"><div class="title">${esc(p.title)}</div>
       <div class="meta">${p.status === 'posted' ? 'Posted ' + esc(when(p.posted_at)) : p.scheduled_for ? esc(when(p.scheduled_for)) : 'Time not set yet'}</div>
       ${p.stats ? `<div class="stats"><span>${nf(p.stats.views)} views</span><span>${nf(p.stats.likes)} likes</span><span>${nf(p.stats.comments)} comments</span><span>${nf(p.stats.shares)} shares</span></div>` : ''}
+      ${p.status === 'posted' && p.media?.url ? `<div class="row" style="margin-top:8px">${dlButton(p, false)}</div>` : ''}
       ${p.links ? `<div class="row" style="margin-top:6px">${Object.entries(p.links).map(([k, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener">View on ${esc(PLAT[k]?.[1] || k)}</a>`).join(' · ')}</div>` : ''}
       ${p.status !== 'posted' ? `
         <div class="caption" style="margin-top:10px">${esc(p.caption)}</div>
         <div class="row" style="margin-top:10px">
-          ${p.media?.url ? (downloads ? `<button class="btn primary" data-act="dl">Download ${p.media.kind === 'video' ? 'video' : 'image'}</button>` : `<a class="btn primary" href="${esc(p.media.url)}" target="_blank" rel="noopener">Open ${p.media.kind === 'video' ? 'video' : 'image'}</a>`) : ''}
+          ${dlButton(p)}
           <button class="btn" data-act="copycap">Copy caption</button>
         </div>
         <div class="row" style="margin-top:10px">
@@ -472,7 +480,8 @@ document.addEventListener('click', async (ev) => {
         const name = 'ndalama-' + (p.title || 'post').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) + '.' + ext;
         await downloads.save({ filename: name, data: blob });
       } catch (e) {
-        if (e?.code !== 'declined') toast(e?.code === 'rate_limited' ? 'A download is already open. Try again in a moment.' : 'Download didn’t start. Try again.');
+        if (e?.code === 'rate_limited') toast('A download is already open. Try again in a moment.');
+        else if (e?.code !== 'declined') { window.open(p.media.url, '_blank', 'noopener'); toast('Opened the video. Press and hold it (or use ⋮) to save it.'); }
       }
       b.disabled = false; b.textContent = label;
     } else if (act === 'copycap') {
