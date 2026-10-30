@@ -1,0 +1,273 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<!-- Vertical (1080x1920) short for TikTok / Reels. The story lives in short.js
+     (window.SHORT); beats.js comes from music_short.py; timeline.js (optional)
+     overrides scene lengths from a voiceover. -->
+<script src="short.js"></script>
+<script src="beats.js"></script>
+<script src="timeline.js"></script>
+<style>
+  :root { --g: #14b866; --g2: #0b6b3a; --ink: #121513; --muted: #6b746f; --bad: #ff7a66; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #0f1a14; }
+  body { font-family: 'Inter Display', 'Inter', sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+  .scene { position: absolute; inset: 0; display: none; overflow: hidden; }
+  .dark { background: radial-gradient(1300px 1500px at 50% 10%, #2a3b31 0%, #15211a 50%, #0b120e 100%); }
+  .green { background: radial-gradient(1300px 1500px at 50% 20%, #17a35c 0%, #0b6b3a 55%, #063d21 100%); }
+  .light { background: radial-gradient(1300px 1500px at 50% 25%, #fbfcfa, #e4e9e3); color: var(--ink); }
+  .glow { position: absolute; left: 50%; bottom: -520px; width: 1600px; height: 1000px; margin-left: -800px; border-radius: 50%;
+          background: radial-gradient(closest-side, rgba(30, 210, 115, .75), rgba(20, 150, 80, .3) 55%, transparent 100%); filter: blur(30px); }
+  .abs { position: absolute; will-change: transform, opacity, filter; }
+  .center { left: 70px; right: 70px; text-align: center; }
+  .big { font-weight: 800; letter-spacing: -0.035em; line-height: 1.02; }
+  .w { display: inline-block; will-change: transform, opacity, filter; }
+  .kicker { font-size: 40px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; opacity: .7; }
+  .sub { position: absolute; left: 80px; right: 80px; bottom: 210px; text-align: center; font-size: 44px; font-weight: 600; line-height: 1.25;
+         color: #fff; text-shadow: 0 3px 18px rgba(0,0,0,.6); }
+  .light .sub { color: var(--ink); text-shadow: none; }
+  .phone { width: 600px; height: 1298px; border-radius: 86px; background: #0d0f0e; padding: 18px;
+           box-shadow: 0 80px 140px -40px rgba(0, 0, 0, 0.6), 0 0 0 3px #2b302d inset; }
+  .phone .scr { width: 100%; height: 100%; border-radius: 70px; overflow: hidden; position: relative; background: #fff; }
+  .phone img { position: absolute; left: 0; top: 0; width: 100%; display: block; }
+  .phone::after { content: ''; position: absolute; top: 34px; left: 50%; width: 150px; height: 40px; margin-left: -75px; border-radius: 24px; background: #0d0f0e; }
+  .card { border-radius: 40px; overflow: hidden; background: #fff; box-shadow: 0 50px 100px -40px rgba(0, 0, 0, .55); }
+  .card img { display: block; width: 100%; }
+  .panel { position: absolute; left: 60px; right: 60px; border-radius: 48px; padding: 56px; overflow: hidden; }
+  .row { display: flex; justify-content: space-between; align-items: baseline; font-size: 52px; font-weight: 700; padding: 24px 0;
+         border-bottom: 2px solid rgba(255,255,255,.12); }
+  .light .row { border-color: rgba(0,0,0,.08); }
+  .bar { height: 14px; border-radius: 7px; background: var(--g); margin-top: 10px; transform-origin: left; }
+  .num { line-height: 1; white-space: nowrap; }
+  .num > span { display: inline-block; height: 1em; line-height: 1; vertical-align: top; }
+  .digit { clip-path: inset(0 -30% 0 -30%); }
+  .digit > span { display: block; }
+  .digit > span > span { display: block; height: 1em; line-height: 1; }
+  .tick { display: inline-flex; width: 74px; height: 74px; border-radius: 50%; align-items: center; justify-content: center; background: var(--g); color: #fff; font-size: 44px; font-weight: 800; flex: none; }
+  .pill { display: inline-block; padding: 18px 34px; border-radius: 999px; font-size: 40px; font-weight: 700; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<script>
+window.VIDEO_SIZE = { width: 1080, height: 1920 };
+const SHORT = window.SHORT, BEATS = window.BEATS || [];
+// ---------- helpers ----------
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const easeOut = (x) => 1 - Math.pow(1 - clamp(x), 3);
+const easeIn = (x) => Math.pow(clamp(x), 3);
+const easeInOut = (x) => { x = clamp(x); return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+const backOut = (x) => { x = clamp(x); const c = 1.7; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+const prog = (t, a, d) => clamp((t - a) / d);
+const lerp = (a, b, p) => a + (b - a) * p;
+const pulse = (T) => { let last = -9; for (const b of BEATS) if (b <= T) last = b; return Math.exp(-(T - last) * 5); };
+const K = (n) => 'K' + Math.round(n).toLocaleString('en-US');
+function el(parent, html, style = {}, cls = 'abs') {
+  const d = document.createElement('div'); d.className = cls; d.innerHTML = html; Object.assign(d.style, style); parent.appendChild(d); return d;
+}
+function inn(n, t, at, { dur = 0.45, x = 0, y = 50, s = 0.92, blur = 22, rot = 0 } = {}) {
+  const p = easeOut(prog(t, at, dur));
+  n._o = p; n._b = (1 - p) * blur; n._tx = (1 - p) * x; n._ty = (1 - p) * y; n._s = s + (1 - s) * p; n._r = (1 - p) * rot; return p;
+}
+function out(n, t, at, { dur = 0.3, x = 0, y = -40, s = 1.05, blur = 22 } = {}) {
+  const p = easeIn(prog(t, at, dur)); if (p <= 0) return 0;
+  n._o *= 1 - p; n._b += p * blur; n._tx += p * x; n._ty += p * y; n._s *= 1 + (s - 1) * p; return p;
+}
+function draw(n, extra = '') {
+  n.style.opacity = n._o ?? 1;
+  n.style.filter = (n._b || 0) > 0.05 ? `blur(${n._b.toFixed(2)}px)` : 'none';
+  n.style.transform = `translate(${(n._tx || 0).toFixed(1)}px, ${(n._ty || 0).toFixed(1)}px) scale(${(n._s ?? 1).toFixed(4)}) rotate(${(n._r || 0).toFixed(2)}deg) ${extra}`;
+}
+const anim = (n, t, a, D, oi = {}, oo = {}) => { inn(n, t, a, oi); out(n, t, D - 0.3, oo); draw(n, oi.extra || ''); };
+const float = (t, sp = 1, amp = 8, ph = 0) => `translateY(${(Math.sin(t * sp + ph) * amp).toFixed(1)}px)`;
+// Words that blur in one by one. `html` may contain <em> for the brand green.
+function words(parent, html, style) {
+  const box = el(parent, '', style, 'abs center big');
+  html.split(/(<br>|<[^>]+>[^<]*<\/[^>]+>|\s+)/).filter((s) => s && s.trim()).forEach((w) => {
+    if (w === '<br>') { box.appendChild(document.createElement('br')); return; }
+    const s = document.createElement('span'); s.className = 'w'; s.innerHTML = w.replace(/<em>/g, '<span style="color:var(--g)">').replace(/<\/em>/g, '</span>').replace(/<bad>/g, '<span style="color:var(--bad)">').replace(/<\/bad>/g, '</span>');
+    box.appendChild(s); box.appendChild(document.createTextNode(' '));
+  });
+  box._words = [...box.querySelectorAll('.w')];
+  return box;
+}
+function playWords(box, t, at, D, gap = 0.09) {
+  box._words.forEach((w, i) => { inn(w, t, at + i * gap, { y: 40, blur: 18 }); out(w, t, D - 0.3); draw(w); });
+}
+// Rolling kwacha number.
+function counter(parent, value, style) {
+  const box = el(parent, '', style, 'abs center big num');
+  const str = K(value);
+  box._d = [...str].map((ch) => {
+    if (!/\d/.test(ch)) { const s = document.createElement('span'); s.textContent = ch; box.appendChild(s); return null; }
+    const d = document.createElement('span'); d.className = 'digit';
+    const col = document.createElement('span'); col.innerHTML = Array.from({ length: 20 }, (_, i) => `<span>${i % 10}</span>`).join('');
+    d.appendChild(col); box.appendChild(d); return { col, v: Number(ch) };
+  }).filter(Boolean);
+  return box;
+}
+function rollCounter(box, t, at, dur = 1.1) {
+  box._d.forEach((d, i) => {
+    const p = easeOut(prog(t, at + i * 0.05, dur));
+    const pos = lerp(0, 10 + d.v, p);
+    d.col.style.transform = `translateY(${-pos}em)`;
+  });
+}
+function sub(root, text) { if (text) root._sub = el(root, text, {}, 'sub'); }
+function playSub(root, t, D) { if (root._sub) anim(root._sub, t, 0.15, D, { y: 20, blur: 10 }); }
+
+// ---------- scene types ----------
+const S = {};
+// Big statement. {lines:[html...], kicker, size}
+S.title = (root, c) => {
+  const kick = c.kicker ? el(root, c.kicker, { top: (c.top || 640) - 110 + 'px' }, 'abs center kicker') : null;
+  const box = words(root, c.lines.join('<br>'), { top: (c.top || 640) + 'px', fontSize: (c.size || 128) + 'px' });
+  sub(root, c.sub);
+  return (t, D, T) => {
+    if (kick) anim(kick, t, 0.05, D, { y: 20 });
+    playWords(box, t, 0.15, D, c.gap ?? 0.1);
+    box.style.transform = `scale(${1 + t * 0.012})`;
+    playSub(root, t, D);
+  };
+};
+// Two stacked panels compared. {top:{label,text,tone}, bottom:{...}}
+S.split = (root, c) => {
+  const mk = (p, y, h, i) => {
+    const bad = p.tone === 'bad';
+    const n = el(root, `<div class="kicker" style="opacity:.75">${p.label}</div><div class="big" style="font-size:${p.size || 104}px;margin-top:26px">${p.text}</div>${p.note ? `<div style="font-size:42px;font-weight:600;margin-top:26px;opacity:.8">${p.note}</div>` : ''}`,
+      { top: y + 'px', height: h + 'px', background: bad ? 'linear-gradient(160deg,#3a1d18,#24120f)' : 'linear-gradient(160deg,#17a35c,#0b6b3a)', boxShadow: '0 40px 90px -40px rgba(0,0,0,.7)' }, 'abs panel');
+    return n;
+  };
+  const a = mk(c.top, 230, 680, 0), b = mk(c.bottom, 960, 680, 1);
+  sub(root, c.sub);
+  return (t, D) => {
+    anim(a, t, 0.05, D, { y: -80 });
+    anim(b, t, c.bottomAt ?? 0.6, D, { y: 80 });
+    playSub(root, t, D);
+  };
+};
+// Phone with a real app screen. {img, caption, scrollTo (px of the 1170-wide screen), top}
+S.phone = (root, c) => {
+  const cap = c.caption ? words(root, c.caption, { top: '150px', fontSize: (c.size || 84) + 'px' }) : null;
+  const ph = el(root, `<div class="scr"><img src="img/${c.img}.png"></div>`, { left: '240px', top: (c.top || 470) + 'px', transformOrigin: '50% 0' }, 'abs phone');
+  const img = ph.querySelector('img');
+  sub(root, c.sub);
+  return (t, D) => {
+    if (cap) playWords(cap, t, 0.05, D, 0.07);
+    inn(ph, t, 0.2, { y: 300, s: 0.9, blur: 18, dur: 0.6 }); out(ph, t, D - 0.3, { y: 200 }); draw(ph, float(t, 1.4, 10) + (c.sub ? ' scale(0.86)' : ''));
+    const scroll = (c.scrollTo || 0) * (564 / 1170);
+    img.style.transform = `translateY(${-scroll * easeInOut(prog(t, 0.9, Math.max(0.6, D - 1.6)))}px)`;
+    playSub(root, t, D);
+  };
+};
+// One or more real app cards. {cards:[name], caption}
+S.cards = (root, c) => {
+  const cap = c.caption ? words(root, c.caption, { top: (c.capTop || 200) + 'px', fontSize: (c.size || 84) + 'px' }) : null;
+  let y = c.top || 560;
+  const cards = c.cards.map((name, i) => {
+    const w = c.width || 900;
+    const n = el(root, `<img src="img/${name}.png">`, { left: (1080 - w) / 2 + 'px', top: y + 'px', width: w + 'px' }, 'abs card');
+    y += (c.heights?.[i] || 420) + 40;
+    return n;
+  });
+  sub(root, c.sub);
+  return (t, D) => {
+    if (cap) playWords(cap, t, 0.05, D, 0.07);
+    cards.forEach((n, i) => { inn(n, t, (c.at || 0.35) + i * (c.stagger || 0.35), { y: 160, s: 0.9, rot: i % 2 ? 2 : -2, dur: 0.55 }); out(n, t, D - 0.3); draw(n, float(t, 1.2, 6, i)); });
+    playSub(root, t, D);
+  };
+};
+// Big number. {label, value, note}
+S.counter = (root, c) => {
+  const lab = words(root, c.label, { top: '620px', fontSize: '72px' });
+  const num = counter(root, c.value, { top: '820px', fontSize: (c.size || (K(c.value).length > 7 ? 180 : 220)) + 'px', color: c.color || 'var(--g)' });
+  const note = c.note ? words(root, c.note, { top: '1140px', fontSize: '56px', fontWeight: 600 }) : null;
+  sub(root, c.sub);
+  return (t, D, T) => {
+    playWords(lab, t, 0.05, D, 0.07);
+    inn(num, t, 0.3, { y: 40 }); out(num, t, D - 0.3); draw(num, `scale(${1 + 0.03 * pulse(T)})`);
+    rollCounter(num, t, 0.3);
+    if (note) playWords(note, t, 1.3, D, 0.06);
+    playSub(root, t, D);
+  };
+};
+// Items with amounts and share bars, one per beat-ish. {title, items:[{label, amount, share, hot}]}
+S.list = (root, c) => {
+  const head = words(root, c.title, { top: '170px', fontSize: '84px' });
+  const box = el(root, '', { left: '80px', right: '80px', top: (c.top || 470) + 'px' });
+  const max = c.max || Math.max(...c.items.map((i) => i.amount));
+  const rows = c.items.map((it) => {
+    const r = el(box, `<div style="display:flex;justify-content:space-between;align-items:baseline"><span>${it.label}</span><span style="color:${it.hot ? 'var(--bad)' : 'var(--g)'}">${K(it.amount)}</span></div>
+      <div class="bar" style="width:${(it.amount / max) * 100}%;background:${it.hot ? 'var(--bad)' : 'var(--g)'}"></div>${it.note ? `<div style="font-size:36px;font-weight:600;opacity:.75;margin-top:10px">${it.note}</div>` : ''}`, { position: 'relative', display: 'block' }, 'row');
+    return r;
+  });
+  sub(root, c.sub);
+  return (t, D) => {
+    playWords(head, t, 0.05, D, 0.07);
+    rows.forEach((r, i) => {
+      const at = 0.5 + i * (c.step || 0.45);
+      inn(r, t, at, { x: 120, y: 0, s: 1, blur: 16 }); out(r, t, D - 0.3); draw(r);
+      r.querySelector('.bar').style.transform = `scaleX(${easeOut(prog(t, at + 0.15, 0.6))})`;
+    });
+    playSub(root, t, D);
+  };
+};
+// Checklist / steps. {title, items:[{k, text}]}
+S.steps = (root, c) => {
+  const head = words(root, c.title, { top: '170px', fontSize: (c.size || 92) + 'px' });
+  const rows = c.items.map((it, i) => el(root, `<span class="tick">${it.k}</span><span style="font-size:56px;font-weight:700;line-height:1.15">${it.text}</span>`,
+    { left: '90px', right: '90px', top: (c.top || 560) + i * (c.gap || 250) + 'px', display: 'flex', gap: '36px', alignItems: 'center' }));
+  sub(root, c.sub);
+  return (t, D) => {
+    playWords(head, t, 0.05, D, 0.07);
+    rows.forEach((r, i) => { inn(r, t, 0.5 + i * (c.step || 0.5), { x: 0, y: 70, blur: 16 }); out(r, t, D - 0.3); draw(r); });
+    playSub(root, t, D);
+  };
+};
+// Brand end card.
+S.end = (root, c) => {
+  const icon = el(root, '<img src="img/icon.png" style="width:240px;height:240px;border-radius:56px;box-shadow:0 40px 80px -30px rgba(0,0,0,.6)">', { left: '420px', top: '430px' });
+  const name = words(root, c.name || 'Ndalama', { top: '740px', fontSize: '150px' });
+  const tag = words(root, c.tagline || 'Know where your kwacha goes.', { top: '930px', fontSize: '60px', fontWeight: 600 });
+  const free = el(root, 'Free on <b>APKPure</b> &amp; <b>Uptodown</b>', { top: '1150px', fontSize: '54px', fontWeight: 600 }, 'abs center');
+  const soon = el(root, c.soon || 'Google Play &amp; iPhone: coming soon', { top: '1250px', fontSize: '42px', fontWeight: 500, opacity: .7 }, 'abs center');
+  const pills = el(root, '<span class="pill" style="background:#fff;color:var(--g2)">Free</span> <span class="pill" style="background:rgba(255,255,255,.16)">No data needed</span> <span class="pill" style="background:rgba(255,255,255,.16)">Private</span>', { top: '1380px' }, 'abs center');
+  sub(root, c.sub);
+  return (t, D, T) => {
+    inn(icon, t, 0.05, { y: 0, s: 0.6, blur: 20, dur: 0.6 }); draw(icon, `scale(${1 + 0.04 * pulse(T)}) ${float(t, 1.3, 8)}`);
+    playWords(name, t, 0.35, D + 9, 0.06); playWords(tag, t, 0.8, D + 9, 0.06);
+    inn(free, t, 1.3, { y: 30 }); draw(free);
+    const so = inn(soon, t, 1.6, { y: 30 }); draw(soon); soon.style.opacity = 0.7 * so;
+    inn(pills, t, 1.9, { y: 30 }); draw(pills);
+    playSub(root, t, D + 9);
+  };
+};
+
+// ---------- timeline ----------
+const beatLen = 60 / SHORT.bpm;
+const TL = window.TIMELINE ? Object.fromEntries(window.TIMELINE.map((s) => [s.id, s])) : null;
+const stage = document.getElementById('stage');
+let t0 = SHORT.offset || 0;
+const scenes = SHORT.scenes.map((c, i) => {
+  const id = c.id || 's' + i;
+  const dur = TL?.[id] ? TL[id].dur : c.beats * beatLen;
+  const root = el(stage, '', {}, 'scene ' + (c.bg || 'dark'));
+  if (c.glow !== false && (c.bg || 'dark') !== 'light') el(root, '', {}, 'glow');
+  const sc = { id, start: TL?.[id] ? TL[id].start : t0, dur, root, update: S[c.type](root, c) };
+  t0 = sc.start + dur;
+  return sc;
+});
+window.TOTAL = t0;
+window.SCENES = scenes.map(({ id, start, dur }) => ({ id, start, dur }));
+window.renderAt = (T) => {
+  for (const s of scenes) {
+    const on = T >= s.start && T < s.start + s.dur + (s === scenes[scenes.length - 1] ? 1 : 0);
+    s.root.style.display = on ? 'block' : 'none';
+    if (on) { const g = s.root.querySelector('.glow'); if (g) g.style.opacity = 0.45 + 0.4 * pulse(T); s.update(T - s.start, s.dur, T); }
+  }
+};
+renderAt(0);
+</script>
+</body>
+</html>

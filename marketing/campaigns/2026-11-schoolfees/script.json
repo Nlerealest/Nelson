@@ -1,0 +1,8 @@
+[
+  { "id": "hook",   "vo": "School fees are due in January. Don't wait for the panic." },
+  { "id": "target", "vo": "Say the fees are one hundred and twenty thousand kwacha, and you've already saved forty five thousand." },
+  { "id": "plan",   "vo": "Ndalama works out the rest. Eighteen thousand, seven hundred and fifty kwacha a month. About six hundred and twenty five a day." },
+  { "id": "warn",   "vo": "If your spending puts the fees at risk, it warns you early, while there's still time to fix it." },
+  { "id": "tip",    "vo": "It even tells you where to cut back." },
+  { "id": "end",    "vo": "Ndalama. Free on APK Pure and Uptodown." }
+]

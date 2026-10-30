@@ -10,6 +10,8 @@ Twizzy is Claude running Ndalama's marketing on a schedule. Read this whole file
 
 - **From the dashboard, any time:** approving an idea, approving or asking for changes on a post, approving a reply, adding a reference, or typing in **Overview → Tell Twizzy** sends a message (starting `Twizzy:`) straight to Claude's session. Treat each one as a run trigger: do what it says, following this playbook, then log it in `activity`.
 - **Every morning at 07:52 (Malawi time)** a scheduled task runs §3 in full, so nothing approved is missed if a message didn't arrive.
+- **Every Monday at 07:23** a scheduled task writes the week's 4–5 new ideas (§3 step 3).
+- **"Make it" on an idea** means: produce the video now (§4) and put it in Approvals. **A new reference** means: open it (link, or the uploaded file from the dashboard's assets), study it (§4.1), write `learned`, set `status: studied`, and use the style in the next videos.
 - The dashboard's **LISTENING** pill shows whether messages reach Claude. If it says off, the owner's approvals still wait in the database for the morning run.
 
 ## 1. What Ndalama is (say only true things)
@@ -40,7 +42,11 @@ Friendly, warm, practical, proudly Malawian. Short sentences. A little Chichewa 
    - `concepts` with `status: approved`: produce them (§4), then set `status: produced`.
    - `inbox` items with `status: approved`: send the reply where possible, set `status: sent`.
    - New `references` (`status: new`): study each (§4.1), write what you learned in `learned`, set `status: studied`.
-3. **Plan:** keep the week's posts in line with Settings → frequency. Propose 2–3 new `concepts` each week (vary them: tips, feature demos, relatable money moments, seasonal campaigns, challenges). Never repeat a concept already in the list.
+3. **Plan:** keep the week's posts in line with Settings → frequency. **Every Monday, propose 4–5 new `concepts`** (never more than 5) as `status: proposed`:
+   - First search the web for what is happening in Malawi and the world that week: prices (fuel, maize, kwacha rate), payday and school calendar, holidays and festivals, football, viral TikTok formats and sounds. Note the source in each concept's `pitch`.
+   - Tie each idea to something relatable that week, and vary them: tips, feature demos, relatable money moments, seasonal campaigns, challenges, trends.
+   - Use only §1 facts about the app. Never make light of hardship, disasters or politics.
+   - Never repeat a concept already in the list. Mark last week's ideas still `proposed` as `passed` with `note: "expired"` only if they no longer fit the moment.
 4. **Make** the next video or poster for each approved concept (§4) and add it to `posts` with `status: awaiting_approval`.
 5. **Engage:** for each new comment or review you can see, add an `inbox` item with a drafted reply (§7).
 6. **Ask for references:** if none arrived in the last 2 weeks, set `config/request` to `{open: true, text: "…"}` asking for 2–3 videos the owner likes.
@@ -63,6 +69,8 @@ Look at the contact sheet and name what makes it work: background and colour, ty
 ### 4.2 Pick a starting template
 - `studio/templates/explainer/`: clean white, word-by-word blur reveals, floating app cards, **voiceover** over original music. Scenes are timed from the voice lines.
 - `studio/templates/showreel/`: dark stage with glow, 3D chrome title, bouncing coin, bento grid, rolling counters, **no voiceover**, every cut on the beat.
+
+- `studio/templates/short/` (**use this for TikTok**): vertical 1080x1920. Write the story as scenes in `short.js` (title, split, phone, cards, counter, list, steps, end); `bash studio/make_short.sh <campaign> preview` composes original music and saves one still per scene, and `… video` renders the finished MP4. Add `script.json` + `timeline.py` for a voiceover. Examples: `campaigns/2026-11-*`.
 
 Copy one into a new campaign folder and link the shared images:
 ```bash
