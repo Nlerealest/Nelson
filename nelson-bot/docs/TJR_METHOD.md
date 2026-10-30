@@ -15,7 +15,7 @@ Nelson's notes on TJR's free YouTube bootcamps: **Boot Camp** (56 videos) and **
 | Entry | Sweep + break of structure, then a pullback into an **order block** or a **fair value gap**. The highest-probability version also has the entry in **discount** (buys) or **premium** (sells) of that leg. Don't enter just because the gap is touched: wait for a reaction. | Limit order in the FVG, in discount/premium of the sweep-to-break leg (`premium_discount_mode: leg`). |
 | Stop loss | Beyond the **sweep extreme**, where the idea is proven wrong, plus a little room for the spread. Never a fixed number of pips. | Sweep extreme + 0.2 ATR. |
 | Take profit | At the next **liquidity**: the first target is at least 1:1 (close half and move the stop to break-even), then 2–4 more targets at the following levels. | `target_mode: liquidity`. First target ≥ 1R (half closed, stop to break-even), final target the next level, capped at 3R. |
-| Sessions | Trade the London or New York open, within the first 1–1.5 hours. Never Asia, and nothing late in the session. | 06:00–17:00 UTC tested best on gold (see below). |
+| Sessions | Trade the London or New York open, within the first 1–1.5 hours. Never Asia, and nothing late in the session. | **Every session** (you asked for it): any setup that passes every other check is traded, in Asia too. 06:00–17:00 UTC tested a little better (see below); set `killzones_utc` to go back. |
 | News | **No trading at all on CPI, PPI, FOMC and NFP days.** For other red-folder news, wait for the release and let price settle. Trade smaller on news days. Skip US bank holidays. | Those four skip the whole day (`skip_day_keywords`). Other high-impact days use **half size** (`news_day_risk_factor: 0.5`). PPI added to tier-1. |
 | Risk | 1–3% per day, total. 1 trade a day (2 at most, with the day's risk split). Learn from every loss, and don't switch strategies after a losing streak. | 0.5% per trade, 2% daily stop, 3-loss stop, and the learning system (lessons after every loss). |
 | When not to trade | Against the daily bias, when timeframes disagree, in choppy markets, on big news days. "The best traders take the most days off." | Daily bias filter, news days, learned rules. |
@@ -32,8 +32,10 @@ The backtests used 17 months of XAUUSD M5 from the MT5 demo feed (May 2025 – O
 | TJR core (daily bias, any break, FVG, leg premium/discount) | 15 | 53% | +0.14 | 1.22 | 1.3% | +0.02 | +0.49 |
 | + liquidity targets | 15 | 53% | +0.34 | 1.61 | 1.3% | +0.32 | +0.41 |
 | + liquidity targets capped at 3R, 06:00–17:00 | 22 | 55% | +0.54 | 2.11 | 1.3% | +0.61 | +0.44 |
-| **+ 24-candle sweep window (new default)** | **24** | **58%** | **+0.59** | **2.32** | **1.3%** | **+0.61** | **+0.58** |
+| **+ 24-candle sweep window (06:00–17:00 only)** | **24** | **58%** | **+0.59** | **2.32** | **1.3%** | **+0.61** | **+0.58** |
 | Same with the 4-hour filter on | 11 | 64% | +0.98 | 3.62 | 0.5% | +1.24 | +0.85 |
+| **Every session (current default)** | **53** | **49%** | **+0.29** | **1.52** | **3.1%** | **+0.42** | **+0.18** |
+| Every session + 4-hour filter | 27 | 59% | +0.81 | 2.87 | 1.0% | +0.85 | +0.78 |
 | Order-block entries (sweep candle body) | 27 | 11% | −0.74 | 0.16 | 9.1% | −0.75 | −0.73 |
 | FVG without premium/discount | 71 | 41% | −0.15 | 0.73 | 6.4% | +0.01 | −0.45 |
 
@@ -42,6 +44,7 @@ What the tests show:
 - **The daily bias, liquidity targets and leg-based premium/discount** made the biggest difference.
 - **Premium/discount is essential.** Without it the same setups lose money.
 - **Order-block entries lost badly** as implemented: the stop sits just beyond the sweep wick, and price comes back to retest it. They're left as an option (`entry_mode: ob`) but are off.
+- **Every session** doubles the trades (about 3 a month) and makes slightly more money (+6.9% vs +6.3%), but each trade is weaker (+0.29R vs +0.59R) and the worst drawdown grows from 1.3% to 3.1%. In pips: +1,208 every session, +1,388 for 06:00–17:00.
 - **The 4-hour filter** gives the best trades but very few of them. Turn it on with `use_h4_bias: true` if you prefer fewer, cleaner trades.
 
 **Be careful with these numbers.** 24 trades is a small sample, and the default was picked after comparing several variants on the same data, so live results will likely be weaker. Run it on demo for 1–3 months, and let the learning system (the app's Learn tab) show what actually works.

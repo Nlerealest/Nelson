@@ -301,13 +301,13 @@ class NelsonStrategy:
              "detail": f"Delta {delta:+.0f}: {'buyers' if delta > 0 else 'sellers'} more aggressive"
                        + ("" if c.require_delta_confirmation else off)},
             {"title": "Session", "ok": in_zone and not friday,
-             "detail": session_name(close_time) + (" (killzone)" if in_zone else " (outside the killzones)")
+             "detail": session_name(close_time) + (" (trading hours)" if in_zone else " (outside the trading-hours killzones)")
                        + (", late Friday" if friday else "")},
             {"title": "News", "ok": not blocked,
              "detail": f"High-impact news: {event}" if blocked else "No high-impact USD news nearby"},
             {"title": "Risk", "ok": risk > 0 and sl_ok,
-             "detail": f"Stop {abs(risk):.2f} away ({abs(risk) / ai:.1f} ATR), target "
-                       f"{abs(tp - entry) / risk if risk else 0:.1f}R"
+             "detail": f"Stop {abs(risk):.2f} away ({abs(risk) / c.pip_size:.0f} pips, {abs(risk) / ai:.1f} ATR), "
+                       f"target {abs(tp - entry) / c.pip_size:.0f} pips ({abs(tp - entry) / risk if risk else 0:.1f}R)"
                        + (f", first partial at {partial_r:.1f}R" if partial_r else "")},
         ]
 
@@ -315,7 +315,7 @@ class NelsonStrategy:
             (risk > 0, "stop on wrong side of entry"),
             (daily_ok, "against the daily bias"),
             (h4_ok, "against the 4-hour structure"),
-            (in_zone, "outside London/New York killzones"),
+            (in_zone, "outside the trading-hours killzones"),
             (not friday, "late Friday"),
             (sl_ok, f"stop {risk:.2f} outside {c.min_sl_atr}-{c.max_sl_atr} ATR"),
             (trend_ok, "against H1 structure"),

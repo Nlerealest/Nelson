@@ -59,7 +59,8 @@ class NelsonBot:
         tg = cfg.telegram
         self.phone = TelegramLink(tg.token, tg.chat_ids) if tg.enabled and tg.token and tg.chat_ids else None
         self.app = AppServer(cfg.app.host, cfg.app.port, cfg.app.api_key) if cfg.app.enabled else None
-        self.signals = SignalBook(Path(cfg.log_dir) / "signals.json", spread=cfg.backtest.spread_usd)
+        self.signals = SignalBook(Path(cfg.log_dir) / "signals.json", spread=cfg.backtest.spread_usd,
+                                  pip=cfg.strategy.pip_size)
         self.learner = Learner(Path(cfg.log_dir) / "learning.json", cfg.learning, cfg.strategy.rr_target)
         nc = cfg.notify
         self.pusher = Pusher(nc.server, nc.topic) if nc.enabled and nc.topic else None
@@ -421,6 +422,7 @@ class NelsonBot:
                   f"Why: swept {s.level_name}; " + "; ".join(s.reasons[1:3]), priority=4,
                   tags=("chart_with_upwards_trend" if s.direction > 0 else "chart_with_downwards_trend",))
         self.trades[str(res.order)] = {"risk": s.risk, "partial": False, "dir": s.direction, "entry": s.entry,
+                                       "lots": lots,
                                        "partial_r": s.partial_r,
                                        "expires": str(pd.Timestamp(s.time) + pd.Timedelta(minutes=self.minutes * (self.cfg.strategy.order_expiry_bars + 1)))}
         self._save()
@@ -503,27 +505,35 @@ class NelsonBot:
                 if not info.get("filled"):
                     self.risk.on_open()
                 self.risk.on_close(pnl, balance)
-                self.journal.write("closed", ticket=ticket, pnl=round(pnl, 2))
-                self.notify(f"{'WIN' if pnl > 0 else 'LOSS' if pnl < 0 else 'FLAT'} #{ticket} closed: {pnl:+.2f}. "
-                            f"Balance {balance:.2f}")
-                self._closed_alert(ticket, info, pnl, reason, balance)
+                pips = self._pips_from_pnl(pnl, info.get("lots"))
+                self.journal.write("closed", ticket=ticket, pnl=round(pnl, 2), pips=pips)
+                self.notify(f"{'WIN' if pnl > 0 else 'LOSS' if pnl < 0 else 'FLAT'} #{ticket} closed: {pnl:+.2f}"
+                            + (f" ({pips:+.1f} pips)" if pips is not None else "") + f". Balance {balance:.2f}")
+                self._closed_alert(ticket, info, pnl, reason, balance, pips)
         self._save()
 
-    def _closed_alert(self, ticket, info: dict, pnl: float, reason: str | None, balance: float) -> None:
+    def _pips_from_pnl(self, pnl: float, lots) -> float | None:
+        """Pips won or lost on the whole position, from the money result (after costs)."""
+        if not lots:
+            return None
+        return round(pnl / (float(lots) * self.cfg.backtest.contract_size * self.cfg.strategy.pip_size), 1)
+
+    def _closed_alert(self, ticket, info: dict, pnl: float, reason: str | None, balance: float,
+                      pips: float | None = None) -> None:
         if reason == "sl" and info.get("be"):
             reason = "breakeven"
         if reason is None:
             reason = "closed"
         if info.get("flattened"):
             reason = "closed"
-        x = self.signals.update_ticket(ticket, reason, self.broker.now_utc(), pnl=round(pnl, 2))
+        x = self.signals.update_ticket(ticket, reason, self.broker.now_utc(), pnl=round(pnl, 2), result_pips=pips)
         if x is not None and reason == "tp":
             x["result_r"] = x.get("rr")
         elif x is not None and reason == "sl":
             x["result_r"] = -1.0
         self.signals.save()
         side = "BUY" if info.get("dir", 1) > 0 else "SELL"
-        money = f"{pnl:+.2f}"
+        money = f"{pnl:+.2f}" + (f" ({pips:+.1f} pips)" if pips is not None else "")
         if reason == "tp":
             self.push(f"TAKE PROFIT hit: {side} XAUUSD {money}", f"#{ticket} closed in profit. Balance {balance:.2f}",
                       priority=5, tags=("white_check_mark", "moneybag"))

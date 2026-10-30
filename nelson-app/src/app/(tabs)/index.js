@@ -2,7 +2,7 @@ import { StyleSheet, View } from 'react-native';
 import { useNelson } from '../../nelson';
 import { Banner, Button, Card, Empty, Pill, Row, Screen, T } from '../../components/ui';
 import { C } from '../../theme';
-import { money, pct, price, signedMoney, timeAgo, timeUntil } from '../../format';
+import { money, pct, pipsText, price, signedMoney, timeAgo, timeUntil } from '../../format';
 import { confirm, tell } from '../../confirm';
 
 const RISK_STEPS = [0.25, 0.5, 0.75, 1.0];
@@ -89,6 +89,7 @@ export default function Home() {
               Entry {price(p.open)} · SL {price(p.sl)} · TP {price(p.tp)}
             </T>
             <T small muted>
+              {p.pips !== null && p.pips !== undefined ? `${pipsText(p.pips)} · ` : ''}
               {p.r !== null ? `${p.r > 0 ? '+' : ''}${p.r}R` : ''}{p.partial_taken ? ' · partial taken' : ''}
               {p.sl === p.open ? ' · risk-free (break-even)' : ''}
             </T>
@@ -152,6 +153,10 @@ export default function Home() {
           sub={`${s.stats.wins} wins · ${s.stats.losses} losses`} />
         <Row label="Total result" value={signedMoney(s.stats.total_pnl, cur)}
           color={s.stats.total_pnl >= 0 ? C.green : C.red} />
+        {s.stats.total_pips !== null && s.stats.total_pips !== undefined ? (
+          <Row label="Total pips" value={pipsText(s.stats.total_pips)}
+            color={s.stats.total_pips >= 0 ? C.green : C.red} />
+        ) : null}
       </Card>
     </Screen>
   );

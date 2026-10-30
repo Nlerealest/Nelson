@@ -33,7 +33,8 @@ strategy:                     # TJR bootcamp model - see docs/TJR_METHOD.md
   use_premium_discount: true  # buy in discount / sell in premium...
   premium_discount_mode: leg  # ...of the leg from the sweep to the break of structure
   use_london_levels: true     # London session high/low count as liquidity
-  killzones_utc: [["06:00", "17:00"]]   # London open to the New York afternoon
+  killzones_utc: [["00:00", "24:00"]]   # every session; [["06:00", "17:00"]] = London + New York only
+  pip_size: 0.10              # gold: 1 pip = a $0.10 move
   sweep_max_age_bars: 24      # the break of structure must come within 24 candles of the sweep
   displacement_atr: 0.0       # any candle closing through the swing counts (TJR)
   require_volume_spike: false

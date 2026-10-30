@@ -31,7 +31,8 @@ FINAL = ("tp", "sl", "breakeven", "closed", "stop_out", "expired", "missed")
 
 
 class SignalBook:
-    def __init__(self, path: Path, spread: float = 0.25, keep: int = 400):
+    def __init__(self, path: Path, spread: float = 0.25, keep: int = 400, pip: float = 0.10):
+        self.pip = pip
         self.path = Path(path)
         self.spread = spread
         self.keep = keep
@@ -54,6 +55,10 @@ class SignalBook:
                                         default=str), encoding="utf-8")
 
     # ---------- adding
+    def pips(self, a: float, b: float) -> float:
+        """Distance between two prices in pips."""
+        return round(abs(a - b) / self.pip, 1)
+
     def _find(self, sid: str) -> dict | None:
         return next((x for x in self.items if x["id"] == sid), None)
 
@@ -73,6 +78,7 @@ class SignalBook:
             "expires": (confirmed + pd.Timedelta(minutes=bar_minutes * expiry_bars)).isoformat(),
             "side": s.side, "dir": s.direction, "entry": s.entry, "sl": s.sl, "tp": s.tp, "rr": rr,
             "risk": round(s.risk, 2), "level": s.level_name, "steps": s.steps, "reasons": s.reasons,
+            "sl_pips": self.pips(s.entry, s.sl), "tp_pips": self.pips(s.entry, s.tp),
             "features": getattr(s, "features", {}) or {},
             "status": status, "status_time": confirmed.isoformat(), "note": note, "track": track,
             "ticket": ticket, "result_r": None, "pnl": None,
@@ -101,6 +107,7 @@ class SignalBook:
             "id": sid, "kind": "skipped", "time": t.isoformat(), "confirmed": confirmed.isoformat(),
             "expires": (confirmed + pd.Timedelta(minutes=bar_minutes * expiry_bars)).isoformat(),
             "side": sk["side"], "dir": d, "entry": sk["entry"], "sl": sk["sl"], "tp": sk["tp"], "rr": rr,
+            "sl_pips": self.pips(sk["entry"], sk["sl"]), "tp_pips": self.pips(sk["entry"], sk["tp"]),
             "steps": sk["steps"], "features": sk.get("features", {}), "status": "skipped", "note": sk["reason"],
             "track": "shadow" if followable else "none",
         }
@@ -157,9 +164,9 @@ class SignalBook:
                 else:
                     continue
             if (worst - x["sl"]) * d <= 0:                      # stop first if both in one bar
-                events.append(self._set(x, "sl", t, hold, result_r=-1.0))
+                events.append(self._set(x, "sl", t, hold, result_r=-1.0, result_pips=-self.pips(x["entry"], x["sl"])))
             elif (best - x["tp"]) * d >= 0 and h["status_time"] != t.isoformat():
-                events.append(self._set(x, "tp", t, hold, result_r=x["rr"]))
+                events.append(self._set(x, "tp", t, hold, result_r=x["rr"], result_pips=self.pips(x["entry"], x["tp"])))
         if events:
             self.save()
         return events
@@ -190,6 +197,7 @@ class SignalBook:
             "open": sum(s.get("status") in OPEN for s in sims),
             "no_fill": sum(s.get("status") in ("expired", "missed") for s in sims),
             "result_r": round(sum(s.get("result_r") or 0 for s in sims), 2),
+            "result_pips": round(sum(s.get("result_pips") or 0 for s in sims), 1),
         }
 
     def missed(self, n: int = 80) -> dict:

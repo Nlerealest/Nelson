@@ -14,7 +14,7 @@ Since the TJR update Nelson follows the method from TJR's free bootcamps, tested
 | --- | --- |
 | **1. Daily bias** | The **daily market structure**: the direction of the last daily candle that **closed** beyond the most recent swing (a break of structure). Nelson only buys when the daily is bullish and only sells when it is bearish. The 4-hour can be required to agree too (`use_h4_bias`). |
 | **2. Liquidity map** | Where stop orders are resting: **previous day high/low**, **Asian** and **London session highs/lows**, **equal highs/lows** and recent swing points. |
-| **3. Liquidity sweep** | Between **06:00 and 17:00 UTC** (London open to the New York afternoon), price wicks through one of those levels and **closes back inside**, so the stops were taken and the move was rejected. |
+| **3. Liquidity sweep** | In **any session** (Asia, London, New York), price wicks through one of those levels and **closes back inside**, so the stops were taken and the move was rejected. |
 | **4. Break of structure** | Within 24 candles, a candle **closes** through the swing that led into the sweep: the market structure has shifted, leaving a **fair value gap (FVG)**. |
 | **5. Entry** | A limit order in the FVG, only if it sits in **discount** (buys) or **premium** (sells) of the leg from the sweep to the break. The stop goes beyond the sweep wick plus a buffer. |
 | **6. Targets** | The next **liquidity levels**. At the first one (at least 1R away) half the position closes and the stop moves to break-even. The rest runs to the next level, at most 3R away. Orders not filled within 1 hour are cancelled. |

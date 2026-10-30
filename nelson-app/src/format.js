@@ -107,7 +107,7 @@ export function journalText(row) {
     case 'filled': return `Filled ${at} (${row.lots} lots)`;
     case 'partial': return `Partial profit: ${row.lots} lots ${at}`;
     case 'breakeven': return `Stop moved to break-even (${price(row.sl)})`;
-    case 'closed': return `Trade closed ${signedMoney(row.pnl)}`;
+    case 'closed': return `Trade closed ${signedMoney(row.pnl)}${row.pips ? ` (${pipsText(row.pips)})` : ''}`;
     case 'cancel': return `Order cancelled: ${row.details}`;
     case 'flatten': return `Closed early: ${row.details}`;
     case 'skipped': return `${side}setup skipped: ${row.details}`;
@@ -174,9 +174,16 @@ export function signalStatus(status) {
 }
 
 // Result in R (risk units) or money, for a finished signal
+export function pipsText(p) {
+  if (p === null || p === undefined || p === '') return '';
+  const v = Math.round(Number(p) * 10) / 10;
+  return `${v > 0 ? '+' : ''}${v} pips`;
+}
+
 export function signalResult(sig) {
-  if (sig.pnl !== null && sig.pnl !== undefined) return signedMoney(sig.pnl);
-  if (sig.result_r !== null && sig.result_r !== undefined) return `${sig.result_r > 0 ? '+' : ''}${sig.result_r}R`;
+  const pips = pipsText(sig.result_pips);
+  if (sig.pnl !== null && sig.pnl !== undefined) return signedMoney(sig.pnl) + (pips ? ` · ${pips}` : '');
+  if (sig.result_r !== null && sig.result_r !== undefined) return `${sig.result_r > 0 ? '+' : ''}${sig.result_r}R` + (pips ? ` · ${pips}` : '');
   return '';
 }
 
@@ -200,7 +207,8 @@ export function wouldBe(sig) {
   const s = sig && sig.sim;
   if (!s) return null;
   const [label, tone] = WOULD[s.status] || [s.status, 'neutral'];
-  return { label, tone, result: rText(s.result_r) };
+  const pips = pipsText(s.result_pips);
+  return { label, tone, result: rText(s.result_r) + (pips && rText(s.result_r) ? ` · ${pips}` : '') };
 }
 
 export function hoursLabel(h) {
@@ -219,7 +227,7 @@ export function windowText(w) {
   if (w.open) parts.push(`${w.open} still open`);
   if (w.no_fill) parts.push(`${w.no_fill} no fill`);
   const head = `${w.trades} would-be trade${w.trades === 1 ? '' : 's'}`;
-  return `${head}: ${parts.join(', ') || 'waiting'}${w.wins || w.losses ? ` · ${rText(w.result_r)}` : ''}`;
+  return `${head}: ${parts.join(', ') || 'waiting'}${w.wins || w.losses ? ` · ${rText(w.result_r)}${w.result_pips ? ` · ${pipsText(w.result_pips)}` : ''}` : ''}`;
 }
 
 export function recordText(b) {

@@ -14,7 +14,7 @@ const HOW = [
   ['Break of structure', 'A candle then closes through the swing that led into the sweep: the market has turned.'],
   ['Fair value gap', 'That move leaves a gap; Nelson places a limit order inside it.'],
   ['Premium / discount', 'Buy only in the lower half of the leg from the sweep to the break, sell only in the upper half.'],
-  ['Session and news', 'Between 06:00 and 17:00 UTC. No trading on CPI, PPI, FOMC or NFP days, half size on other news days.'],
+  ['Session and news', 'Any session (Asia, London, New York). No trading on CPI, PPI, FOMC or NFP days, half size on other news days.'],
   ['Targets', 'The next liquidity levels: half closed at the first (stop to break-even), the rest at the next, up to 3R.'],
   ['Risk', 'Stop beyond the sweep wick, a fixed small % of the balance per trade.'],
 ]

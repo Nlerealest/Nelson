@@ -173,6 +173,7 @@ def _journal(bot, limit: int = 60) -> tuple[list[dict], dict]:
         rows = []
     closed = [r for r in rows if r.get("event") == "closed" and r.get("pnl")]
     pnl = [float(r["pnl"]) for r in closed]
+    pips = [float(r["pips"]) for r in closed if r.get("pips")]
     today = pd.Timestamp.utcnow().strftime("%Y-%m-%d")
     stats = {
         "closed_trades": len(pnl),
@@ -180,6 +181,7 @@ def _journal(bot, limit: int = 60) -> tuple[list[dict], dict]:
         "losses": sum(p < 0 for p in pnl),
         "win_rate_pct": round(sum(p > 0 for p in pnl) / len(pnl) * 100, 1) if pnl else None,
         "total_pnl": round(sum(pnl), 2),
+        "total_pips": round(sum(pips), 1) if pips else None,
         "today_closed": sum(r["logged_utc"].startswith(today) for r in closed),
     }
     return list(reversed(rows[-limit:])), stats
@@ -198,6 +200,8 @@ def build_snapshot(bot, now: pd.Timestamp, acc) -> dict:
             "open": p.price_open, "sl": p.sl, "tp": p.tp, "price": getattr(p, "price_current", None),
             "profit": round(float(getattr(p, "profit", 0.0)), 2),
             "r": round((p.price_current - p.price_open) * d / risk, 2) if risk and hasattr(p, "price_current") else None,
+            "pips": round((p.price_current - p.price_open) * d / bot.cfg.strategy.pip_size, 1)
+            if hasattr(p, "price_current") else None,
             "partial_taken": bool(info.get("partial")),
         })
     orders = []

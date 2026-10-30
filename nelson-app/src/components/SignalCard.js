@@ -27,6 +27,11 @@ export default function SignalCard({ sig }) {
         <T mono style={{ marginTop: 8 }}>
           Entry {price(sig.entry)} · SL {price(sig.sl)} · TP {price(sig.tp)}
         </T>
+        {sig.sl_pips ? (
+          <T small muted mono style={{ marginTop: 2 }}>
+            Stop {sig.sl_pips} pips · Target {sig.tp_pips} pips{sig.rr ? ` · ${sig.rr}R` : ''}
+          </T>
+        ) : null}
         <View style={[styles.between, { marginTop: 4 }]}>
           <T small muted>{utcClock(sig.confirmed)}{sig.level ? ` · swept ${sig.level}` : ''}</T>
           <T small color={C.gold}>{open ? 'Hide steps' : 'How it was found'}</T>

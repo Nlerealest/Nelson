@@ -31,6 +31,7 @@ class Trade:
     exit_time: pd.Timestamp | None = None
     exit_reason: str = ""
     pnl: float = 0.0
+    pips: float = 0.0                    # price move won or lost, weighted by the share of the position
     risk_money: float = 0.0
     open_lots: float = 0.0
     sl: float = 0.0
@@ -67,6 +68,8 @@ class BacktestResult:
             "avg_win_R": round(rs[rs > 0].mean(), 2) if (rs > 0).any() else 0.0,
             "avg_loss_R": round(rs[rs < 0].mean(), 2) if (rs < 0).any() else 0.0,
             "net_profit": round(pnl.sum(), 2),
+            "net_pips": round(sum(t.pips for t in closed), 1),
+            "avg_pips": round(sum(t.pips for t in closed) / n, 1) if n else 0.0,
             "return_pct": round(pnl.sum() / self.initial_balance * 100, 2),
             "max_drawdown_pct": round(float(dd), 2),
             "trades_per_month": round(n / days * 30.4, 1),
@@ -83,6 +86,7 @@ class BacktestResult:
                 "signal_time": s.time, "fill_time": t.fill_time, "exit_time": t.exit_time, "side": s.side,
                 "session": session_name(s.time), "entry": s.entry, "sl": s.sl, "tp": s.tp, "lots": t.lots,
                 "exit_reason": t.exit_reason, "pnl": round(t.pnl, 2), "R": round(t.r_multiple, 2),
+                "pips": round(t.pips, 1),
                 "liquidity": s.level_name, "why": "; ".join(s.reasons),
             })
         return pd.DataFrame(rows)
@@ -117,6 +121,7 @@ def simulate(f: pd.DataFrame, setups: list[Setup], cfg: Config) -> BacktestResul
         d = tr.setup.direction
         gain = (price - tr.setup.entry) * d * lots * cs - comm * lots
         tr.pnl += gain
+        tr.pips += (price - tr.setup.entry) * d / sc.pip_size * lots / tr.lots
         balance += gain
         tr.open_lots = round(tr.open_lots - lots, 2)
         if final or tr.open_lots <= 0:

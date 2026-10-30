@@ -18,6 +18,7 @@ import yaml
 
 @dataclass
 class StrategyConfig:
+    pip_size: float = 0.10           # gold: 1 pip = a $0.10 move (stops, targets and results in pips)
     # Market structure
     swing_length: int = 3            # bars each side that make a swing high/low on the entry timeframe
     htf_minutes: int = 60            # higher timeframe used for bias (60 = H1)
@@ -70,7 +71,7 @@ class StrategyConfig:
     sweep_volume_mult: float = 1.2
     require_delta_confirmation: bool = False  # order-flow delta must agree with the displacement
     killzones_utc: list[tuple[str, str]] = field(
-        default_factory=lambda: [("06:00", "17:00")]  # London open to the New York afternoon
+        default_factory=lambda: [("00:00", "24:00")]  # every session: any confirmed setup is traded
     )
     avoid_friday_after_utc: str = "18:00"
 
