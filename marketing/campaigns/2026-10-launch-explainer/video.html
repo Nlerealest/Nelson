@@ -1,0 +1,367 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<script src="timeline.js"></script>
+<style>
+  :root { --green: #0b6b3a; --green2: #12884b; --ink: #121614; --muted: #6b7570; --bg: #fbfbf8; --warn: #a35f00; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); }
+  body { font-family: 'Inter Display', 'Inter', sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+  .scene { position: absolute; inset: 0; display: none; overflow: hidden; }
+  .abs { position: absolute; will-change: transform, opacity, filter; }
+  .center { left: 0; right: 0; text-align: center; }
+  .h { font-weight: 600; letter-spacing: -0.035em; }
+  .w { display: inline-block; white-space: pre; will-change: transform, opacity, filter; }
+  .phone { width: 420px; height: 909px; border-radius: 64px; background: #0d0f0e; padding: 13px;
+           box-shadow: 0 50px 100px -30px rgba(10, 40, 25, 0.45), 0 0 0 2px #2b302d inset; }
+  .phone img { width: 100%; height: 100%; border-radius: 52px; display: block; object-fit: cover; object-position: top; }
+  .phone::after { content: ''; position: absolute; top: 26px; left: 50%; width: 110px; height: 30px; margin-left: -55px; border-radius: 20px; background: #0d0f0e; }
+  .card { border-radius: 30px; overflow: hidden; background: #fff;
+          box-shadow: 0 30px 70px -25px rgba(10, 40, 25, 0.35), 0 2px 8px rgba(0, 0, 0, 0.05); }
+  .card img { display: block; width: 100%; }
+  .pill { display: inline-flex; align-items: center; gap: 14px; padding: 18px 30px; border-radius: 999px; background: #fff;
+          font-size: 34px; font-weight: 600; box-shadow: 0 18px 40px -18px rgba(10, 40, 25, 0.35); white-space: nowrap; }
+  .dot { width: 16px; height: 16px; border-radius: 50%; }
+  .label { font-size: 26px; font-weight: 600; color: var(--green); letter-spacing: 0.08em; text-transform: uppercase; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<script>
+// ---------- helpers ----------
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const easeOut = (x) => 1 - Math.pow(1 - clamp(x), 3);
+const easeInOut = (x) => { x = clamp(x); return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+const backOut = (x) => { x = clamp(x); const c = 1.5; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+const prog = (t, a, d) => clamp((t - a) / d);
+const K = (n) => 'K' + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+function el(parent, html, style = {}, cls = 'abs') {
+  const d = document.createElement('div');
+  d.className = cls;
+  d.innerHTML = html;
+  Object.assign(d.style, style);
+  parent.appendChild(d);
+  return d;
+}
+
+// Blur-in reveal, the reference video's signature move.
+function reveal(node, t, at, { dur = 0.6, blur = 18, y = 30, x = 0, scale = 1, from = 0.92 } = {}) {
+  const p = easeOut(prog(t, at, dur));
+  node.style.opacity = p;
+  node.style.filter = p >= 1 ? 'none' : `blur(${(1 - p) * blur}px)`;
+  const s = scale * (from + (1 - from) * p);
+  node.dataset.tx = `translate(${(1 - p) * x}px, ${(1 - p) * y}px) scale(${s})`;
+  return p;
+}
+// Blur-out exit; combines with a reveal already applied.
+function exit(node, t, at, { dur = 0.45, blur = 16, y = -20 } = {}) {
+  const p = easeInOut(prog(t, at, dur));
+  if (p <= 0) return;
+  node.style.opacity = Math.min(Number(node.style.opacity || 1), 1 - p);
+  node.style.filter = `blur(${p * blur}px)`;
+  node.dataset.tx = (node.dataset.tx || '') + ` translateY(${p * y}px)`;
+}
+const apply = (node, extra = '') => { node.style.transform = (node.dataset.tx || '') + ' ' + extra; };
+const bob = (t, speed = 1, amp = 10, phase = 0) => `translateY(${Math.sin(t * speed + phase) * amp}px)`;
+
+// Word-by-word line. Returns the word spans.
+function words(parent, text, style, cls = 'h') {
+  const line = el(parent, '', style);
+  line.classList.add(...cls.split(' ').filter(Boolean));
+  return (Array.isArray(text) ? text : text.split(' ')).map((w, i, all) => {
+    const s = document.createElement('span');
+    s.className = 'w';
+    s.innerHTML = w + (i < all.length - 1 ? ' ' : '');
+    line.appendChild(s);
+    return s;
+  });
+}
+function revealWords(spans, t, at, gap = 0.13, opts = {}) {
+  spans.forEach((s, i) => { reveal(s, t, at + i * gap, { y: 24, blur: 14, ...opts }); apply(s); });
+}
+
+// ---------- scenes ----------
+const stage = document.getElementById('stage');
+const S = {};
+
+S.payday = (root) => {
+  const w1 = words(root, 'Payday.', { top: '330px', fontSize: '110px' }, 'h center');
+  const amt = el(root, 'K250,000', { top: '470px', fontSize: '210px', color: 'var(--green)', fontWeight: 700, letterSpacing: '-0.05em' }, 'abs center');
+  const sub = el(root, 'a month', { top: '730px', fontSize: '40px', color: 'var(--muted)', fontWeight: 500 }, 'abs center');
+  return (t, D) => {
+    revealWords(w1, t, 0.15);
+    reveal(amt, t, 0.95, { blur: 30, y: 60, from: 0.85 }); apply(amt);
+    reveal(sub, t, 1.4); apply(sub);
+    for (const n of [...w1, amt, sub]) { exit(n, t, D - 0.4); apply(n); }
+  };
+};
+
+S.leaves = (root) => {
+  const bal = el(root, 'K250,000', { top: '420px', fontSize: '150px', fontWeight: 700, letterSpacing: '-0.05em', color: 'var(--green)' }, 'abs center');
+  const items = [
+    ['Rent', 60000, '#0b6b3a', 340, 200], ['Groceries', 22000, '#a35f00', 1290, 210], ['Transport', 4000, '#2f6db3', 220, 700],
+    ['Sent home', 20000, '#7b4bb3', 1340, 720], ['Airtime', 3000, '#c62828', 760, 840], ['ESCOM units', 15000, '#2f8f8f', 820, 110],
+  ];
+  const pills = items.map(([name, amt, c, x, y]) =>
+    el(root, `<span class="dot" style="background:${c}"></span>${name}<span style="color:var(--muted);font-weight:500">−${K(amt)}</span>`,
+      { left: x + 'px', top: y + 'px' }, 'abs pill'));
+  const times = [0.35, 0.95, 1.55, 2.2, 2.95, 3.35];
+  return (t, D) => {
+    let spent = 0;
+    pills.forEach((p, i) => {
+      reveal(p, t, times[i], { y: 40, scale: 1, from: 0.7, blur: 16 });
+      if (t > times[i] + 0.2) spent += items[i][1] * easeOut(prog(t, times[i], 0.5));
+      apply(p, bob(t, 1.4, 8, i * 1.7));
+      exit(p, t, D - 0.35); apply(p, bob(t, 1.4, 8, i * 1.7));
+    });
+    bal.textContent = K(250000 - spent);
+    bal.style.color = 250000 - spent < 150000 ? '#a35f00' : 'var(--green)';
+    reveal(bal, t, 0, { dur: 0.01 }); exit(bal, t, D - 0.35); apply(bal);
+  };
+};
+
+S.gone = (root) => {
+  const zero = el(root, 'K0', { top: '250px', fontSize: '170px', fontWeight: 700, color: '#c62828', letterSpacing: '-0.05em' }, 'abs center');
+  const w1 = words(root, 'By month end, it’s gone.', { top: '520px', fontSize: '84px' }, 'h center');
+  const w2 = words(root, 'But where did it go?', { top: '650px', fontSize: '84px', color: 'var(--muted)' }, 'h center');
+  return (t, D) => {
+    reveal(zero, t, 0.05, { blur: 26, from: 1.25 }); apply(zero);
+    revealWords(w1, t, 0.3);
+    revealWords(w2, t, 1.55, 0.14);
+    for (const n of [zero, ...w1, ...w2]) { exit(n, t, D - 0.4, { blur: 24 }); apply(n); }
+  };
+};
+
+S.meet = (root) => {
+  const wipe = el(root, '', { left: '960px', top: '540px', width: '10px', height: '10px', borderRadius: '50%',
+    background: 'radial-gradient(circle at 40% 35%, #18a35a, #0b6b3a 60%, #064527)' });
+  const icon = el(root, '<img src="img/icon.png" style="width:220px;height:220px;border-radius:52px;box-shadow:0 30px 60px -20px rgba(0,0,0,.45)">',
+    { left: '850px', top: '270px' });
+  const name = el(root, 'Ndalama', { top: '540px', fontSize: '120px', fontWeight: 700, color: '#fff', letterSpacing: '-0.04em' }, 'abs center');
+  const sub = words(root, 'Your money, in one place.', { top: '700px', fontSize: '50px', color: 'rgba(255,255,255,.85)', fontWeight: 500 }, 'center');
+  return (t, D) => {
+    const p = easeInOut(prog(t, 0, 0.7));
+    const r = 2300 * p;
+    Object.assign(wipe.style, { width: r * 2 + 'px', height: r * 2 + 'px', left: 960 - r + 'px', top: 540 - r + 'px' });
+    const ip = backOut(prog(t, 0.45, 0.6));
+    icon.style.opacity = clamp(prog(t, 0.45, 0.25));
+    icon.style.transform = `scale(${0.4 + 0.6 * ip}) ${bob(t, 1.3, 6)}`;
+    reveal(name, t, 0.8, { blur: 20 }); apply(name);
+    revealWords(sub, t, 1.9, 0.12);
+    // Let the green fall away into the next scene.
+    const out = easeInOut(prog(t, D - 0.45, 0.45));
+    root.style.opacity = 1 - out;
+    root.style.filter = out ? `blur(${out * 20}px)` : 'none';
+  };
+};
+
+function heading(root, kicker, title, x = 140, y = 300, size = 92) {
+  const k = el(root, kicker, { left: x + 'px', top: y + 'px' }, 'abs label');
+  const lines = title.split('\n').map((line, i) => words(root, line, { left: x + 'px', top: y + 60 + i * size * 1.12 + 'px', fontSize: size + 'px' }));
+  return { k, lines };
+}
+function showHeading(hd, t, D, at = 0.15) {
+  reveal(hd.k, t, at, { y: 12 }); apply(hd.k); exit(hd.k, t, D - 0.4); apply(hd.k);
+  hd.lines.forEach((ws, i) => {
+    revealWords(ws, t, at + 0.25 + i * 0.35);
+    ws.forEach((w) => { exit(w, t, D - 0.4); apply(w); });
+  });
+}
+function phone(root, src, x, y, rot = 0) {
+  const ph = el(root, `<img src="img/${src}.png">`, { left: x + 'px', top: y + 'px' }, 'abs phone');
+  ph.dataset.rot = rot;
+  return ph;
+}
+function showPhone(ph, t, D, at = 0.2, { from = 'right' } = {}) {
+  reveal(ph, t, at, { dur: 0.9, x: from === 'right' ? 220 : -220, y: 60, blur: 22, from: 0.94 });
+  exit(ph, t, D - 0.45, { blur: 22 });
+  apply(ph, `rotate(${ph.dataset.rot}deg) ${bob(t, 0.9, 9)}`);
+}
+function card(root, src, x, y, w, { crop } = {}) {
+  const c = el(root, `<img src="img/${src}.png">`, { left: x + 'px', top: y + 'px', width: w + 'px' }, 'abs card');
+  if (crop) Object.assign(c.style, { height: crop + 'px' });
+  return c;
+}
+function showCard(c, t, D, at, { y = 50, x = 0, phase = 0, amp = 8 } = {}) {
+  reveal(c, t, at, { dur: 0.75, y, x, blur: 20, from: 0.88 });
+  exit(c, t, D - 0.4, { blur: 20 });
+  apply(c, bob(t, 1.1, amp, phase));
+}
+
+S.record = (root) => {
+  const hd = heading(root, 'Track every kwacha', 'Record money\nin seconds.', 150, 260);
+  const ph = phone(root, 'screen-add', 1240, 90, 4);
+  const methods = [['Cash', '#0b6b3a'], ['Airtel Money', '#e4002b'], ['TNM Mpamba', '#2f6db3'], ['Bank', '#6b7570']];
+  const pills = methods.map(([m, c], i) =>
+    el(root, `<span class="dot" style="background:${c}"></span>${m}`, { left: 150 + (i % 2) * 330 + 'px', top: 600 + Math.floor(i / 2) * 110 + 'px' }, 'abs pill'));
+  return (t, D) => {
+    showHeading(hd, t, D);
+    showPhone(ph, t, D, 0.3);
+    pills.forEach((p, i) => { reveal(p, t, 2.0 + i * 0.42, { y: 30, from: 0.8 }); exit(p, t, D - 0.4); apply(p, bob(t, 1.2, 5, i)); });
+  };
+};
+
+S.safe = (root) => {
+  const hd = heading(root, 'Every morning', 'How much can\nI spend today?', 150, 250);
+  const ph = phone(root, 'screen-home', 1280, 90, -3);
+  const hero = card(root, 'card-hero', 800, 400, 600);
+  const note = words(root, 'After bills and savings are set aside.', { left: '150px', top: '880px', fontSize: '38px', color: 'var(--muted)', fontWeight: 500 }, '');
+  return (t, D) => {
+    showHeading(hd, t, D);
+    showPhone(ph, t, D, 0.25);
+    showCard(hero, t, D, 1.6, { x: 120, amp: 10, phase: 1 });
+    revealWords(note, t, 3.4, 0.08);
+    note.forEach((w) => { exit(w, t, D - 0.4); apply(w); });
+  };
+};
+
+S.budget = (root) => {
+  const hd = heading(root, 'Budgets', 'Built from what\nyou really earn.', 150, 280);
+  const ph = phone(root, 'screen-budget', 1300, 90, 3);
+  const c = card(root, 'card-budget', 840, 520, 540, { crop: 300 });
+  return (t, D) => {
+    showHeading(hd, t, D);
+    showPhone(ph, t, D, 0.25);
+    showCard(c, t, D, 1.7, { x: 120, phase: 2 });
+  };
+};
+
+S.goals = (root) => {
+  const hd = heading(root, 'Savings goals', 'Save for what\nmatters.', 150, 300);
+  const g2 = card(root, 'card-goal2', 1330, 470, 460);
+  const g = card(root, 'card-goal', 800, 150, 700);
+  // Highlight around the warning box inside the goal card.
+  const ring = el(g, '', { left: '2.5%', top: '39%', width: '95%', height: '42%', borderRadius: '24px', border: '5px solid #f0b04a', opacity: 0 });
+  const warn = el(root, '⚠︎ Warned early', { left: '150px', top: '640px', color: 'var(--warn)', background: '#fff4e0' }, 'abs pill');
+  return (t, D) => {
+    showHeading(hd, t, D);
+    showCard(g2, t, D, 0.9, { phase: 2.2, amp: 6 });
+    g2.style.filter = (g2.style.filter === 'none' ? '' : g2.style.filter) + ' blur(1px) saturate(.9)';
+    showCard(g, t, D, 0.5, { phase: 0.5 });
+    const r = easeOut(prog(t, 2.9, 0.5));
+    ring.style.opacity = r;
+    ring.style.boxShadow = `0 0 ${30 * r + 10 * Math.sin(t * 4) * r}px rgba(240,176,74,${0.6 * r})`;
+    reveal(warn, t, 3.1, { y: 30, from: 0.8 }); exit(warn, t, D - 0.4); apply(warn, bob(t, 1.2, 5));
+  };
+};
+
+S.bills = (root) => {
+  const hd = heading(root, 'Reminders', 'Never miss\na bill.', 150, 300);
+  const notif = el(root, `
+    <div style="display:flex;gap:22px;align-items:flex-start">
+      <img src="img/icon.png" style="width:72px;height:72px;border-radius:18px">
+      <div style="flex:1">
+        <div style="display:flex;justify-content:space-between;font-size:24px;color:#6b7570;font-weight:500"><span>Ndalama</span><span>now</span></div>
+        <div style="font-size:32px;font-weight:700;margin-top:4px">Water board is due today</div>
+        <div style="font-size:27px;color:#333;margin-top:4px">Remember to pay K6,000. Mark it paid in Ndalama.</div>
+      </div>
+    </div>`, { left: '860px', top: '-200px', width: '900px', padding: '28px 32px', borderRadius: '34px',
+    background: 'rgba(255,255,255,.92)', boxShadow: '0 30px 70px -20px rgba(0,0,0,.3)', backdropFilter: 'blur(10px)' });
+  const c = card(root, 'card-bills', 960, 420, 620);
+  return (t, D) => {
+    showHeading(hd, t, D);
+    const p = backOut(prog(t, 0.3, 0.7));
+    notif.style.transform = `translateY(${p * 330}px)`;
+    notif.style.opacity = clamp(prog(t, 0.3, 0.3));
+    const o = easeInOut(prog(t, D - 0.4, 0.4));
+    if (o) { notif.style.opacity = 1 - o; notif.style.filter = `blur(${o * 16}px)`; } else notif.style.filter = 'none';
+    showCard(c, t, D, 0.9, { phase: 1 });
+  };
+};
+
+S.loans = (root) => {
+  const hd = heading(root, 'Loans & debts', 'Who owes you,\nwho you owe.', 150, 300);
+  const a = card(root, 'card-loan-lent', 900, 230, 700);
+  const b = card(root, 'card-loan-owe', 1040, 600, 700);
+  return (t, D) => {
+    showHeading(hd, t, D);
+    showCard(a, t, D, 0.4, { x: 100, phase: 0 });
+    showCard(b, t, D, 1.4, { x: 100, phase: 2 });
+  };
+};
+
+S.report = (root) => {
+  const hd = heading(root, 'Monthly report', 'See where\nit went.', 150, 300);
+  const ph = phone(root, 'screen-report', 1340, 90, 3);
+  const ins = card(root, 'card-insights', 700, 260, 640);
+  const cats = card(root, 'card-report-cats', 760, 470, 560, { crop: 420 });
+  return (t, D) => {
+    showHeading(hd, t, D);
+    showPhone(ph, t, D, 0.2);
+    showCard(ins, t, D, 0.9, { x: 100, phase: 1 });
+    showCard(cats, t, D, 1.5, { x: 100, phase: 2.5 });
+  };
+};
+
+S.offline = (root) => {
+  root.style.background = 'radial-gradient(1200px 800px at 30% 20%, #1c9a57, transparent 60%), radial-gradient(900px 700px at 80% 85%, #0f7a43, transparent 60%), linear-gradient(135deg, #0b6b3a, #06401f)';
+  const blobs = [[-60, 80, 520, 'card-hero'], [1450, 60, 470, 'card-goal'], [-40, 640, 560, 'card-bills'], [1420, 640, 520, 'card-loan-lent'], [720, 820, 480, 'card-tiles']];
+  const cards = blobs.map(([x, y, w, src]) => {
+    const c = card(root, src, x, y, w);
+    c.style.opacity = 0;
+    return c;
+  });
+  const title = words(root, 'Works without data.', { top: '400px', fontSize: '100px', color: '#fff' }, 'h center');
+  const sub = words(root, 'Private. Saved only on your phone.', { top: '540px', fontSize: '48px', color: 'rgba(255,255,255,.85)', fontWeight: 500 }, 'center');
+  return (t, D) => {
+    const fade = easeOut(prog(t, 0, 0.5));
+    root.style.opacity = fade;
+    cards.forEach((c, i) => {
+      reveal(c, t, 0.2 + i * 0.18, { dur: 0.9, blur: 24, y: 40, from: 0.9 });
+      c.style.opacity = Number(c.style.opacity) * 0.92;
+      c.style.filter = `blur(${Math.max(1.5, parseFloat(c.style.filter.replace(/[^\d.]/g, '')) || 0)}px)`;
+      apply(c, `${bob(t, 0.8, 14, i * 1.3)} rotate(${(i % 2 ? 1 : -1) * 4}deg)`);
+    });
+    revealWords(title, t, 0.6);
+    revealWords(sub, t, 1.6, 0.1);
+    const out = easeInOut(prog(t, D - 0.45, 0.45));
+    if (out) { root.style.opacity = 1 - out; root.style.filter = `blur(${out * 20}px)`; } else root.style.filter = 'none';
+  };
+};
+
+S.tagline = (root) => {
+  const w1 = words(root, 'Ndalama.', { top: '330px', fontSize: '84px', color: 'var(--green)' }, 'h center');
+  const w2 = words(root, ['Know', 'where', 'your', '<span style="color:var(--green)">kwacha</span>', 'goes.'], { top: '470px', fontSize: '118px' }, 'h center');
+  return (t, D) => {
+    revealWords(w1, t, 0.3);
+    revealWords(w2, t, 1.0, 0.16);
+    for (const n of [...w1, ...w2]) { exit(n, t, D - 0.45, { blur: 22 }); apply(n); }
+  };
+};
+
+S.end = (root) => {
+  const icon = el(root, '<img src="img/icon.png" style="width:190px;height:190px;border-radius:46px;box-shadow:0 30px 60px -25px rgba(10,40,25,.5)">', { left: '865px', top: '220px' });
+  const name = el(root, 'Ndalama', { top: '450px', fontSize: '110px', fontWeight: 700, letterSpacing: '-0.04em' }, 'abs center');
+  const sub = el(root, 'The money manager for Malawi', { top: '600px', fontSize: '44px', color: 'var(--muted)', fontWeight: 500 }, 'abs center');
+  const cta = el(root, '<span style="display:inline-flex;gap:16px;align-items:center;background:#0b6b3a;color:#fff;padding:24px 48px;border-radius:999px;font-size:40px;font-weight:600">Download free on Android</span>', { top: '720px' }, 'abs center');
+  return (t, D) => {
+    const ip = backOut(prog(t, 0.1, 0.6));
+    icon.style.opacity = clamp(prog(t, 0.1, 0.25));
+    icon.style.transform = `scale(${0.5 + 0.5 * ip})`;
+    reveal(name, t, 0.45); apply(name);
+    reveal(sub, t, 0.8); apply(sub);
+    reveal(cta, t, 1.2, { from: 0.8 }); apply(cta, `scale(${1 + 0.025 * Math.sin(t * 3)})`);
+  };
+};
+
+// ---------- build & render ----------
+const scenes = window.TIMELINE.map((s) => {
+  const root = el(stage, '', {}, 'scene');
+  return { ...s, root, update: S[s.id](root) };
+});
+
+window.renderAt = (time) => {
+  for (const s of scenes) {
+    const local = time - s.start;
+    const on = local >= 0 && local < s.dur;
+    s.root.style.display = on ? 'block' : 'none';
+    if (on) s.update(local, s.dur);
+  }
+};
+window.TOTAL = scenes.reduce((a, s) => a + s.dur, 0);
+renderAt(0);
+</script>
+</body>
+</html>

@@ -106,6 +106,10 @@ Small fixes to screens and logic can be pushed straight to installed apps with [
 
 ---
 
+## Marketing (Twizzy)
+
+`marketing/` holds Ndalama's marketing: the video studio that made the launch adverts (`marketing/studio/`), each campaign's source (`marketing/campaigns/`), the app screens used in videos and store images (`marketing/assets/app/`), and **[`marketing/TWIZZY.md`](marketing/TWIZZY.md)**, the playbook Ndalama's marketing agent follows.
+
 ## How the numbers are worked out
 
 All calculations are in [`src/logic.js`](src/logic.js), plain JavaScript shared by every platform and covered by tests.

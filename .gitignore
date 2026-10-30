@@ -17,3 +17,11 @@ web-build/
 *.p12
 *.keystore
 !android/app/debug.keystore
+
+# Marketing studio outputs (rendered on demand, and music may be copyrighted)
+marketing/**/frames/
+marketing/**/prev/
+marketing/**/vo/
+*.mp4
+*.mp3
+*.wav

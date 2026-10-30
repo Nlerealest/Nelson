@@ -1,0 +1,16 @@
+[
+  { "id": "payday",   "vo": "Payday. Two hundred and fifty thousand kwacha." },
+  { "id": "leaves",   "vo": "Then rent. Groceries. Transport. Money sent home. Airtime." },
+  { "id": "gone",     "vo": "By month end, it's gone. But where did it go?" },
+  { "id": "meet",     "vo": "Meet Ndalama. Your money, in one place." },
+  { "id": "record",   "vo": "Record money in and out in seconds. Cash, Airtel Money, Mpamba, or bank." },
+  { "id": "safe",     "vo": "Every day, Ndalama shows how much you can safely spend, after your bills and savings are set aside." },
+  { "id": "budget",   "vo": "It builds your budget from what you really earn, and warns you when spending moves too fast." },
+  { "id": "goals",    "vo": "Saving for a phone, or school fees? If your habits put a goal at risk, Ndalama tells you early." },
+  { "id": "bills",    "vo": "Get reminded before a bill is due." },
+  { "id": "loans",    "vo": "And never forget who owes you, or who you owe." },
+  { "id": "report",   "vo": "At month end, see exactly where your money went." },
+  { "id": "offline",  "vo": "It works without data, and everything stays private, on your phone." },
+  { "id": "tagline",  "vo": "Ndalama. Know where your kwacha goes." },
+  { "id": "end",      "vo": "" }
+]

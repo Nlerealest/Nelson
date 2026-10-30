@@ -1,0 +1,499 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<script src="beats.js"></script>
+<style>
+  :root { --g: #14b866; --g2: #0b6b3a; --ink: #151816; --muted: #707a75; --light: #eceee9; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: #2b2e2c; }
+  body { font-family: 'Inter Display', 'Inter', sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+  .scene { position: absolute; inset: 0; display: none; overflow: hidden; }
+  .dark { background: radial-gradient(1400px 900px at 50% 0%, #5a5f5c 0%, #3a3e3b 45%, #262927 100%); }
+  .light { background: radial-gradient(1400px 900px at 50% 30%, #f6f7f4, #e3e6e1); }
+  .glow { position: absolute; left: 50%; bottom: -380px; width: 1700px; height: 700px; margin-left: -850px; border-radius: 50%;
+          background: radial-gradient(closest-side, rgba(30, 210, 115, .85), rgba(20, 150, 80, .35) 55%, transparent 100%); filter: blur(30px); }
+  .abs { position: absolute; will-change: transform, opacity, filter; }
+  .center { left: 0; right: 0; text-align: center; }
+  .cap { font-weight: 600; letter-spacing: -0.02em; }
+  .chrome-wrap { position: absolute; left: 0; right: 0; top: 380px; text-align: center; font-weight: 800; font-size: 250px; letter-spacing: 0.02em; }
+  .chrome-letter { display: inline-block; position: relative; }
+  .chrome-letter .back { position: absolute; left: 0; top: 0; color: #5d6460;
+    text-shadow: 0 2px 0 #565d59, 0 4px 0 #4f5652, 0 6px 0 #484f4b, 0 8px 0 #414844, 0 10px 0 #3a413d, 0 14px 0 #333a36, 0 40px 60px rgba(0,0,0,.55); }
+  .chrome-letter .front { position: relative; background: linear-gradient(180deg, #ffffff 0%, #d9dedb 35%, #8f9792 50%, #e9ecea 58%, #b7beba 80%, #f2f4f3 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .phone { width: 400px; height: 866px; border-radius: 62px; background: #0d0f0e; padding: 13px;
+           box-shadow: 0 60px 110px -30px rgba(0, 0, 0, 0.55), 0 0 0 2px #2b302d inset; }
+  .phone img { width: 100%; height: 100%; border-radius: 50px; display: block; object-fit: cover; object-position: top; }
+  .phone::after { content: ''; position: absolute; top: 25px; left: 50%; width: 104px; height: 28px; margin-left: -52px; border-radius: 20px; background: #0d0f0e; }
+  .card { border-radius: 28px; overflow: hidden; background: #fff; box-shadow: 0 30px 70px -25px rgba(0, 0, 0, .4); }
+  .card img { display: block; width: 100%; }
+  .tile { border-radius: 30px; background: #fff; box-shadow: 0 24px 60px -28px rgba(10, 40, 25, .35); overflow: hidden; }
+  .tlabel { position: absolute; left: 26px; top: 20px; font-size: 20px; font-weight: 600; color: var(--muted); }
+  .badge { display: inline-flex; align-items: center; gap: 18px; padding: 22px 36px; border-radius: 22px; font-size: 40px; font-weight: 700; }
+  .digit { display: inline-block; height: 1em; clip-path: inset(0 -30% 0 -30%); vertical-align: top; }
+  .digit > span { display: block; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<script>
+// ---------- helpers ----------
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const easeOut = (x) => 1 - Math.pow(1 - clamp(x), 3);
+const easeIn = (x) => Math.pow(clamp(x), 3);
+const easeInOut = (x) => { x = clamp(x); return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+const backOut = (x) => { x = clamp(x); const c = 1.7; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+const prog = (t, a, d) => clamp((t - a) / d);
+const lerp = (a, b, p) => a + (b - a) * p;
+const BEATS = window.BEATS;
+const snap = (x) => BEATS.reduce((best, b) => (Math.abs(b - x) < Math.abs(best - x) ? b : best), BEATS[0]);
+// Strength of the most recent beat, decaying (for glow pulses).
+const pulse = (T) => { let last = -9; for (const b of BEATS) if (b <= T) last = b; return Math.exp(-(T - last) * 5); };
+
+function el(parent, html, style = {}, cls = 'abs') {
+  const d = document.createElement('div');
+  d.className = cls;
+  d.innerHTML = html;
+  Object.assign(d.style, style);
+  parent.appendChild(d);
+  return d;
+}
+// Blur-in with directional travel; velocity adds motion blur.
+function inn(node, t, at, { dur = 0.45, x = 0, y = 40, s = 0.9, blur = 22, rot = 0 } = {}) {
+  const p = easeOut(prog(t, at, dur));
+  node._o = p;
+  node._b = (1 - p) * blur;
+  node._tx = (1 - p) * x; node._ty = (1 - p) * y; node._s = s + (1 - s) * p; node._r = (1 - p) * rot;
+  return p;
+}
+function out(node, t, at, { dur = 0.35, x = 0, y = -30, s = 1.04, blur = 22 } = {}) {
+  const p = easeIn(prog(t, at, dur));
+  if (p <= 0) return 0;
+  node._o *= 1 - p; node._b += p * blur; node._tx += p * x; node._ty += p * y; node._s *= 1 + (s - 1) * p;
+  return p;
+}
+function draw(node, extra = '') {
+  node.style.opacity = node._o ?? 1;
+  node.style.filter = (node._b || 0) > 0.05 ? `blur(${node._b.toFixed(2)}px)` : 'none';
+  node.style.transform = `translate(${(node._tx || 0).toFixed(1)}px, ${(node._ty || 0).toFixed(1)}px) scale(${(node._s ?? 1).toFixed(4)}) rotate(${(node._r || 0).toFixed(2)}deg) ${extra}`;
+}
+const anim = (node, t, a, b, D, oi = {}, oo = {}) => { inn(node, t, a, oi); out(node, t, b ?? D - 0.3, oo); draw(node, oi.extra || ''); };
+const float = (t, sp = 1, amp = 8, ph = 0) => `translateY(${(Math.sin(t * sp + ph) * amp).toFixed(1)}px)`;
+function caption(root, html, style) { return el(root, html, { fontSize: '58px', ...style }, 'abs center cap'); }
+
+// ---------- scenes ----------
+const S = {};
+
+S.open = (root) => {
+  root.classList.add('dark');
+  const glow = el(root, '', {}, 'glow');
+  const word = 'NDALAMA';
+  const wrap = el(root, '', {}, 'chrome-wrap');
+  const letters = [...word].map((ch) => {
+    const l = document.createElement('span');
+    l.className = 'chrome-letter';
+    l.innerHTML = `<span class="back">${ch}</span><span class="front">${ch}</span>`;
+    wrap.appendChild(l);
+    return l;
+  });
+  const sub = caption(root, 'A money manager for Malawi', { top: '700px', fontSize: '40px', color: 'rgba(255,255,255,.7)', fontWeight: 500 });
+  return (t, D, T) => {
+    glow.style.opacity = clamp(t / 1.5) * (0.55 + 0.35 * pulse(T));
+    letters.forEach((l, i) => {
+      const a = 0.35 + i * 0.16;
+      const p = easeOut(prog(t, a, 0.7));
+      l.style.opacity = p;
+      l.style.filter = p < 1 ? `blur(${(1 - p) * 16}px)` : 'none';
+      l.style.transform = `perspective(900px) rotateX(${(1 - p) * 85}deg) translateY(${(1 - p) * -80}px) scale(${1 + (1 - p) * 0.4})`;
+    });
+    // Slow push-in on the whole word.
+    wrap.style.transform = `scale(${1 + t * 0.018})`;
+    anim(sub, t, 2.2, D - 0.35, D, { y: 20 });
+    const o = easeIn(prog(t, D - 0.35, 0.35));
+    wrap.style.opacity = 1 - o;
+    wrap.style.filter = o ? `blur(${o * 20}px)` : 'none';
+  };
+};
+
+S.coin = (root) => {
+  root.classList.add('dark');
+  const glow = el(root, '', {}, 'glow');
+  const floor = el(root, '', { left: '360px', right: '360px', top: '760px', height: '3px', background: 'rgba(255,255,255,.55)', borderRadius: '2px' });
+  const trail = el(root, '<svg width="1920" height="1080" style="position:absolute;inset:0"><path id="trail" fill="none" stroke="rgba(255,255,255,.75)" stroke-width="4" stroke-dasharray="2 12" stroke-linecap="round"/></svg>', { inset: 0 });
+  const coin = el(root, `<div style="width:150px;height:150px;border-radius:50%;
+      background:radial-gradient(circle at 35% 30%, #fff6c9, #f2c94c 35%, #c8961c 70%, #8a6410);
+      box-shadow:0 20px 40px -10px rgba(0,0,0,.5), inset 0 -8px 16px rgba(0,0,0,.25);
+      display:flex;align-items:center;justify-content:center;font-size:78px;font-weight:800;color:#7a5400">K</div>`, { left: 0, top: 0 });
+  const c1 = caption(root, 'Payday. <span style="color:var(--g)">K250,000.</span>', { top: '840px', color: '#fff' });
+  const c2 = caption(root, 'Then rent. Food. Transport. <span style="color:#ff8a7a">Gone.</span>', { top: '840px', color: '#fff' });
+  // Bounces land on beats.
+  const b0 = 0, hits = [0.95, 1.8, 2.65, 3.5, 4.35, 5.2];
+  const X = (t) => lerp(560, 1360, clamp(t / 5.6));
+  const Y = (t) => {
+    if (t < hits[0]) return lerp(120, 680, easeIn(t / hits[0]));
+    for (let i = 0; i < hits.length - 1; i++) {
+      if (t < hits[i + 1]) {
+        const p = (t - hits[i]) / (hits[i + 1] - hits[i]);
+        const h = 420 * Math.pow(0.72, i);
+        return 680 - h * 4 * p * (1 - p);
+      }
+    }
+    return 680;
+  };
+  return (t, D, T) => {
+    glow.style.opacity = 0.5 + 0.35 * pulse(T);
+    const pts = [];
+    for (let s = 0; s <= t; s += 0.04) pts.push(`${X(s) + 75},${Y(s) + 75}`);
+    trail.querySelector('#trail').setAttribute('d', pts.length ? 'M' + pts.join(' L') : '');
+    trail.style.opacity = 1 - easeIn(prog(t, D - 0.35, 0.35));
+    // Squash on impact.
+    let sq = 0;
+    for (const h of hits) sq = Math.max(sq, Math.exp(-Math.abs(t - h) * 18));
+    coin.style.transform = `translate(${X(t)}px, ${Y(t)}px) scale(${1 + sq * 0.28}, ${1 - sq * 0.3})`;
+    coin.style.transformOrigin = '75px 150px';
+    const o = easeIn(prog(t, D - 0.35, 0.35));
+    coin.style.opacity = 1 - o;
+    floor.style.opacity = clamp(t / 0.5) * (1 - o);
+    anim(c1, t, 0.9, 3.0, D, { y: 20 });
+    anim(c2, t, 3.3, D - 0.35, D, { y: 20 });
+  };
+};
+
+S.graph = (root) => {
+  root.classList.add('dark');
+  const glow = el(root, '', {}, 'glow');
+  const panel = el(root, `
+    <div style="position:absolute;inset:0;border-radius:28px;background:#1d201e;border:1px solid #3a3f3c;overflow:hidden">
+      <div style="display:flex;gap:14px;padding:22px 28px;border-bottom:1px solid #2f3431;color:#9aa49f;font-size:22px;font-weight:600">
+        <span style="color:#fff">Balance</span><span>October</span><span style="margin-left:auto;color:var(--g)">● live</span></div>
+      <svg width="1200" height="420" style="position:absolute;left:40px;top:100px">
+        <path id="gline" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle id="gdot" r="11" fill="var(--g)"/>
+      </svg>
+      <div id="gval" style="position:absolute;left:44px;bottom:28px;font-size:74px;font-weight:800;color:#fff;letter-spacing:-.04em">K250,000</div>
+      <div style="position:absolute;right:40px;bottom:44px;color:#9aa49f;font-size:26px">Day <span id="gday">1</span> of 31</div>
+    </div>`, { left: '300px', top: '160px', width: '1320px', height: '660px' });
+  const cap = caption(root, 'Where did it all go?', { top: '880px', color: '#fff' });
+  // Spending drops the balance in steps (rent, food...), ending near K0.
+  const steps = [[0, 250000], [0.05, 190000], [0.12, 166000], [0.2, 140000], [0.35, 118000], [0.5, 92000], [0.62, 70000], [0.75, 41000], [0.88, 16000], [1, 0]];
+  const val = (p) => { for (let i = 0; i < steps.length - 1; i++) if (p <= steps[i + 1][0]) { const [a, va] = steps[i], [b, vb] = steps[i + 1]; return lerp(va, vb, easeInOut((p - a) / (b - a))); } return 0; };
+  return (t, D, T) => {
+    glow.style.opacity = 0.45 + 0.3 * pulse(T);
+    inn(panel, t, 0, { dur: 0.7, y: 120, s: 0.82, blur: 18 }); out(panel, t, D - 0.35); draw(panel);
+    const p = clamp((t - 0.6) / (D - 1.4));
+    const pts = [];
+    for (let s = 0; s <= p; s += 0.005) pts.push(`${s * 1180},${400 - val(s) / 250000 * 380}`);
+    panel.querySelector('#gline').setAttribute('d', 'M' + pts.join(' L'));
+    const v = val(p);
+    panel.querySelector('#gdot').setAttribute('cx', p * 1180);
+    panel.querySelector('#gdot').setAttribute('cy', 400 - v / 250000 * 380);
+    panel.querySelector('#gval').textContent = 'K' + (Math.round(v / 500) * 500).toLocaleString('en-US');
+    panel.querySelector('#gval').style.color = v < 40000 ? '#ff8a7a' : '#fff';
+    panel.querySelector('#gday').textContent = Math.max(1, Math.round(p * 31));
+    anim(cap, t, 2.4, D - 0.35, D, { y: 20 });
+  };
+};
+
+S.morph = (root) => {
+  root.classList.add('dark');
+  const glow = el(root, '', {}, 'glow');
+  const track = el(root, '', { left: '760px', top: '380px', width: '400px', height: '200px', borderRadius: '100px', background: '#4b504d', boxShadow: 'inset 0 6px 18px rgba(0,0,0,.4)' });
+  const knob = el(root, '', { left: '772px', top: '392px', width: '176px', height: '176px', borderRadius: '50%', background: 'radial-gradient(circle at 35% 30%, #fff, #dfe3e1)', boxShadow: '0 12px 30px rgba(0,0,0,.4)' });
+  const icon = el(root, '<img src="img/icon.png" style="width:260px;height:260px;border-radius:60px;box-shadow:0 30px 70px -20px rgba(0,0,0,.6)">', { left: '830px', top: '350px' });
+  const cap = caption(root, 'Meet <span style="color:var(--g)">Ndalama.</span>', { top: '760px', color: '#fff', fontSize: '76px' });
+  return (t, D, T) => {
+    glow.style.opacity = 0.45 + 0.4 * pulse(T);
+    const intro = easeOut(prog(t, 0, 0.5));
+    const flip = easeInOut(prog(t, 0.85, 0.5));        // toggle switches on, on the beat
+    const morph = easeInOut(prog(t, 1.9, 0.6));        // then becomes the app icon
+    track.style.background = `rgb(${lerp(75, 20, flip)},${lerp(80, 184, flip)},${lerp(77, 102, flip)})`;
+    track.style.opacity = intro * (1 - morph);
+    track.style.transform = `scale(${lerp(0.8, 1, intro) * lerp(1, 0.6, morph)})`;
+    knob.style.opacity = intro * (1 - morph);
+    knob.style.transform = `translateX(${flip * 200}px) scale(${lerp(1, 0.4, morph)})`;
+    const ip = backOut(prog(t, 2.1, 0.6));
+    icon.style.opacity = clamp(prog(t, 2.1, 0.2));
+    icon.style.transform = `scale(${0.3 + 0.7 * ip}) ${float(t, 2, 5)}`;
+    anim(cap, t, 2.5, D - 0.35, D, { y: 24 });
+    const o = easeIn(prog(t, D - 0.35, 0.35));
+    if (o) { icon.style.opacity = 1 - o; icon.style.filter = `blur(${o * 20}px)`; } else icon.style.filter = 'none';
+  };
+};
+
+S.build = (root) => {
+  root.classList.add('dark');
+  const glow = el(root, '', {}, 'glow');
+  const words = ['Know', 'where', 'your', '<span style="color:var(--g)">kwacha</span>', 'goes.'];
+  const line = el(root, '', { top: '440px', fontSize: '120px', color: '#fff', fontWeight: 700, letterSpacing: '-0.04em' }, 'abs center');
+  const spans = words.map((w) => { const s = document.createElement('span'); s.style.display = 'inline-block'; s.innerHTML = w + '&nbsp;'; line.appendChild(s); return s; });
+  return (t, D, T) => {
+    glow.style.opacity = 0.5 + 0.45 * pulse(T);
+    spans.forEach((s, i) => { inn(s, t, 0.1 + i * 0.84 * 0.5, { y: 60, blur: 18, s: 0.8 }); draw(s); });
+    // The breath before the drop: everything rushes towards the camera.
+    const z = easeIn(prog(t, D - 0.85, 0.85));
+    line.style.transform = `scale(${1 + z * 2.2})`;
+    line.style.filter = z ? `blur(${z * 26}px)` : 'none';
+    line.style.opacity = 1 - z * 0.9;
+  };
+};
+
+S.bento = (root) => {
+  root.classList.add('light');
+  const flash = el(root, '', { inset: 0, background: 'radial-gradient(circle at 50% 50%, #2ee08a, #0b6b3a)', zIndex: 5 });
+  const cam = el(root, '', { left: 0, top: 0, width: '2400px', height: '1300px' });
+  const tiles = [
+    { x: 120, y: 120, w: 620, h: 420, label: 'Safe to spend', html: '<img src="img/card-hero.png" style="position:absolute;left:24px;top:64px;width:572px;border-radius:20px">' },
+    { x: 780, y: 120, w: 420, h: 420, label: 'Budgets', html: '<div id="bars" style="position:absolute;left:40px;right:40px;bottom:40px;height:260px;display:flex;align-items:flex-end;gap:16px"></div>' },
+    { x: 1240, y: 120, w: 520, h: 420, label: 'Savings goals', html: '<svg width="240" height="240" style="position:absolute;left:140px;top:110px"><circle cx="120" cy="120" r="96" fill="none" stroke="#e3e8e5" stroke-width="26"/><circle id="ring" cx="120" cy="120" r="96" fill="none" stroke="#14b866" stroke-width="26" stroke-linecap="round" transform="rotate(-90 120 120)" stroke-dasharray="603" stroke-dashoffset="603"/></svg><div id="ringv" style="position:absolute;left:0;right:0;top:205px;text-align:center;font-size:52px;font-weight:800">0%</div>' },
+    { x: 1800, y: 120, w: 480, h: 420, label: 'Bill reminders', html: '<div style="position:absolute;left:30px;right:30px;top:120px;padding:22px;border-radius:20px;background:#f3f6f4"><div style="font-size:22px;color:#707a75">Ndalama · now</div><div style="font-size:30px;font-weight:700;margin-top:6px">Water board due today</div><div style="font-size:24px;margin-top:6px">Pay K6,000</div></div>' },
+    { x: 120, y: 580, w: 520, h: 420, label: 'Loans & debts', html: '<img src="img/card-loan-lent.png" style="position:absolute;left:24px;top:70px;width:472px;border-radius:18px">' },
+    { x: 680, y: 580, w: 760, h: 420, label: 'Monthly report', html: '<img src="img/card-report-cats.png" style="position:absolute;left:24px;top:64px;width:712px;border-radius:18px">' },
+    { x: 1480, y: 580, w: 800, h: 420, label: 'Works offline', html: '<div style="position:absolute;left:40px;top:120px;font-size:86px;font-weight:800;letter-spacing:-.04em">No data needed.</div><div style="position:absolute;left:44px;top:240px;font-size:34px;color:#707a75">Private. Saved only on your phone.</div>' },
+  ].map((d, i) => {
+    const n = el(cam, `<div class="tlabel">${d.label}</div>${d.html}`, { left: d.x + 'px', top: d.y + 'px', width: d.w + 'px', height: d.h + 'px' }, 'abs tile');
+    return { ...d, n, i };
+  });
+  const bars = tiles[1].n.querySelector('#bars');
+  const H = [0.55, 0.8, 0.35, 0.65, 0.95, 0.45, 0.7];
+  const barEls = H.map((h, i) => { const b = document.createElement('div'); Object.assign(b.style, { flex: 1, borderRadius: '10px', background: i === 4 ? '#14b866' : '#1d201e', height: '0%' }); bars.appendChild(b); return b; });
+  return (t, D, T) => {
+    const f = 1 - easeOut(prog(t, 0.12, 0.6));
+    flash.style.opacity = f;
+    // Camera drifts across the grid, with a whip pan on the 4th beat.
+    const pan = easeInOut(prog(t, 0.4, D - 0.4));
+    const whip = easeInOut(prog(t, 3.35, 0.5));
+    const cx = lerp(-60, -420, pan) - whip * 40;
+    const sc = lerp(0.82, 0.92, pan);
+    cam.style.transform = `translate(${cx}px, ${lerp(-40, -110, pan)}px) scale(${sc})`;
+    cam.style.filter = whip > 0 && whip < 1 ? `blur(${Math.sin(whip * Math.PI) * 8}px)` : 'none';
+    tiles.forEach((d) => {
+      inn(d.n, t, 0.25 + d.i * 0.14, { dur: 0.5, y: 120, x: (d.i % 2 ? 80 : -80), s: 0.85, blur: 26 });
+      out(d.n, t, D - 0.32, { y: -60 });
+      draw(d.n, float(t, 1.3, 5, d.i));
+    });
+    barEls.forEach((b, i) => { b.style.height = H[i] * 100 * easeOut(prog(t, 0.9 + i * 0.08, 0.6)) + '%'; });
+    const rp = easeOut(prog(t, 1.2, 1.4));
+    tiles[2].n.querySelector('#ring').setAttribute('stroke-dashoffset', 603 * (1 - 0.72 * rp));
+    tiles[2].n.querySelector('#ringv').textContent = Math.round(72 * rp) + '%';
+  };
+};
+
+S.steps = (root) => {
+  root.classList.add('light');
+  const STEP = [
+    { n: '01', title: 'Record money<br>in & out', sub: 'Cash · Airtel Money · Mpamba · Bank', img: 'screen-add' },
+    { n: '02', title: 'See what’s safe<br>to spend today', sub: 'After bills and savings are set aside', img: 'screen-home', card: 'card-hero' },
+    { n: '03', title: 'A budget from<br>what you earn', sub: 'Warned when spending runs too fast', img: 'screen-budget' },
+    { n: '04', title: 'Save for<br>what matters', sub: 'Warned early if a goal is at risk', img: 'screen-goals', card: 'card-goal-alert' },
+  ];
+  const head = el(root, 'How it works', { left: '150px', top: '150px', fontSize: '30px', fontWeight: 700, color: 'var(--g2)', letterSpacing: '.12em', textTransform: 'uppercase' });
+  const items = STEP.map((s) => ({
+    s,
+    num: el(root, s.n, { left: '140px', top: '230px', fontSize: '210px', fontWeight: 800, letterSpacing: '-.06em', color: 'var(--g)' }),
+    title: el(root, s.title, { left: '150px', top: '480px', fontSize: '84px', fontWeight: 700, letterSpacing: '-.035em', lineHeight: 1.05 }),
+    sub: el(root, s.sub, { left: '152px', top: '690px', fontSize: '36px', color: 'var(--muted)', fontWeight: 500 }),
+    phone: el(root, `<img src="img/${s.img}.png">`, { left: '1240px', top: '100px' }, 'abs phone'),
+    card: s.card ? el(root, `<img src="img/${s.card}.png">`, { left: '920px', top: '560px', width: '560px' }, 'abs card') : null,
+  }));
+  const dur = 3.37;
+  return (t, D, T) => {
+    anim(head, t, 0.05, D - 0.3, D, { y: 10 });
+    items.forEach((it, i) => {
+      const a = i * dur, b = a + dur - 0.3;
+      const last = i === items.length - 1;
+      for (const [node, delay, o] of [[it.num, 0, { y: 0, x: -120, blur: 30 }], [it.title, 0.08, { y: 50 }], [it.sub, 0.25, { y: 30 }]]) {
+        inn(node, t, a + delay, { dur: 0.45, ...o }); out(node, t, last ? D - 0.3 : b, { x: -80, y: 0 });
+        if (t < a) node._o = 0;
+        draw(node);
+      }
+      inn(it.phone, t, a, { dur: 0.55, x: 420, y: 0, s: 1, blur: 30, rot: 6 }); out(it.phone, t, last ? D - 0.3 : b, { x: -300, y: 0, s: 0.96 });
+      if (t < a) it.phone._o = 0;
+      draw(it.phone, `rotate(-3deg) ${float(t, 1.1, 8, i)}`);
+      if (it.card) {
+        inn(it.card, t, a + 0.85, { dur: 0.5, x: 160, y: 40, s: 0.85, blur: 24 }); out(it.card, t, last ? D - 0.3 : b, { x: -200, y: 0 });
+        if (t < a + 0.85) it.card._o = 0;
+        draw(it.card, float(t, 1.4, 6, i + 1));
+      }
+    });
+  };
+};
+
+S.alerts = (root) => {
+  root.classList.add('dark');
+  const glow = el(root, '', {}, 'glow');
+  const notif = el(root, `<div style="display:flex;gap:22px;align-items:flex-start">
+      <img src="img/icon.png" style="width:76px;height:76px;border-radius:18px">
+      <div style="flex:1"><div style="display:flex;justify-content:space-between;font-size:24px;color:#707a75;font-weight:500"><span>Ndalama</span><span>now</span></div>
+      <div style="font-size:34px;font-weight:700;margin-top:4px">Water board is due today</div>
+      <div style="font-size:28px;color:#333;margin-top:4px">Remember to pay K6,000.</div></div></div>`,
+    { left: '510px', top: '120px', width: '900px', padding: '28px 32px', borderRadius: '34px', background: 'rgba(255,255,255,.95)', boxShadow: '0 30px 70px -20px rgba(0,0,0,.45)' });
+  const capA = caption(root, 'Reminders before bills are due.', { top: '880px', color: '#fff' });
+  const lent = el(root, '<img src="img/card-loan-lent.png">', { left: '300px', top: '360px', width: '620px' }, 'abs card');
+  const owe = el(root, '<img src="img/card-loan-owe.png">', { left: '1000px', top: '420px', width: '620px' }, 'abs card');
+  const capB = caption(root, 'Know who owes you, and who you owe.', { top: '880px', color: '#fff' });
+  const ph = el(root, '<img src="img/screen-report.png">', { left: '1180px', top: '110px' }, 'abs phone');
+  const ins = el(root, '<img src="img/card-insights.png">', { left: '300px', top: '330px', width: '760px' }, 'abs card');
+  const capC = caption(root, 'See exactly where it went.', { top: '880px', color: '#fff', textAlign: 'left', left: '300px' });
+  return (t, D, T) => {
+    glow.style.opacity = 0.45 + 0.4 * pulse(T);
+    const p = backOut(prog(t, 0.05, 0.6));
+    notif.style.transform = `translateY(${(1 - p) * -260}px) scale(${0.96 + 0.04 * p})`;
+    notif.style.opacity = clamp(prog(t, 0.05, 0.25)) * (1 - easeIn(prog(t, 2.25, 0.3)));
+    anim(capA, t, 0.3, 2.25, D, { y: 20 });
+    anim(lent, t, 2.5, 4.55, D, { x: -200, y: 0, blur: 26 }, { x: -200, y: 0 });
+    lent.style.transform += ` ${float(t, 1.3, 6)}`;
+    anim(owe, t, 2.75, 4.55, D, { x: 200, y: 0, blur: 26 }, { x: 200, y: 0 });
+    owe.style.transform += ` ${float(t, 1.3, 6, 2)}`;
+    anim(capB, t, 2.9, 4.55, D, { y: 20 });
+    anim(ph, t, 4.9, D - 0.3, D, { x: 300, y: 0, rot: 6, blur: 28 });
+    ph.style.transform += ' rotate(3deg)';
+    anim(ins, t, 5.3, D - 0.3, D, { x: -200, y: 0, blur: 26 });
+    anim(capC, t, 5.5, D - 0.3, D, { y: 20 });
+  };
+};
+
+function roller(parent, text, style) {
+  const wrap = el(parent, '', style);
+  const cols = [...text].map((ch) => {
+    const d = document.createElement('span');
+    d.className = 'digit';
+    if (/\d/.test(ch)) {
+      d.innerHTML = '<span>' + [...'0123456789', ...'0123456789', ch].join('</span><span>') + '</span>';
+      d.dataset.target = 20;
+    } else {
+      d.innerHTML = `<span>${ch}</span>`;
+      d.dataset.target = 0;
+    }
+    wrap.appendChild(d);
+    return d;
+  });
+  return { wrap, cols };
+}
+function roll(r, t, at) {
+  r.cols.forEach((c, i) => {
+    const p = easeOut(prog(t, at + i * 0.08, 0.9));
+    const inner = c.firstElementChild ? c : c;
+    const n = Number(c.dataset.target);
+    [...c.children].forEach((s) => (s.style.transform = `translateY(${-p * n * 100}%)`));
+    c.style.filter = p > 0 && p < 1 ? `blur(${Math.sin(p * Math.PI) * 6}px)` : 'none';
+    c.style.opacity = clamp(prog(t, at + i * 0.08, 0.15));
+  });
+}
+
+S.counter = (root) => {
+  root.classList.add('light');
+  const box = el(root, '', { left: '360px', right: '360px', top: '330px', height: '420px', borderRadius: '40px', background: 'rgba(255,255,255,.6)', boxShadow: '0 30px 80px -40px rgba(0,0,0,.25)' });
+  const a = roller(root, 'K0', { left: '470px', top: '400px', fontSize: '230px', fontWeight: 800, letterSpacing: '-.05em', lineHeight: 1 });
+  const aT = el(root, '<div style="font-size:60px;font-weight:700">to download.</div><div style="font-size:38px;color:#707a75;margin-top:6px">No ads. No account.</div>', { left: '880px', top: '450px' });
+  const b = roller(root, '100%', { left: '430px', top: '415px', fontSize: '200px', fontWeight: 800, letterSpacing: '-.05em', lineHeight: 1 });
+  b.wrap.lastChild.style.color = 'var(--g)';
+  a.wrap.lastChild.style.color = 'var(--g)';
+  const bT = el(root, '<div style="font-size:60px;font-weight:700">on your phone.</div><div style="font-size:38px;color:#707a75;margin-top:6px">Works without data.</div>', { left: '1080px', top: '450px' });
+  return (t, D, T) => {
+    anim(box, t, 0, D - 0.3, D, { y: 30, s: 0.95 });
+    roll(a, t, 0.1); inn(aT, t, 0.45, { x: 40, y: 0 }); out(aT, t, 1.55); draw(aT);
+    const ao = easeIn(prog(t, 1.55, 0.3)); a.wrap.style.opacity = 1 - ao; a.wrap.style.filter = ao ? `blur(${ao * 20}px)` : 'none';
+    roll(b, t, 1.7); inn(bT, t, 2.1, { x: 40, y: 0 }); out(bT, t, D - 0.3); draw(bT);
+    const bo = easeIn(prog(t, D - 0.3, 0.3)); b.wrap.style.opacity = t < 1.7 ? 0 : 1 - bo; b.wrap.style.filter = bo ? `blur(${bo * 20}px)` : 'none';
+  };
+};
+
+S.avail = (root) => {
+  root.classList.add('light');
+  const h = caption(root, 'Download Ndalama', { top: '150px', fontSize: '96px', fontWeight: 800, letterSpacing: '-.04em' });
+  const now = el(root, 'Available now', { left: '0', right: '0', top: '320px', textAlign: 'center', fontSize: '30px', fontWeight: 700, color: 'var(--g2)', letterSpacing: '.12em', textTransform: 'uppercase' });
+  const mk = (name, x, y, dark) => el(root, `<span style="width:20px;height:20px;border-radius:50%;background:${dark ? '#2ee08a' : '#c4ccc8'}"></span>${name}`,
+    { left: x + 'px', top: y + 'px', background: dark ? '#111412' : '#fff', color: dark ? '#fff' : '#9aa39f', boxShadow: '0 20px 50px -24px rgba(0,0,0,.4)' }, 'abs badge');
+  const ap = mk('APKPure', 560, 390, true), ud = mk('Uptodown', 1000, 390, true);
+  const soon = el(root, 'Coming soon', { left: '0', right: '0', top: '600px', textAlign: 'center', fontSize: '30px', fontWeight: 700, color: '#9aa39f', letterSpacing: '.12em', textTransform: 'uppercase' });
+  const gp = mk('Google Play', 520, 670, false), as = mk('App Store (iPhone)', 960, 670, false);
+  const free = caption(root, 'Free · Android 7.0 and up', { top: '880px', fontSize: '34px', color: 'var(--muted)', fontWeight: 500 });
+  return (t, D, T) => {
+    anim(h, t, 0, D - 0.3, D, { y: 30 });
+    anim(now, t, 0.2, D - 0.3, D, { y: 10 });
+    anim(ap, t, snap(57.6 + 0.85) - 57.6 - 0.1, D - 0.3, D, { y: 60, s: 0.7, extra: `scale(${1 + 0.05 * pulse(t + 57.6)})` });
+    anim(ud, t, snap(57.6 + 0.85) - 57.6 + 0.12, D - 0.3, D, { y: 60, s: 0.7, extra: `scale(${1 + 0.05 * pulse(t + 57.6)})` });
+    anim(soon, t, 1.7, D - 0.3, D, { y: 10 });
+    anim(gp, t, 1.9, D - 0.3, D, { y: 40, s: 0.85 });
+    anim(as, t, 2.1, D - 0.3, D, { y: 40, s: 0.85 });
+    anim(free, t, 2.4, D - 0.3, D, { y: 10 });
+  };
+};
+
+S.brand = (root) => {
+  root.style.background = '#cfd3cf';
+  const word = el(root, '', { top: '440px', fontSize: '170px', fontWeight: 800, letterSpacing: '-.045em' }, 'abs center');
+  const letters = [...'ndalama'].map((ch, i) => { const s = document.createElement('span'); s.style.display = 'inline-block'; s.textContent = ch; if (i === 0) s.style.color = 'var(--g)'; word.appendChild(s); return s; });
+  const tag = caption(root, 'Know where your kwacha goes.', { top: '680px', fontSize: '44px', fontWeight: 500 });
+  return (t, D, T) => {
+    // Background darkens from light grey to near black, like the reference.
+    const dk = easeInOut(prog(t, 1.6, D - 1.8));
+    const c = Math.round(lerp(207, 24, dk));
+    root.style.background = `rgb(${c},${c + 3},${c})`;
+    letters.forEach((s, i) => {
+      inn(s, t, 0.1 + i * 0.09, { dur: 0.5, y: 0, x: -60, blur: 26, s: 1 });
+      if (i > 0) s.style.color = `rgb(${Math.round(lerp(21, 240, dk))},${Math.round(lerp(24, 243, dk))},${Math.round(lerp(22, 241, dk))})`;
+      draw(s);
+    });
+    anim(tag, t, 1.2, D - 0.3, D, { y: 20 });
+    tag.style.color = dk > 0.5 ? 'rgba(255,255,255,.75)' : 'var(--ink)';
+    const o = easeIn(prog(t, D - 0.35, 0.35));
+    word.style.opacity = 1 - o;
+  };
+};
+
+S.end = (root) => {
+  root.style.background = '#0e1110';
+  const icon = el(root, '<img src="img/icon.png" style="width:150px;height:150px;border-radius:36px">', { left: '885px', top: '210px' });
+  const name = el(root, 'Ndalama', { top: '385px', fontSize: '64px', fontWeight: 800, color: '#fff', letterSpacing: '-.03em' }, 'abs center');
+  const bar = el(root, `<div style="display:flex;align-items:center;gap:22px;height:100%;padding:0 34px">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#6b7570" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+      <span id="typed" style="font-size:44px;font-weight:600;color:#111"></span><span id="caret" style="width:3px;height:48px;background:#111"></span>
+      <span style="margin-left:auto;background:var(--g);color:#fff;font-size:28px;font-weight:700;padding:12px 26px;border-radius:14px">Search</span></div>`,
+    { left: '560px', top: '520px', width: '800px', height: '110px', borderRadius: '24px', background: '#fff', boxShadow: '0 0 0 5px #14b866, 0 30px 80px -20px rgba(20,184,102,.5)' });
+  const line1 = caption(root, 'on <b style="color:#fff">APKPure</b> &amp; <b style="color:#fff">Uptodown</b>', { top: '690px', fontSize: '44px', color: 'rgba(255,255,255,.8)', fontWeight: 500 });
+  const line2 = caption(root, 'Google Play &amp; iPhone: coming soon', { top: '770px', fontSize: '34px', color: 'rgba(255,255,255,.5)', fontWeight: 500 });
+  return (t, D, T) => {
+    const ip = backOut(prog(t, 0.05, 0.6));
+    icon.style.opacity = clamp(prog(t, 0.05, 0.2));
+    icon.style.transform = `scale(${0.4 + 0.6 * ip})`;
+    anim(name, t, 0.3, 99, D, { y: 20 });
+    anim(bar, t, 0.6, 99, D, { y: 40, s: 0.9 });
+    const typed = 'Ndalama';
+    const n = Math.floor(clamp((t - 1.2) / 1.1) * typed.length);
+    bar.querySelector('#typed').textContent = typed.slice(0, n);
+    bar.querySelector('#caret').style.opacity = Math.floor(t * 2.2) % 2 ? 0.15 : 1;
+    anim(line1, t, 2.5, 99, D, { y: 20 });
+    anim(line2, t, 2.9, 99, D, { y: 20 });
+    const fade = easeInOut(prog(t, D - 1.0, 1.0));
+    root.style.opacity = 1 - fade;
+  };
+};
+
+// ---------- timeline (song seconds, snapped to beats) ----------
+const PLAN = [
+  ['open', 0, 4.34], ['coin', 4.34, 10.94], ['graph', 10.94, 17.6], ['morph', 17.6, 22.08], ['build', 22.08, 27.12],
+  ['bento', 27.12, 33.9], ['steps', 33.9, 47.4], ['alerts', 47.4, 54.2], ['counter', 54.2, 57.6], ['avail', 57.6, 61.0],
+  ['brand', 61.0, 65.99], ['end', 65.99, 72.6],
+];
+const stage = document.getElementById('stage');
+const scenes = PLAN.map(([id, a, b], i) => {
+  const start = i === 0 ? 0 : snap(a);
+  const end = i === PLAN.length - 1 ? b : snap(b);
+  const root = el(stage, '', {}, 'scene');
+  return { id, start, end, root, update: S[id](root) };
+});
+window.TOTAL = scenes[scenes.length - 1].end;
+window.renderAt = (T) => {
+  for (const s of scenes) {
+    const on = T >= s.start && T < s.end;
+    s.root.style.display = on ? 'block' : 'none';
+    if (on) s.update(T - s.start, s.end - s.start, T);
+  }
+};
+window.SCENES = scenes.map(({ id, start, end }) => ({ id, start, end }));
+renderAt(0);
+</script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: 'Inter Display', 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+  .shot { width: 1080px; height: 1920px; position: relative; overflow: hidden;
+          background: radial-gradient(900px 700px at 20% 0%, #1c9a57, transparent 65%), linear-gradient(160deg, #0b6b3a, #064527); }
+  .shot.light { background: radial-gradient(900px 700px at 80% 0%, #e3f2e9, transparent 70%), #fbfbf8; }
+  .kicker { position: absolute; top: 120px; left: 0; right: 0; text-align: center; font-size: 34px; font-weight: 600;
+            letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.8); }
+  .title { position: absolute; top: 180px; left: 70px; right: 70px; text-align: center; font-size: 84px; line-height: 1.08;
+           font-weight: 700; letter-spacing: -0.035em; color: #fff; }
+  .light .kicker { color: #0b6b3a; } .light .title { color: #121614; }
+  .phone { position: absolute; left: 50%; top: 470px; width: 700px; height: 1515px; margin-left: -350px; border-radius: 96px;
+           background: #0d0f0e; padding: 20px; box-shadow: 0 60px 120px -30px rgba(0,0,0,.5), 0 0 0 3px #2b302d inset; }
+  .phone img { width: 100%; height: 100%; border-radius: 78px; object-fit: cover; object-position: top; display: block; }
+  .phone::after { content: ''; position: absolute; top: 40px; left: 50%; width: 170px; height: 46px; margin-left: -85px; border-radius: 30px; background: #0d0f0e; }
+  .float { position: absolute; border-radius: 40px; overflow: hidden; background: #fff; box-shadow: 0 40px 90px -30px rgba(0,0,0,.45); }
+  .float img { display: block; width: 100%; }
+  .feature { width: 1024px; height: 500px; position: relative; overflow: hidden;
+             background: radial-gradient(700px 500px at 15% 10%, #1c9a57, transparent 65%), linear-gradient(135deg, #0b6b3a, #064527); }
+  .icon512 { width: 512px; height: 512px; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script>
+const SHOTS = [
+  { kicker: 'Every morning', title: 'Know how much you can spend today', img: 'screen-home' },
+  { kicker: 'Track every kwacha', title: 'Record money in and out in seconds', img: 'screen-add', light: true },
+  { kicker: 'Budgets', title: 'A budget built from what you earn', img: 'screen-budget' },
+  { kicker: 'Savings goals', title: 'Get warned before a goal slips', img: 'screen-goals', light: true },
+  { kicker: 'Reminders & loans', title: 'Never miss a bill or forget a loan', img: 'screen-loans', float: 'card-bills' },
+  { kicker: 'Monthly report', title: 'See exactly where your money went', img: 'screen-report', light: true },
+];
+const out = document.getElementById('out');
+const mode = location.search.slice(1);
+if (mode.startsWith('shot')) {
+  const s = SHOTS[Number(mode.slice(4))];
+  out.innerHTML = `<div class="shot ${s.light ? 'light' : ''}">
+    <div class="kicker">${s.kicker}</div><div class="title">${s.title}</div>
+    <div class="phone"><img src="../assets/app/${s.img}.png"></div>
+    ${s.float ? `<div class="float" style="left:520px;top:1180px;width:520px"><img src="../assets/app/${s.float}.png"></div>` : ''}
+  </div>`;
+} else if (mode === 'feature') {
+  out.innerHTML = `<div class="feature">
+    <img src="../assets/app/icon.png" style="position:absolute;left:70px;top:150px;width:200px;height:200px;border-radius:46px;box-shadow:0 30px 60px -20px rgba(0,0,0,.45)">
+    <div style="position:absolute;left:310px;top:150px;color:#fff;font-size:84px;font-weight:700;letter-spacing:-.04em">Ndalama</div>
+    <div style="position:absolute;left:312px;top:262px;color:rgba(255,255,255,.88);font-size:34px;font-weight:500;width:340px;line-height:1.25">Know where your kwacha goes.</div>
+    <div class="float" style="left:700px;top:50px;width:290px;border-radius:22px;transform:rotate(4deg)"><img src="../assets/app/card-hero.png"></div>
+    <div class="float" style="left:680px;top:300px;width:300px;border-radius:22px;transform:rotate(-3deg)"><img src="../assets/app/card-tiles.png"></div>
+  </div>`;
+} else if (mode === 'icon') {
+  out.innerHTML = `<img class="icon512" src="../assets/app/icon.png">`;
+}
+</script>
+</body>
+</html>

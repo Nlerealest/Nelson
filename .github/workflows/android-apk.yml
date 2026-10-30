@@ -12,6 +12,8 @@ name: Android APK
 on:
   push:
     branches: [claude/malawi-money-management-knal4c]
+    # Marketing work and docs don't change the app.
+    paths-ignore: ['marketing/**', '**/*.md']
   workflow_dispatch:
 
 permissions:
