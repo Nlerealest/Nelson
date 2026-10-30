@@ -1,6 +1,6 @@
 # Nelson's playbook
 
-Nelson hunts with 11 strategies at once. Four place demo trades. Seven are watch-only: Nelson follows their setups on live prices and records the result, so the Learn tab shows how each one does without risking money.
+Nelson only trades XAUUSD (spot gold against the US dollar). It hunts with 11 strategies at once. Four place trades. Seven are signal-only: Nelson sends the entry, stop and target to your phone so you can take them yourself, and follows the result so the Learn tab shows how each one does. Whenever a key level is swept, a "Setup forming" alert comes first, before any confirmation.
 
 Each setup says which strategy found it. Every strategy still passes the news rules, the late-Friday cut-off, the 0.5% risk per trade and the daily loss stop.
 
@@ -51,6 +51,22 @@ All four together: about 17 trades a month, +41% return, 4.7% worst drawdown, ab
 
 **Be careful with these numbers.** Filters were chosen by looking at this same data, so live results will likely be weaker, and 20–27 trades is a small sample for the first two rows. Spread at thin hours can be wider than the $0.25 tested.
 
+## Later additions
+
+Sessions now follow your notes (fixed Eastern Standard Time, so they run an hour late against New York in summer): Asia 00:00-09:00, London 08:00-17:00 and New York 13:00-22:00 UTC. New York highs and lows and untested daily highs and lows from the last 14 days are now liquidity levels. A level from a session only counts once that session has closed.
+
+| Test (same 17 months) | Trades | Won | Avg | Return | Max DD |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 4 strategies, old sessions and levels | 288 | 55% | +0.26R | +41.6% | 4.7% |
+| **4 strategies, your sessions + New York + untested (current)** | **274** | **54%** | **+0.26R** | **+39.5%** | **4.2%** |
+| Same with the 15-minute check | 274 | 54% | +0.26R | +39.5% | 4.2% |
+| All 11 trading | 188, then halted | 42% | -0.08R | -7.4% | 10.3% (stop hit) |
+| All 11 trading, drawdown stop off | 1,469 | 44% | -0.05R | -27.7% | 30.0% |
+
+The new levels made almost no difference. The 15-minute check changed nothing, so it stays off (`use_m15_reaction`). Trading all 11 lost money and hit the 10% drawdown stop, which stops all trading until a person resets it, so the seven stay signal-only. On a real-money account only the `real_money` list ever trades.
+
+The opening range now also needs ADX of at least 20 (regime filter). The opening ranges still use 5-minute candles, not 1-minute.
+
 ## Changing it
 
-In `config.yaml`, under `playbook:`, move a name between `enabled` (places trades) and `watch` (learns only). Promote a watch-only strategy only after the Learn tab shows it working on live prices.
+In `config.yaml`, under `playbook:`, move a name between `enabled` (places trades) and `watch` (signals only). Move a strategy across only after the Learn tab shows it working on live prices.

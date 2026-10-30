@@ -28,7 +28,7 @@ risk:
 
 playbook:                     # see docs/PLAYBOOK.md
   enabled: [tjr_bootcamp, mean_reversion, continuation, momentum]   # these place trades
-  watch: [tjr_2026, ict_ote, ict_silver_bullet, ict_judas, orb_gold, orb_asia, trend]   # followed on price to learn, no trades
+  watch: [tjr_2026, ict_ote, ict_silver_bullet, ict_judas, orb_gold, orb_asia, trend]   # phone signals only, no trades
 
 strategy:                     # TJR bootcamp model - see docs/TJR_METHOD.md
   use_daily_bias: true        # trade only with the daily market structure

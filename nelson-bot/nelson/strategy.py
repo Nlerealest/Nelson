@@ -28,7 +28,7 @@ import pandas as pd
 from .config import StrategyConfig
 from .indicators import atr as atr_fn
 from .indicators import confirmed_pivots
-from .liquidity import LiquidityBook, asia_levels, daily_levels, session_levels
+from .liquidity import LiquidityBook, asia_levels, daily_levels, last_m15_close, session_levels, untested_levels
 from .orderflow import bar_delta_proxy, relative_volume
 from .sessions import friday_cutoff, in_windows, session_name
 from .structure import htf_context, htf_trend
@@ -106,7 +106,9 @@ def prepare(df: pd.DataFrame, cfg: StrategyConfig, bar_minutes: int | None = Non
     h4 = htf_trend(df, m, 240, k, history, cfg.day_start_utc - 24)
     df = pd.concat([df, htf_context(df, m, cfg.htf_minutes, cfg.htf_swing_length),
                     daily_levels(df), asia_levels(df, cfg.asia_session_utc, m),
-                    session_levels(df, cfg.london_session_utc, m, "london")], axis=1)
+                    session_levels(df, cfg.london_session_utc, m, "london"),
+                    session_levels(df, cfg.ny_session_utc, m, "ny"), untested_levels(df, cfg.untested_days)], axis=1)
+    df["m15_close"] = last_m15_close(df)
     df["daily_trend"], df["h4_trend"] = daily["trend"].to_numpy(), h4["trend"].to_numpy()
     if "delta" not in df:
         df["delta"] = bar_delta_proxy(df)
@@ -137,7 +139,9 @@ class NelsonStrategy:
             "pdh", "pdl", "asia_high", "asia_low", "rel_volume", "sh_confirmed", "sh_price", "sl_confirmed", "sl_price"))
         lon_h = f["london_high"].to_numpy() if "london_high" in f else np.full(len(f), np.nan)
         lon_l = f["london_low"].to_numpy() if "london_low" in f else np.full(len(f), np.nan)
-        london_added = None
+        london_added = ny_added = None
+        ny_h, ny_l = f["ny_high"].to_numpy(), f["ny_low"].to_numpy()
+        un_h, un_l, m15 = f["untested_high"].to_numpy(), f["untested_low"].to_numpy(), f["m15_close"].to_numpy()
         self.book = book = LiquidityBook(c.equal_level_tolerance_atr, c.max_level_age_hours)
         self.rejected = []
         self.skipped = []
@@ -161,6 +165,13 @@ class NelsonStrategy:
                 london_added = days[i]
                 book.add(lon_h[i], "BSL", "London high", ti, ai)
                 book.add(lon_l[i], "SSL", "London low", ti, ai)
+            if c.use_ny_levels and ny_added != days[i] and not np.isnan(ny_h[i]):
+                ny_added = days[i]
+                book.add(ny_h[i], "BSL", "New York high", ti, ai)
+                book.add(ny_l[i], "SSL", "New York low", ti, ai)
+            if c.use_untested_levels:
+                book.add(un_h[i], "BSL", "Untested high", ti, ai)
+                book.add(un_l[i], "SSL", "Untested low", ti, ai)
             if c.use_swing_levels:
                 if sh_c[i]:
                     book.add(sh_p[i], "BSL", "Swing high", ti, ai)
@@ -203,6 +214,8 @@ class NelsonStrategy:
                 body = (cl[i] - o[i]) * d
                 broke = cl[i] > p.internal if d == 1 else cl[i] < p.internal
                 if body < c.displacement_atr * ai or not broke:
+                    continue
+                if c.use_m15_reaction and (m15[i] - p.level_price) * d <= 0:
                     continue
                 fvg = _find_fvg(h, l, i, d, p.index, c.min_fvg_atr * ai)
                 if fvg is None:

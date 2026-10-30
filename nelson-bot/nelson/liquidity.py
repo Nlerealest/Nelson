@@ -16,7 +16,8 @@ import pandas as pd
 from .sessions import _minutes
 
 # Higher number = more significant level (more stops resting there)
-PRIORITY = {"PDH": 4, "PDL": 4, "Asia high": 3, "Asia low": 3, "London high": 3, "London low": 3,
+PRIORITY = {"PDH": 4, "PDL": 4, "Untested high": 4, "Untested low": 4, "New York high": 3, "New York low": 3,
+            "Asia high": 3, "Asia low": 3, "London high": 3, "London low": 3,
             "Equal highs": 3, "Equal lows": 3, "Swing high": 1, "Swing low": 1}
 
 
@@ -60,6 +61,40 @@ def asia_levels(df: pd.DataFrame, session: tuple[str, str], bar_minutes: int) ->
     return pd.DataFrame({"asia_high": hi.to_numpy(), "asia_low": lo.to_numpy()}, index=df.index)
 
 
+def untested_levels(df: pd.DataFrame, days: int) -> pd.DataFrame:
+    """Nearest daily high above and daily low below price that nothing has traded through since it formed."""
+    day = df["time"].dt.normalize().to_numpy()
+    h, l, c = df["high"].to_numpy(), df["low"].to_numpy(), df["close"].to_numpy()
+    up, down = np.full(len(df), np.nan), np.full(len(df), np.nan)
+    highs: list[tuple[int, float]] = []
+    lows: list[tuple[int, float]] = []
+    start, count, day_hi, day_lo = 0, 0, np.nan, np.nan
+    for i in range(len(df)):
+        if i and day[i] != day[i - 1]:
+            count += 1
+            day_hi, day_lo = h[start:i].max(), l[start:i].min()
+            start = i
+            highs = [x for x in highs if count - x[0] <= days] + [(count, float(day_hi))]
+            lows = [x for x in lows if count - x[0] <= days] + [(count, float(day_lo))]
+        ref = c[i - 1] if i else c[0]
+        above = [p for _, p in highs if p > ref]
+        below = [p for _, p in lows if p < ref]
+        if above:
+            up[i] = min(above)
+        if below:
+            down[i] = max(below)
+        highs = [x for x in highs if x[1] >= h[i]]
+        lows = [x for x in lows if x[1] <= l[i]]
+    return pd.DataFrame({"untested_high": up, "untested_low": down}, index=df.index)
+
+
+def last_m15_close(df: pd.DataFrame) -> np.ndarray:
+    """Close of the latest finished 15-minute candle at each bar's close."""
+    t = df["time"]
+    done = ((t.dt.minute + df.attrs.get("bar_minutes", 5)) % 15) == 0
+    return df["close"].where(done).ffill().to_numpy()
+
+
 class LiquidityBook:
     """Keeps the list of untouched liquidity levels as price moves bar by bar."""
 
@@ -77,11 +112,15 @@ class LiquidityBook:
                     lvl.name = "Equal highs" if side == "BSL" else "Equal lows"
                     lvl.price = max(lvl.price, price) if side == "BSL" else min(lvl.price, price)
                     return
+        if name.startswith("Untested") and any(lv.alive and lv.side == side and lv.price == price for lv in self.levels):
+            return
         self.levels.append(Level(float(price), side, name, t))
 
     def expire(self, t: int) -> None:
-        if any(not lv.alive or t - lv.created > self.max_age for lv in self.levels):
-            self.levels = [lv for lv in self.levels if lv.alive and t - lv.created <= self.max_age]
+        def keep(lv):
+            return lv.alive and (lv.name.startswith("Untested") or t - lv.created <= self.max_age)
+        if not all(keep(lv) for lv in self.levels):
+            self.levels = [lv for lv in self.levels if keep(lv)]
 
     def check(self, high: float, low: float, close: float) -> tuple[list[Level], list[Level]]:
         """Returns (bsl_swept, ssl_swept) on this bar. Levels traded through are removed."""

@@ -29,9 +29,12 @@ LABELS = {
     "mean_reversion": "Mean reversion (Bollinger snap-back in a range)",
 }
 BSL = (("pdh", "Previous day high"), ("london_high", "London high"), ("asia_high", "Asia high"),
-       ("wk_high", "Weekly high"), ("h4_high", "4-hour high"), ("h1_high", "1-hour high"))
+       ("wk_high", "Weekly high"), ("ny_high", "New York high"), ("untested_high", "Untested high"),
+       ("h4_high", "4-hour high"), ("h1_high", "1-hour high"))
 SSL = (("pdl", "Previous day low"), ("london_low", "London low"), ("asia_low", "Asia low"),
-       ("wk_low", "Weekly low"), ("h4_low", "4-hour low"), ("h1_low", "1-hour low"))
+       ("wk_low", "Weekly low"), ("ny_low", "New York low"), ("untested_low", "Untested low"),
+       ("h4_low", "4-hour low"), ("h1_low", "1-hour low"))
+KEY_LEVELS = {n for _, n in BSL[:6] + SSL[:6]}     # big enough for an early "setup forming" alert
 SILVER_BULLET_ET = ((180, 240), (600, 660), (840, 900))     # minutes after midnight, New York time
 LONDON_KZ_ET = ((120, 300),)
 NY_KZ_ET = ((420, 660),)
@@ -73,6 +76,7 @@ class Bars:
         self.o, self.h, self.l, self.c = (f[k].to_numpy() for k in ("open", "high", "low", "close"))
         self.a = f["atr"].to_numpy()
         self.vol = f["rel_volume"].to_numpy()
+        self.m15 = f["m15_close"].to_numpy()
         self.daily, self.h4 = f["daily_trend"].to_numpy(), f["h4_trend"].to_numpy()
         et = f["time"].dt.tz_localize("UTC").dt.tz_convert("America/New_York")
         self.et_min = (et.dt.hour * 60 + et.dt.minute).to_numpy()
@@ -149,7 +153,7 @@ class Playbook:
                 s.strategy = "tjr_bootcamp"
                 s.features["strategy"] = "tjr_bootcamp"
         self.rejected = list(self.core.rejected)
-        x = Bars(f)
+        x = self.bars = Bars(f)
         self._last: dict[str, int] = {}
         runs = {
             "tjr_2026": lambda: self._reversal(x, "tjr_2026", "retrace"),
@@ -166,7 +170,8 @@ class Playbook:
         for name, run in runs.items():
             if name in on:
                 setups += run()
-        setups.sort(key=lambda s: s.index)
+        rank = {n: k for k, n in enumerate(on)}
+        setups.sort(key=lambda s: (s.index, rank.get(s.strategy, 99)))
         seen, out = set(), []
         for s in setups:              # one traded setup per candle
             s.watch_only = s.strategy not in self.pb.enabled
@@ -175,6 +180,10 @@ class Playbook:
             if not s.watch_only:
                 seen.add(s.index)
         return out
+
+    def forming(self, i: int) -> list[tuple[int, str, float]]:
+        """Key levels swept on bar i: a setup may follow, so the trader gets an early warning."""
+        return [(d, name, level) for k, d, name, level in self.bars.sweeps if k == i and name in KEY_LEVELS]
 
     # ---------- shared
     def _emit(self, x: Bars, name, i, d, entry, sl, tp, level, details, market=True, partial_r=None,
@@ -265,6 +274,8 @@ class Playbook:
                 if (x.c[k] - level) * d < 0:          # accepted beyond the level: the sweep failed
                     break
                 extreme = min(extreme, x.l[k]) if d > 0 else max(extreme, x.h[k])
+                if self.cfg.use_m15_reaction and (x.m15[k] - level) * d <= 0:
+                    continue
                 broke = internal == internal and (x.c[k] - internal) * d > 0
                 inv = ifvg is not None and (x.c[k] - ifvg) * d > 0
                 if broke or inv:
@@ -345,7 +356,8 @@ class Playbook:
                     if x.c[k] > hi or x.c[k] < lo:
                         d = 1 if x.c[k] > hi else -1
                         # filters: volatility expansion and volume on the break
-                        if x.atr_fast[k] < pb.orb_expansion * x.atr_slow[k] or x.vol[k] < pb.orb_volume:
+                        if x.atr_fast[k] < pb.orb_expansion * x.atr_slow[k] or x.vol[k] < pb.orb_volume \
+                                or x.adx[k] < pb.orb_adx:
                             break
                         broke = k
                     continue
@@ -363,7 +375,8 @@ class Playbook:
                     s = self._emit(x, name, k, d, entry, sl, tp, "Opening range",
                                    [("Opening range", f"{lo:.2f}-{hi:.2f}"),
                                     ("Break and retest", f"Closed beyond, came back to {edge:.2f} and held"),
-                                    ("Filters", f"Volatility expansion, volume x{x.vol[broke]:.1f}")],
+                                    ("Filters", f"Volatility expansion, volume x{x.vol[broke]:.1f}, "
+                                                f"ADX {x.adx[broke]:.0f}")],
                                    partial_r=first, bias=False)
                     if s is not None:
                         out.append(s)

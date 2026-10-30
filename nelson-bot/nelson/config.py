@@ -29,9 +29,14 @@ class StrategyConfig:
     use_prev_day_levels: bool = True     # previous day high / low
     use_asia_levels: bool = True         # Asian session high / low
     use_london_levels: bool = True       # London session high / low (liquidity for New York)
-    london_session_utc: tuple[str, str] = ("07:00", "12:00")
+    london_session_utc: tuple[str, str] = ("08:00", "17:00")   # 3 a.m. to noon EST
+    ny_session_utc: tuple[str, str] = ("13:00", "22:00")       # 8 a.m. to 5 p.m. EST
+    use_ny_levels: bool = True           # New York session high / low
+    use_untested_levels: bool = True     # daily highs / lows not traded through since
+    untested_days: int = 14
+    use_m15_reaction: bool = False       # the last 15-minute close must agree with the sweep
     use_swing_levels: bool = True        # recent swing highs / lows (resting stops)
-    asia_session_utc: tuple[str, str] = ("00:00", "06:00")
+    asia_session_utc: tuple[str, str] = ("00:00", "09:00")
     equal_level_tolerance_atr: float = 0.10   # two swings this close count as equal highs/lows
     max_level_age_hours: float = 48.0
 
@@ -79,10 +84,14 @@ class StrategyConfig:
 @dataclass
 class PlaybookConfig:
     """The strategies Nelson hunts with (see nelson/playbook.py and docs/PLAYBOOK.md)."""
-    enabled: list[str] = field(default_factory=lambda: [      # these place trades
+    enabled: list[str] = field(default_factory=lambda: [      # these place trades (first in the list wins a tie)
         "tjr_bootcamp", "mean_reversion", "continuation", "momentum"])
-    watch: list[str] = field(default_factory=lambda: [        # followed on price only, so Nelson learns from them
+    watch: list[str] = field(default_factory=lambda: [        # these only send signals, no trades
         "tjr_2026", "ict_ote", "ict_silver_bullet", "ict_judas", "orb_gold", "orb_asia", "trend"])
+    # On a real-money account only these trade; every other enabled strategy only sends signals
+    real_money: list[str] = field(default_factory=lambda: [
+        "tjr_bootcamp", "mean_reversion", "continuation", "momentum"])
+    orb_adx: float = 20.0            # regime filter: opening range breaks need at least this ADX
     need_h4: list[str] = field(default_factory=lambda: ["continuation", "mean_reversion"])  # 4-hour must agree
     hours_utc: dict[str, list] = field(default_factory=lambda: {   # time-of-day filter per strategy
         "continuation": [("00:00", "12:00")], "momentum": [("12:00", "16:00")]})
@@ -167,8 +176,7 @@ class MT5Config:
     path: str = ""                       # path to terminal64.exe (optional)
     server_utc_offset_hours: Any = "auto"  # broker clock offset from UTC, or "auto"
     deviation_points: int = 30
-    bars_to_load: int = 3000
-    history_bars: int = 30000            # longer M5 history for the daily / 4-hour structure (refreshed hourly)
+    bars_to_load: int = 4400
     history_bars: int = 30000            # longer M5 history for the daily / 4-hour structure (refreshed hourly)
 
 

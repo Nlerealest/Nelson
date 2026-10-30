@@ -44,6 +44,10 @@ class NelsonBot:
         self.cfg = cfg
         self.broker = MT5Broker(cfg)
         self.news = NewsFilter(cfg.news)
+        if cfg.mode == "live":     # real money: unproven strategies only send signals
+            pb = cfg.playbook
+            pb.watch = [n for n in pb.enabled + pb.watch if n not in pb.real_money]
+            pb.enabled = [n for n in pb.enabled if n in pb.real_money]
         self.strategy = Playbook(cfg.strategy, cfg.playbook, self.news)
         self.journal = Journal(cfg.log_dir)
         self.minutes = TIMEFRAMES[cfg.timeframe]
@@ -326,6 +330,10 @@ class NelsonBot:
             self.last_brief_hour = now.hour
             log.info("\n%s", market_brief(f, self.strategy.book, self.news, setups))
 
+        for d, name, level in self.strategy.forming(last) if self.cfg.notify.signals else []:
+            self.push(f"Setup forming: possible {'BUY' if d > 0 else 'SELL'} XAUUSD",
+                      f"Price swept the {name} at {level:.2f} and closed back. Waiting for confirmation.",
+                      priority=3, tags=("eyes",))
         for i, side, why in self.strategy.rejected:
             if i == last:
                 log.info("Setup %s seen but skipped: %s", side, why)
@@ -336,7 +344,8 @@ class NelsonBot:
                 self.signals.add_skipped(sk, self.minutes, sc.order_expiry_bars, sc.rr_target)
         for s in (s for s in setups if s.index == last):
             if s.watch_only:
-                self._add_signal(s, "shadow", "not_taken", "watch only: learning from this strategy")
+                self._add_signal(s, "shadow", "not_taken", "signal only: not traded by Nelson")
+                self._signal_alert(s, f"signal only ({s.strategy.replace('_', ' ')})")
             else:
                 self._take(s)
         self._learn(f)

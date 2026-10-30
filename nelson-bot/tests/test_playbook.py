@@ -6,7 +6,8 @@ import pandas as pd
 
 from nelson.backtest import simulate
 from nelson.config import Config
-from nelson.playbook import LABELS, Playbook, adx, rsi
+from nelson.liquidity import untested_levels
+from nelson.playbook import KEY_LEVELS, LABELS, Playbook, adx, rsi
 from nelson.strategy import prepare
 
 
@@ -67,6 +68,24 @@ class TestPlaybook(unittest.TestCase):
         self.cfg.playbook.hours_utc = {"momentum": [("12:00", "16:00")]}
         for s in self.scan():
             self.assertTrue(12 * 60 <= s.time.hour * 60 + s.time.minute < 16 * 60)
+
+    def test_untested_levels_vanish_when_traded(self):
+        t = pd.date_range("2026-01-05", periods=288 * 3, freq="5min")
+        n = len(t)
+        h = np.full(n, 100.0)
+        h[10] = 110.0                     # day 1 high
+        h[288 * 2 + 20] = 111.0           # traded through on day 3
+        df = pd.DataFrame({"time": t, "high": h, "low": h - 1, "close": h - 0.5})
+        u = untested_levels(df, 14)["untested_high"].to_numpy()
+        self.assertEqual(u[288 + 5], 110.0)
+        self.assertEqual(u[288 * 2 + 20], 100.0)    # nearest above: day 2 high
+        self.assertTrue(np.isnan(u[288 * 2 + 21]))
+
+    def test_forming_lists_key_sweeps(self):
+        pb = Playbook(self.cfg.strategy, self.cfg.playbook, None)
+        pb.scan(self.f)
+        for i, d, name, level in pb.bars.sweeps:
+            self.assertEqual(bool(pb.forming(i)), any(n in KEY_LEVELS for k, _, n, _ in pb.bars.sweeps if k == i))
 
     def test_indicators(self):
         c = np.arange(100.0)

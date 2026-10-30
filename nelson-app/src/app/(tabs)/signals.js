@@ -17,7 +17,7 @@ const HOW = [
   ['Session and news', 'Any session (Asia, London, New York). No trading on CPI, PPI, FOMC or NFP days, half size on other news days.'],
   ['Targets', 'The next liquidity levels: half closed at the first (stop to break-even), the rest at the next, up to 3R.'],
   ['Risk', 'Stop beyond the sweep wick, a fixed small % of the balance per trade.'],
-  ['More strategies', 'Nelson also trades mean reversion, break and retest and momentum. TJR 2026, ICT, opening range and trend setups are followed on price to learn from, without trading them yet.'],
+  ['More strategies', 'Nelson also trades mean reversion, break and retest and momentum. TJR 2026, ICT, opening range and trend setups send phone signals so you can take them yourself. Nelson does not trade those.'],
 ]
 
 const FILTERS = [['signals', 'Signals'], ['skipped', 'Skipped'], ['all', 'All']];
