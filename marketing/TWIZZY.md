@@ -24,7 +24,7 @@ Ndalama ("money" in Chichewa) is a free money manager for Malawi. Use only these
 - Savings goals (phone, school fees, car, house) with the monthly amount needed and **early warnings** when habits put a goal at risk.
 - Bill reminders the day before and on the day; loans lent and borrowed with repayments; monthly reports.
 - Works without data. Private: data stays only on the phone. No account, no ads, free.
-- **Available now:** APKPure and Uptodown (links in the dashboard's Settings). Direct APK: https://github.com/Nlerealest/Nelson/releases/download/ndalama-latest/ndalama.apk
+- **Available now:** APKPure (https://apkpure.com/ndalama/mw.nelson.ndalama) and Uptodown (links in the dashboard's Settings). Direct APK: https://github.com/Nlerealest/Nelson/releases/download/ndalama-latest/ndalama.apk
 - **Coming soon:** Google Play and iPhone. Never say they are available until Settings says so.
 
 Never promise profits, savings amounts, loans, interest, or financial outcomes. Ndalama tracks money; it does not lend, invest or give financial advice.
