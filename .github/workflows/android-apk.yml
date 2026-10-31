@@ -12,8 +12,8 @@ name: Android APK
 on:
   push:
     branches: [claude/malawi-money-management-knal4c]
-    # Marketing work and docs don't change the app.
-    paths-ignore: ['marketing/**', '**/*.md']
+    # Marketing work, the Twizzy app and docs don't change the app.
+    paths-ignore: ['marketing/**', 'twizzy/**', '**/*.md', '.github/workflows/twizzy-*.yml']
   workflow_dispatch:
 
 permissions:

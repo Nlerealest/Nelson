@@ -1,0 +1,9 @@
+{
+  "name": "twizzy-agent",
+  "private": true,
+  "type": "module",
+  "description": "Command-line access to Twizzy's Supabase database for the agent (GitHub Action).",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.118.0"
+  }
+}

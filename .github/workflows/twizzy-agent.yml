@@ -1,0 +1,126 @@
+# Twizzy, Ndalama's marketing agent: Claude Code running on GitHub's servers.
+# It wakes up when the Twizzy app adds a command (Supabase calls
+# repository_dispatch), every morning, and on Mondays for new ideas. It makes
+# the videos with marketing/studio, uploads them to Supabase and updates the app.
+#
+# Secrets: CLAUDE_CODE_OAUTH_TOKEN (from `claude setup-token`), SUPABASE_URL,
+# SUPABASE_SERVICE_ROLE_KEY. See twizzy/SETUP.md.
+name: Twizzy agent
+
+on:
+  repository_dispatch:
+    types: [twizzy]
+  schedule:
+    - cron: '52 5 * * *'   # 07:52 in Malawi: daily check
+    - cron: '23 5 * * 1'   # 07:23 Monday: this week's ideas
+  workflow_dispatch:
+    inputs:
+      task:
+        description: 'Extra instruction for Twizzy (optional)'
+        required: false
+
+permissions:
+  contents: write
+
+# One run at a time; a new command waits for the current run, which picks it up anyway.
+concurrency:
+  group: twizzy-agent
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TW: node marketing/agent/tw.mjs
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: claude/malawi-money-management-knal4c
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Connect to the Twizzy app
+        run: |
+          (cd marketing/agent && npm install --no-audit --no-fund --silent)
+          $TW agent working "Getting the studio ready…"
+
+      - name: Fonts, ffmpeg and the browser
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-noto-color-emoji >/dev/null
+          mkdir -p ~/.local/share/fonts && curl -sSL -o /tmp/inter.zip https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip
+          unzip -q -o /tmp/inter.zip -d /tmp/inter && find /tmp/inter -name "*.otf" -exec cp {} ~/.local/share/fonts/ \; && fc-cache -f >/dev/null && fc-list | grep -c "Inter Display"
+          npm install -g playwright@1.56.1 --silent && npx -y playwright@1.56.1 install --with-deps chromium >/dev/null
+
+      - name: Cache the voice model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ndalama-studio
+          key: studio-${{ hashFiles('marketing/studio/setup.sh', 'marketing/studio/build_voices.py') }}
+
+      - name: Studio setup
+        run: bash marketing/studio/setup.sh
+
+      - name: What to do
+        id: task
+        env:
+          EVENT: ${{ github.event_name }}
+          SCHEDULE: ${{ github.event.schedule }}
+          EXTRA: ${{ github.event.inputs.task }}
+        run: |
+          if [ "$EVENT" = schedule ] && [ "$SCHEDULE" = '23 5 * * 1' ]; then
+            T="It is Monday: do the weekly ideas (TWIZZY.md section 3, step 3) and then everything else waiting."
+          elif [ "$EVENT" = schedule ]; then
+            T="Daily check: handle everything waiting. If nothing is waiting, log one short activity entry."
+          else
+            T="The owner just asked for something in the Twizzy app: handle the queued commands first, then anything else waiting."
+          fi
+          [ -n "$EXTRA" ] && T="$T Also: $EXTRA"
+          echo "text=$T" >> "$GITHUB_OUTPUT"
+
+      - name: Twizzy works
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          claude_args: >-
+            --max-turns 250
+            --allowedTools "Bash,Read,Write,Edit,Glob,Grep,WebSearch,WebFetch,TodoWrite"
+          prompt: |
+            You are Twizzy, the marketing agent for Ndalama, running in a GitHub Action.
+            Read marketing/TWIZZY.md completely first and follow it. Your data lives in the
+            Twizzy app's Supabase database: use `node marketing/agent/tw.mjs` (run it with no
+            arguments for help; start with `node marketing/agent/tw.mjs state`).
+            The studio is ready: ffmpeg, Chromium (Playwright), the Inter font, and the voice
+            model in ~/.cache/ndalama-studio are installed.
+
+            Task: ${{ steps.task.outputs.text }}
+
+            Keep the app informed while you work: `tw.mjs agent working "<what you are doing>"`,
+            mark each command working/done/failed with a short result the owner will read, and log
+            each finished action. Never print secrets. Do not commit or push: the workflow commits
+            your campaign sources after you finish.
+
+      - name: Save campaign sources
+        if: always()
+        run: |
+          git config user.name "Twizzy" && git config user.email "twizzy@users.noreply.github.com"
+          git add marketing/campaigns marketing/TWIZZY.md marketing/studio 2>/dev/null || true
+          if ! git diff --cached --quiet; then
+            git commit -q -m "Twizzy: campaign sources from run ${{ github.run_id }}"
+            git push -q origin HEAD:claude/malawi-money-management-knal4c || echo "::warning::Push failed"
+          fi
+
+      - name: Back to waiting
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = success ]; then $TW agent idle "Waiting for your next command"
+          else $TW agent error "The last run hit a problem. Twizzy will try again at the next command or the daily check."; fi

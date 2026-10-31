@@ -1,0 +1,68 @@
+{
+  "expo": {
+    "name": "Twizzy",
+    "slug": "twizzy",
+    "scheme": "twizzy",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "description": "Control Ndalama's marketing agent: ideas, videos, approvals and commands.",
+    "ios": {
+      "bundleIdentifier": "mw.nelson.twizzy",
+      "supportsTablet": true,
+      "config": {
+        "usesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "mw.nelson.twizzy",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#0b6b3a",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "output": "single"
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "root": "./src/app"
+        }
+      ],
+      "expo-status-bar",
+      "expo-sharing",
+      "expo-video",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Twizzy saves your videos to your gallery.",
+          "savePhotosPermission": "Twizzy saves your videos to your gallery.",
+          "isAccessMediaLocationEnabled": false,
+          "granularPermissions": [
+            "video"
+          ]
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 180,
+          "backgroundColor": "#0b6b3a"
+        }
+      ],
+      "expo-font",
+      "./plugins/withReleaseSigning"
+    ]
+  }
+}
