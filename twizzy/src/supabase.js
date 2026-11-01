@@ -9,20 +9,31 @@ import { AppState, Platform } from 'react-native';
 const KEY = 'twizzy.connection';
 let client = null;
 
+// Keep only https://<project>.supabase.co: people often paste the REST URL
+// (…/rest/v1/) or add spaces, which breaks sign-in.
+export function cleanUrl(url) {
+  const raw = String(url || '').trim();
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return raw.replace(/\/(rest|auth)\/v1.*$/i, '').replace(/\/+$/, '');
+  }
+}
+
 export async function loadConnection() {
   const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
   const anon = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-  if (url && anon) return { url, anon, builtIn: true };
+  if (url && anon) return { url: cleanUrl(url), anon: anon.trim(), builtIn: true };
   try {
     const saved = JSON.parse((await AsyncStorage.getItem(KEY)) || 'null');
-    return saved?.url && saved?.anon ? saved : null;
+    return saved?.url && saved?.anon ? { ...saved, url: cleanUrl(saved.url) } : null;
   } catch {
     return null;
   }
 }
 
 export async function saveConnection(url, anon) {
-  const conn = { url: url.trim().replace(/\/+$/, ''), anon: anon.trim() };
+  const conn = { url: cleanUrl(url), anon: anon.trim() };
   await AsyncStorage.setItem(KEY, JSON.stringify(conn));
   return conn;
 }

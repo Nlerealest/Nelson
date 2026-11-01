@@ -4,7 +4,7 @@ import { Tabs } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { connect, loadConnection, saveConnection } from '../supabase';
+import { connect, forgetConnection, loadConnection, saveConnection } from '../supabase';
 import { ToastProvider, useRows } from '../data';
 import { BRAND, GOLD, useTheme } from '../theme';
 import { Body, Button, Card, Field } from '../components/ui';
@@ -88,7 +88,7 @@ function ConnectScreen({ onDone }) {
   );
 }
 
-function LoginScreen({ client }) {
+function LoginScreen({ client, onReset }) {
   const t = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -102,10 +102,12 @@ function LoginScreen({ client }) {
         <Button title="Sign in" disabled={!email || !password} onPress={async () => {
           setError('');
           const { error: e } = await client.auth.signInWithPassword({ email: email.trim(), password });
-          if (e) setError(e.message === 'Invalid login credentials' ? 'Wrong email or password.' : e.message);
+          if (e) setError(e.message === 'Invalid login credentials' ? 'Wrong email or password.'
+            : /invalid path|fetch|network/i.test(e.message) ? 'Can’t reach Supabase. Check the Project URL (tap “Enter the Supabase URL and key again” below).' : e.message);
         }} />
       </Card>
       <Body small muted style={{ textAlign: 'center' }}>Use the user you created in Supabase → Authentication → Users.</Body>
+      {onReset ? <Button kind="plain" small title="Enter the Supabase URL and key again" onPress={onReset} /> : null}
     </Gate>
   );
 }
@@ -134,7 +136,7 @@ export default function RootLayout() {
   let body;
   if (conn === undefined || (conn && session === undefined)) body = <View style={{ flex: 1, justifyContent: 'center', backgroundColor: t.bg }}><ActivityIndicator color={t.primary} /></View>;
   else if (!conn) body = <ConnectScreen onDone={setConn} />;
-  else if (!session) body = <LoginScreen client={connect(conn)} />;
+  else if (!session) body = <LoginScreen client={connect(conn)} onReset={conn.builtIn ? null : async () => { await forgetConnection(); setSession(undefined); setConn(null); }} />;
   else body = <AppTabs />;
 
   return (
