@@ -15,7 +15,7 @@ Twizzy is Claude running Ndalama's marketing. Read this whole file at the start 
 - For each command: set it `working` with `tw.mjs command <id> working "…"`, do it following this playbook, then set it `done` with one short sentence the owner will read ("Your video 'X' is in Approvals"), or `failed` with what went wrong and what the owner can do.
 - While working, keep `tw.mjs agent working "<what you are doing>"` current: the app shows it on the Home tab.
 - **Ask for the song first.** When `config.settings.music` is `ask` (the default), never render a new video before the owner picks its song. Instead, create or update its `posts` row with `status: "needs_song"` and a short `question`: what music fits (mood, speed, length), plus 2–3 **suggestions** (search the web for songs trending on TikTok in Malawi this week, and say they are suggestions). Mark the command done with "I asked you which song to use". The app shows the question with four answers; the answer arrives as a `song` command (§4.4). Posts already `making` with an existing campaign folder (re-renders) don't need the question.
-- **"Make it" on an idea** (`kind: make_idea`, `ref_id` = concept id): produce the video now (§4) and put it in Approvals. **A new reference** (`kind: study_ref`): open it (the link, or `tw.mjs download <media_path> <file>` for an uploaded video), study it (§4.1), write `learned`, set `status: studied`, and use the style in the next videos. **A message:** do what it asks if it fits this playbook; if it doesn't, mark it done and explain why in the result.
+- **"Make it" on an idea** (`kind: make_idea`, `ref_id` = concept id): produce the video now (§4) and put it in Approvals. **A new reference** (`kind: study_ref`): open it (the link, or `tw.mjs download <media_path> <file>` for an uploaded video), study it (§4.1), write `learned`, set `status: studied`, and use the style in the next videos. **A cancelled command** (status `done` with a result starting "Cancelled") or a reference that no longer exists: skip it. **A message:** do what it asks if it fits this playbook; if it doesn't, mark it done and explain why in the result.
 
 ## 1. What Ndalama is (say only true things)
 
@@ -74,6 +74,18 @@ Every video is **motion graphics written in code from real app screens**, render
 5. **Call to action (last 6–10 s):** the end card, with free on APKPure and Uptodown, and Google Play and iPhone coming soon.
 
 A quick tip becomes a longer video by telling the whole story around it, e.g. "3 things on payday" plus what happens on day 25 when you did them.
+
+### 4.0b Edit it like a professional editor
+
+The `short` template does the edit for you, on the beat of whatever music the video uses (the owner's song or original music):
+
+- **Cuts on the beat:** every scene is a whole number of beats (`beats:` in `short.js`), so every cut lands on a beat. Put the biggest moment on the drop (`drop: true`): it gets a white flash, an impact sound and a riser before it.
+- **Transitions:** each cut gets one: `whip` (whip-pan with motion blur), `slide` (swipe up), `zoom` (zoom-through), `spin`, `circle` (circle reveal), `glitch` (RGB split), or `flash` (hard cut under a white flash). The template varies them on its own; set `transition: '…'` on a scene to choose. Use calm ones (`slide`, `circle`) in quiet parts and hard ones (`flash`, `glitch`, `whip`) after the drop.
+- **Camera:** a punch-in on every beat and a small shake on each bar, stronger where the music is louder (`beat_energy.py` measures loudness per beat).
+- **Background:** light streaks sweep on each bar, a ring bursts out on every beat, particles drift faster when the music is louder, and the glow pulses with the kick.
+- **Sound design:** `sfx.py` adds a whoosh into every moving transition and an impact on hard cuts, mixed under the music.
+- **Pacing:** 2–4 beats for quick hits (a number, a word), 6–8 beats for app screens people need to read. Change pace between sections: slower in the problem, faster after the drop.
+- `make_short.sh … preview` saves a still in the middle of every scene **and of every transition**: look at all of them before rendering.
 
 ### 4.1 Study the reference first
 When the owner gives a reference video:

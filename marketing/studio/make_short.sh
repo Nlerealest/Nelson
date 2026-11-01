@@ -52,21 +52,32 @@ else
   "$C/venv/bin/python" -I "$HERE/music_short.py" music.wav beats.js --bpm "$BPM" --seconds "$TOTAL" --drop "$DROP" --mood "$MOOD"
 fi
 [ -f script.json ] || : > timeline.js
-if [ "$MODE" = preview ]; then
-  OUT=/tmp/prev-$SLUG; rm -rf "$OUT"; mkdir -p "$OUT"
-  TIMES=$(cd "$HERE" && node -e '
+# How loud the music is on each beat: the edit hits harder where the song does.
+"$C/venv/bin/python" -I "$HERE/beat_energy.py" music.wav beats.js
+# The scenes as the page laid them out (start, length, transition into each).
+scenes_json() {
+  (cd "$HERE" && node -e '
     const { chromium } = require("./playwright.cjs");
     (async () => { const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1080, height: 1920 } });
-      await p.goto("file://" + process.argv[1] + "/video.html"); const s = await p.evaluate(() => SCENES);
-      console.log(s.map((x) => (x.start + Math.min(x.dur * 0.7, x.dur - 0.35)).toFixed(2)).join(" ")); await b.close(); })();' "$DIR")
+      await p.goto("file://" + process.argv[1] + "/video.html"); console.log(JSON.stringify(await p.evaluate(() => SCENES))); await b.close(); })();' "$DIR")
+}
+if [ "$MODE" = preview ]; then
+  OUT=/tmp/prev-$SLUG; rm -rf "$OUT"; mkdir -p "$OUT"
+  # one still in the middle of each scene, plus one in the middle of each transition
+  TIMES=$(scenes_json | node -e 'const s = JSON.parse(require("fs").readFileSync(0, "utf8"));
+    console.log(s.flatMap((x, i) => [(x.start + Math.min(x.dur * 0.7, x.dur - 0.35)).toFixed(2), ...(i ? [(x.start - 0.06).toFixed(2)] : [])]).join(" "))')
   node "$HERE/render.cjs" preview "$DIR" "$OUT" $TIMES
   echo "previews in $OUT: $TIMES"
 else
   F=/tmp/frames-$SLUG; rm -rf "$F"; mkdir -p "$F"
   node "$HERE/render.cjs" frames "$DIR" "$F" 30
+  # Sound design: whooshes and impacts on the transitions, mixed with the music.
+  scenes_json > /tmp/scenes-$SLUG.json
+  "$C/venv/bin/python" -I "$HERE/sfx.py" /tmp/scenes-$SLUG.json "$TOTAL" /tmp/sfx-$SLUG.wav
+  ffmpeg -v error -y -i music.wav -i /tmp/sfx-$SLUG.wav -filter_complex "[0:a][1:a]amix=inputs=2:normalize=0:duration=first" -ar 44100 /tmp/mix-$SLUG.wav
   if [ -f script.json ]; then
-    python3 "$HERE/finish.py" --frames "$F" --out "ndalama-$SLUG.mp4" --timeline timeline.json --vo vo --music music.wav
+    python3 "$HERE/finish.py" --frames "$F" --out "ndalama-$SLUG.mp4" --timeline timeline.json --vo vo --music /tmp/mix-$SLUG.wav
   else
-    python3 "$HERE/finish.py" --frames "$F" --out "ndalama-$SLUG.mp4" --track music.wav
+    python3 "$HERE/finish.py" --frames "$F" --out "ndalama-$SLUG.mp4" --track /tmp/mix-$SLUG.wav
   fi
 fi

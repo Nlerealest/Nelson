@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Platform, Switch } from 'react-native';
+import { Alert, Platform, Switch } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Clipboard from 'expo-clipboard';
@@ -13,6 +13,23 @@ const REF_TONE = { new: ['Studying…', 'warn'], studied: ['Studied', 'ok'], use
 
 function References({ toast }) {
   const { rows, error } = useRows('refs');
+  const commands = useRows('commands', { filter: { kind: 'study_ref' } });
+  // Takes back a reference added by mistake: the file, the row, and Twizzy's
+  // job to study it if it hasn't started yet.
+  const removeRef = (r) => {
+    const go = async () => {
+      if (r.media_path) await db().storage.from('media').remove([r.media_path]);
+      for (const c of (commands.rows || []).filter((x) => x.ref_id === r.id && ['queued', 'working'].includes(x.status))) {
+        await update('commands', c.id, { status: 'done', result: 'Cancelled: you removed this reference.' });
+      }
+      const { error: e } = await db().from('refs').delete().eq('id', r.id);
+      if (e) return toast('Couldn’t remove it: ' + e.message);
+      logYou(`You removed the reference “${r.title || r.url}”`);
+      toast('Reference removed.');
+    };
+    if (Platform.OS === 'web') return go();
+    Alert.alert('Remove this reference?', 'Twizzy won’t study or use it.', [{ text: 'Keep it', style: 'cancel' }, { text: 'Remove', style: 'destructive', onPress: go }]);
+  };
   const [url, setUrl] = useState('');
   const [note, setNote] = useState('');
   const add = async (row) => {
@@ -52,7 +69,10 @@ function References({ toast }) {
           </Row>
           {r.note ? <Body small muted>You: {r.note}</Body> : null}
           {r.learned ? <Body small>Twizzy learned: {r.learned}</Body> : null}
-          <Body small muted>{ago(r.created_at)}</Body>
+          <Row style={{ justifyContent: 'space-between' }}>
+            <Body small muted>{ago(r.created_at)}</Body>
+            <Button small kind="danger" icon="trash-outline" title={r.status === 'new' ? 'Cancel' : 'Remove'} onPress={() => removeRef(r)} />
+          </Row>
         </Card>
       ))}
     </>
