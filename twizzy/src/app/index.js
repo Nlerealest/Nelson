@@ -9,7 +9,7 @@ import { GOLD, useTheme } from '../theme';
 const CMD_TONE = { queued: ['Waiting', 'info'], working: ['Working', 'warn'], done: ['Done', 'ok'], failed: ['Problem', 'bad'] };
 const QUICK = [
   ['New ideas now', 'ideas_now', 'Come up with 4–5 fresh video ideas for this week, based on what is happening now.'],
-  ['Make a TikTok today', 'message', 'Pick the best idea that has not been made yet, make it as a vertical TikTok video and put it in Approvals.'],
+  ['Make a TikTok today', 'message', 'Pick the best idea that has not been made yet, make it as a vertical TikTok video of 45 s to 1:45 and put it in Approvals.'],
 ];
 
 function AgentCard({ agent, paused }) {
@@ -77,7 +77,7 @@ export default function Home() {
 
       <Card>
         <Body bold>Tell Twizzy</Body>
-        <Field value={text} onChangeText={setText} multiline placeholder="e.g. Make a 15-second TikTok about saving for Christmas, with a Chichewa line" />
+        <Field value={text} onChangeText={setText} multiline placeholder="e.g. Make a 1-minute TikTok about saving for Christmas, with a Chichewa line" />
         <Row>
           <Button icon="send" title="Send" disabled={!text.trim()} onPress={async () => { if (await send(text.trim())) setText(''); }} />
         </Row>

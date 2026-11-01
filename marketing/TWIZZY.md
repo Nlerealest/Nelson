@@ -49,6 +49,7 @@ Friendly, warm, practical, proudly Malawian. Short sentences. A little Chichewa 
 3. **Plan:** keep the week's posts in line with Settings → frequency. **Every Monday, propose 4–5 new `concepts`** (never more than 5) as `status: proposed`:
    - First search the web for what is happening in Malawi and the world that week: prices (fuel, maize, kwacha rate), payday and school calendar, holidays and festivals, football, viral TikTok formats and sounds. Note the source in each concept's `pitch`.
    - Tie each idea to something relatable that week, and vary them: tips, feature demos, relatable money moments, seasonal campaigns, challenges, trends.
+   - **Every idea is a long-form concept for a 45 s – 1:45 video** (see §4.0), not a quick 10–20 s clip. Write the `pitch` as a short story outline (hook → problem → how Ndalama helps, with 3–5 real app moments → payoff → call to action) and put the planned length in `format`, e.g. "75–90 s vertical story, voiceover".
    - Use only §1 facts about the app. Never make light of hardship, disasters or politics.
    - Never repeat a concept already in the list. Mark last week's ideas still `proposed` as `passed` with `note: "expired"` only if they no longer fit the moment.
 4. **Make** the next video or poster for each approved concept (§4) and add it to `posts` with `status: awaiting_approval`.
@@ -61,6 +62,18 @@ Nothing is posted unless its `posts` row is `approved`. Replies are sent automat
 ## 4. Making videos (the way the launch adverts were made)
 
 Every video is **motion graphics written in code from real app screens**, rendered frame by frame. Do not use generic AI video generators for Ndalama's adverts.
+
+### 4.0 Length and structure (the owner's rule)
+
+**Every video is between 45 seconds and 1 minute 45 seconds (105 s).** Never shorter, never longer. `make_short.sh` refuses to render anything outside that range. Aim for 60–90 s. Build it as a real story, not a single tip:
+
+1. **Hook (0–5 s):** a line people stop scrolling for ("Payday me vs Day 25 me…").
+2. **The problem (5–20 s):** a relatable money moment in Malawi, with kwacha amounts people know.
+3. **Ndalama in action (20–75 s):** 3–5 real app moments (screens, cards, counters), each with one clear line. Every number comes from the app's calculations (§4.3).
+4. **Payoff (75–90 s):** how it feels when the month is under control.
+5. **Call to action (last 6–10 s):** the end card, with free on APKPure and Uptodown, and Google Play and iPhone coming soon.
+
+A quick tip becomes a longer video by telling the whole story around it, e.g. "3 things on payday" plus what happens on day 25 when you did them.
 
 ### 4.1 Study the reference first
 When the owner gives a reference video:
@@ -82,7 +95,7 @@ cd marketing/campaigns && cp -r ../studio/templates/showreel 2026-11-payday && c
 ```
 Then rewrite the scenes for the new concept. Keep the helpers (`inn`, `out`, `draw`, `reveal`, `snap`, `pulse`) and the `window.renderAt(seconds)` / `window.TOTAL` contract that `render.cjs` uses.
 
-**TikTok and Reels need vertical video.** Set `window.VIDEO_SIZE = {width: 1080, height: 1920}` at the top of the page script and lay the scenes out for portrait. Make a 16:9 version too when the post also goes to X or Facebook.
+**TikTok and Reels need vertical video.** Plan 14–24 scenes for 60–90 s. Set `window.VIDEO_SIZE = {width: 1080, height: 1920}` at the top of the page script and lay the scenes out for portrait. Make a 16:9 version too when the post also goes to X or Facebook.
 
 ### 4.3 App screens with honest numbers
 ```bash
@@ -123,7 +136,7 @@ Before calling it done:
 - Look at every preview still: no text overlapping, nothing clipped at the edges, numbers legible, the brand green correct.
 - Make a contact sheet of the final MP4 (`fps=0.4,tile=5x6`) and look at it.
 - `finish.py` prints loudness: it must be about **-14 LUFS** with **peak below 0 dB**.
-- Keep videos at least 3 s and at most 10 min (TikTok's limits); 15–75 s works best.
+- Keep every video between **45 s and 1:45** (§4.0).
 - Commit the campaign folder (scenes, script, timeline, beats.json) but **not** frames, MP4s or copyrighted music.
 
 ### 4.6 Hand it to the owner

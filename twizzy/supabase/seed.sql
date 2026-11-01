@@ -53,4 +53,4 @@ insert into refs (id, kind, title, note, learned, status, created_at) values
 on conflict (id) do nothing;
 
 insert into activity (text) values ('Twizzy moved into its own app. Rendering the five videos again from their sources…');
-insert into commands (kind, text) values ('message', 'Setup: render the posts with status "making" from their campaign folders, upload them and set them to awaiting_approval.');
+insert into commands (kind, text) values ('message', 'Setup: the posts with status "making" come from campaign folders whose videos are shorter than 45 s. Extend each campaign''s short.js into a 60–90 s story (TWIZZY.md 4.0), render it, upload it and set it to awaiting_approval.');

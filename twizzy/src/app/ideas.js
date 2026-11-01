@@ -39,7 +39,7 @@ export default function Ideas() {
 
   return (
     <Screen onRefresh={() => Promise.all([proposed.reload(), others.reload()])}>
-      <Body muted>Twizzy brings 4–5 fresh ideas every Monday, based on what’s happening in Malawi and online. Tap Make it and the video lands in Approvals.</Body>
+      <Body muted>Twizzy brings 4–5 fresh story ideas every Monday, based on what’s happening in Malawi and online. Every video is 45 seconds to 1:45. Tap Make it and the video lands in Approvals.</Body>
       <Row>
         <Button small kind="soft" icon="refresh" title="New ideas now" onPress={async () => {
           await tellTwizzy('Come up with 4–5 fresh video ideas for this week, based on what is happening now.', 'ideas_now');
@@ -53,7 +53,7 @@ export default function Ideas() {
 
       <Section>Your own idea</Section>
       <Card>
-        <Field value={own} onChangeText={setOwn} multiline placeholder="e.g. A video about saving for a wedding, funny, 15 seconds" />
+        <Field value={own} onChangeText={setOwn} multiline placeholder="e.g. A funny story about saving for a wedding, about a minute" />
         <Row>
           <Button icon="color-wand-outline" title="Make my idea" disabled={own.trim().length < 5} onPress={async () => {
             const text = own.trim();

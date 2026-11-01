@@ -3,7 +3,7 @@
     "name": "Twizzy",
     "slug": "twizzy",
     "scheme": "twizzy",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -17,7 +17,7 @@
     },
     "android": {
       "package": "mw.nelson.twizzy",
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "backgroundColor": "#0b6b3a",
         "foregroundImage": "./assets/android-icon-foreground.png",

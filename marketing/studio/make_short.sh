@@ -38,6 +38,11 @@ read -r TOTAL DROP BPM MOOD < <(node -e '
   let t = 0, drop = null;
   s.scenes.forEach((c, i) => { const id = c.id || "s" + i; const d = tl ? tl.find((x) => x.id === id).dur : c.beats * b; if (c.drop && drop === null) drop = t; t += d; });
   console.log(t.toFixed(3), (drop ?? b * 8).toFixed(3), window.SONG?.bpm || s.bpm, s.mood || "warm");' "$DIR/short.js" "$DIR/timeline.js" "$DIR/song.js")
+# The owner's rule: every video is 45 s to 1:45 long.
+if [ "${ALLOW_ANY_LENGTH:-}" != 1 ] && ! python3 -c "import sys; sys.exit(0 if 45 <= $TOTAL <= 105 else 1)"; then
+  echo "This video would be ${TOTAL}s long. Every Twizzy video must be 45–105 s: add or lengthen scenes (or shorten them) in short.js." >&2
+  exit 1
+fi
 if [ -n "$SONGFILE" ]; then
   # Start the track on its first beat; beats.js is the same beat grid the scenes use.
   python3 -c "s=$SONGSTART+$SFIRST; print(s)" > /tmp/song-cut
