@@ -80,8 +80,8 @@ A quick tip becomes a longer video by telling the whole story around it, e.g. "3
 The `short` template does the edit for you, on the beat of whatever music the video uses (the owner's song or original music):
 
 - **Cuts on the beat:** every scene is a whole number of beats (`beats:` in `short.js`), so every cut lands on a beat. Put the biggest moment on the drop (`drop: true`): it gets a white flash, an impact sound and a riser before it.
-- **Transitions:** each cut gets one: `whip` (whip-pan with motion blur), `slide` (swipe up), `zoom` (zoom-through), `spin`, `circle` (circle reveal), `glitch` (RGB split), or `flash` (hard cut under a white flash). The template varies them on its own; set `transition: '…'` on a scene to choose. Use calm ones (`slide`, `circle`) in quiet parts and hard ones (`flash`, `glitch`, `whip`) after the drop.
-- **Camera:** a punch-in on every beat and a small shake on each bar, stronger where the music is louder (`beat_energy.py` measures loudness per beat).
+- **Transitions:** each cut gets one: `whip` (whip-pan with motion blur), `slide` (swipe up), `zoom` (zoom-through), `spin`, `circle` (circle reveal), `glitch` (colour split, no jumping), or `flash` (hard cut under a white flash). The template varies them on its own; set `transition: '…'` on a scene to choose. Use calm ones (`slide`, `circle`) in quiet parts and hard ones (`flash`, `glitch`, `whip`) after the drop.
+- **Camera:** only a gentle zoom pulse on the beat. **The screen never shakes** (the owner's rule): no camera shake, no jittering glitches. Loudness per beat (`beat_energy.py`) drives the background instead.
 - **Background:** light streaks sweep on each bar, a ring bursts out on every beat, particles drift faster when the music is louder, and the glow pulses with the kick.
 - **Sound design:** `sfx.py` adds a whoosh into every moving transition and an impact on hard cuts, mixed under the music.
 - **Pacing:** 2–4 beats for quick hits (a number, a word), 6–8 beats for app screens people need to read. Change pace between sections: slower in the problem, faster after the drop.

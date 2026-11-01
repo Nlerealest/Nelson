@@ -263,7 +263,7 @@ let t0 = SONG ? SONG.offset || 0 : SHORT.offset || 0;
 
 // ---------- the edit: beat-synced camera, background and transitions ----------
 // Like an editor's timeline: every cut sits on a beat and gets a transition;
-// the camera punches on each beat and shakes on the bar; the background
+// the picture pulses gently on each beat (it never shakes); the background
 // (streaks, rings, drifting particles) moves with the music's energy.
 const ENERGY = window.ENERGY || null;            // loudness per beat, 0..1 (from make_short.sh)
 const TRANSITIONS = ['whip', 'zoom', 'flash', 'slide', 'glitch', 'spin', 'circle'];
@@ -334,8 +334,8 @@ function transit(kind, side, p, T) {
     case 'spin': return { tf: `rotate(${(side === 'out' ? 1 : -1) * q * 28}deg) scale(${side === 'out' ? 1 + q * 0.9 : 1 - q * 0.4})`, filter: `blur(${mb}px)`, op: 1 - q * 0.6 };
     case 'circle': return side === 'in' ? { clip: `circle(${(1 - q) * 1250}px at 50% 50%)` } : {};
     case 'glitch': {
-      const f = Math.floor(T * 30), j = Math.sin(Math.PI * p);
-      return { tf: `translate(${(rnd(f) - 0.5) * 90 * j}px, ${(rnd(f + 5) - 0.5) * 30 * j}px)`,
+      const j = Math.sin(Math.PI * p);
+      return { tf: '',
         filter: `drop-shadow(${14 * j}px 0 0 rgba(255,0,90,.75)) drop-shadow(${-14 * j}px 0 0 rgba(0,220,255,.75)) contrast(${1 + j * 0.4})`, cut: true };
     }
     default: return { cut: true }; // flash: a hard cut under a white flash
@@ -358,8 +358,8 @@ window.renderAt = (T) => {
     s.root.style.display = on ? 'block' : 'none';
     if (!on) return;
     const e = energy(T), k = kick(T) * e, b = bar(T) * e;
-    // camera: punch-in on every beat, a small shake on the bar
-    const cam = `translate(${Math.sin(T * 91) * 9 * b}px, ${Math.cos(T * 77) * 9 * b}px) rotate(${Math.sin(T * 53) * 0.6 * b}deg) scale(${1 + 0.035 * k + 0.02 * b})`;
+    // camera: a gentle zoom pulse on the beat (no shaking: the owner's choice)
+    const cam = `scale(${1 + 0.012 * k + 0.008 * b})`;
     s.root.style.transform = `${look.tf || ''} ${cam}`;
     s.root.style.filter = look.filter || 'none';
     s.root.style.opacity = look.op ?? 1;
