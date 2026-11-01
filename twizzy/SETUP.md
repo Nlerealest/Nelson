@@ -21,6 +21,11 @@ Never paste a secret key or password into a chat. Secrets only go into Supabase 
 3. In the left menu, open **SQL Editor** → **New query**.
 4. Open [`twizzy/supabase/schema.sql`](supabase/schema.sql) on GitHub, tap **Copy raw file**, paste it in, then click **Run**. You should see "Success".
 
+### Updates
+
+When Twizzy gets new features, run the matching file from [`twizzy/supabase/`](supabase/) in the SQL Editor once:
+- `2026-11-songs.sql`: Twizzy asks which song to use for each video.
+
 ## 2. Copy the project's keys
 
 In Supabase, open **Project Settings** (the gear icon) → **API Keys**. Keep this page open:

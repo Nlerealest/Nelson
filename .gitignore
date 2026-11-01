@@ -25,3 +25,8 @@ marketing/**/vo/
 *.mp4
 *.mp3
 *.wav
+
+# Songs the owner uploads for videos (rights belong to others)
+marketing/campaigns/*/song.*
+*.m4a
+*.aac

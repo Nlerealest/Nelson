@@ -48,7 +48,8 @@ export default function Home() {
   const { config, reload } = useConfig();
   const commands = useRows('commands', { limit: 6 });
   const activity = useRows('activity', { limit: 8 });
-  const approvals = useRows('posts', { filter: { status: 'awaiting_approval' }, limit: 50 });
+  const approvals = useRows('posts', { filter: { status: ['awaiting_approval', 'needs_song'] }, limit: 50 });
+  const songs = (approvals.rows || []).filter((p) => p.status === 'needs_song');
   const ready = useRows('posts', { filter: { status: 'approved' }, limit: 50 });
   const ideas = useRows('concepts', { filter: { status: 'proposed' }, limit: 50 });
   const [text, setText] = useState('');
@@ -84,6 +85,14 @@ export default function Home() {
           {QUICK.map(([label, kind, msg]) => <Button key={label} small kind="soft" title={label} onPress={() => send(msg, kind)} />)}
         </Row>
       </Card>
+
+      {songs.length ? (
+        <Card style={{ backgroundColor: t.warnSoft, borderColor: t.warnSoft }}>
+          <Row><Ionicons name="musical-notes" size={18} color={t.warn} /><Body bold color={t.warn}>Twizzy needs a song</Body></Row>
+          <Body>{songs.length === 1 ? `Which song should “${songs[0].title}” use?` : `${songs.length} videos are waiting for you to pick a song.`}</Body>
+          <Row><Button small title="Choose the song" icon="arrow-forward" onPress={() => router.push('/approvals')} /></Row>
+        </Card>
+      ) : null}
 
       {config.request?.open ? (
         <Card style={{ backgroundColor: t.warnSoft, borderColor: t.warnSoft }}>

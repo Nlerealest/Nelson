@@ -24,7 +24,7 @@ function useCount(table, filter) {
 
 function AppTabs() {
   const t = useTheme();
-  const approvals = useCount('posts', { status: 'awaiting_approval' });
+  const approvals = useCount('posts', { status: ['awaiting_approval', 'needs_song'] });
   const ideas = useCount('concepts', { status: 'proposed' });
   const ready = useCount('posts', { status: 'approved' });
   const badges = { approvals, ideas, post: ready };

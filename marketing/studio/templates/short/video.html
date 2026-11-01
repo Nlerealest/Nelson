@@ -8,6 +8,8 @@
 <script src="short.js"></script>
 <script src="beats.js"></script>
 <script src="timeline.js"></script>
+<!-- song.js (optional): window.SONG = {bpm, offset} when the owner chose a song -->
+<script src="song.js"></script>
 <style>
   :root { --g: #14b866; --g2: #0b6b3a; --ink: #121513; --muted: #6b746f; --bad: #ff7a66; }
   * { box-sizing: border-box; margin: 0; }
@@ -245,10 +247,11 @@ S.end = (root, c) => {
 };
 
 // ---------- timeline ----------
-const beatLen = 60 / SHORT.bpm;
+const SONG = window.SONG || null;
+const beatLen = 60 / (SONG?.bpm || SHORT.bpm);
 const TL = window.TIMELINE ? Object.fromEntries(window.TIMELINE.map((s) => [s.id, s])) : null;
 const stage = document.getElementById('stage');
-let t0 = SHORT.offset || 0;
+let t0 = SONG ? SONG.offset || 0 : SHORT.offset || 0;
 const scenes = SHORT.scenes.map((c, i) => {
   const id = c.id || 's' + i;
   const dur = TL?.[id] ? TL[id].dur : c.beats * beatLen;

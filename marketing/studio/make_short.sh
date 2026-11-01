@@ -2,8 +2,9 @@
 # Builds a vertical short from a campaign made from templates/short.
 #   bash make_short.sh CAMPAIGN_DIR preview      # music + one still per scene in /tmp/prev-<slug>
 #   bash make_short.sh CAMPAIGN_DIR video        # full render -> CAMPAIGN_DIR/ndalama-<slug>.mp4
-# Music-only shorts get original music from music_short.py. A campaign with a
-# script.json gets a voiceover over that music (explainer style).
+# Music comes from the owner's song when song.json is there (cut to its beat),
+# else original music from music_short.py. A campaign with a script.json gets a
+# voiceover over that music (explainer style).
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 DIR="$(cd "$1" && pwd)"; MODE="${2:-preview}"
@@ -14,13 +15,37 @@ if [ -f script.json ]; then
   [ -f vo/lengths.json ] || "$C/venv/bin/python" -I "$HERE/voiceover.py" "$C/kokoro-q8.onnx" "$C/voices.npz" script.json vo af_heart 1.0
   python3 timeline.py
 fi
+# The owner's song (song.json: {"file": "song.mp3", "start": <seconds into the song>}):
+# find its tempo and first beat, so every scene cut lands on its beat.
+SONGFILE=""
+if [ -f song.json ]; then
+  read -r SONGFILE SONGSTART < <(python3 -c 'import json;d=json.load(open("song.json"));print(d["file"], d.get("start",0))')
+  ffmpeg -v error -y -ss "$SONGSTART" -i "$SONGFILE" -t 120 -ac 2 -ar 44100 /tmp/song-probe.wav
+  "$C/venv/bin/python" -I "$HERE/beats.py" /tmp/song-probe.wav /tmp/song-beats.json >/dev/null
+  # Of the tempo, half and double time, use the one closest to the tempo the story was written for.
+  WANT=$(node -e 'global.window={};require(process.argv[1]);console.log(window.SHORT.bpm)' "$DIR/short.js")
+  read -r SBPM SFIRST < <(python3 -c 'import json,sys;d=json.load(open("/tmp/song-beats.json"));t=d["tempo"];w=float(sys.argv[1])
+t=min((t/2,t,t*2),key=lambda x:abs(x-w))
+print(round(t,2), d["beats"][0] if d["beats"] else 0)' "$WANT")
+  echo "window.SONG = {bpm: $SBPM, offset: 0};" > song.js
+  echo "song: $SBPM bpm, first beat at $SFIRST s after $SONGSTART s"
+else
+  : > song.js
+fi
 read -r TOTAL DROP BPM MOOD < <(node -e '
-  global.window = {}; require(process.argv[1]); const s = window.SHORT, b = 60 / s.bpm;
+  global.window = {}; require(process.argv[1]); try { require(process.argv[3]); } catch {} const s = window.SHORT, b = 60 / (window.SONG?.bpm || s.bpm);
   let tl = null; try { require(process.argv[2]); tl = window.TIMELINE; } catch {}
   let t = 0, drop = null;
   s.scenes.forEach((c, i) => { const id = c.id || "s" + i; const d = tl ? tl.find((x) => x.id === id).dur : c.beats * b; if (c.drop && drop === null) drop = t; t += d; });
-  console.log(t.toFixed(3), (drop ?? b * 8).toFixed(3), s.bpm, s.mood || "warm");' "$DIR/short.js" "$DIR/timeline.js")
-"$C/venv/bin/python" -I "$HERE/music_short.py" music.wav beats.js --bpm "$BPM" --seconds "$TOTAL" --drop "$DROP" --mood "$MOOD"
+  console.log(t.toFixed(3), (drop ?? b * 8).toFixed(3), window.SONG?.bpm || s.bpm, s.mood || "warm");' "$DIR/short.js" "$DIR/timeline.js" "$DIR/song.js")
+if [ -n "$SONGFILE" ]; then
+  # Start the track on its first beat; beats.js is the same beat grid the scenes use.
+  python3 -c "s=$SONGSTART+$SFIRST; print(s)" > /tmp/song-cut
+  ffmpeg -v error -y -ss "$(cat /tmp/song-cut)" -i "$SONGFILE" -t "$(python3 -c "print($TOTAL+1)")" -ac 2 -ar 44100 music.wav
+  python3 -c "import json;b=60/$BPM;print('window.BEATS='+json.dumps([round(i*b,3) for i in range(int($TOTAL/b)+1)])+';')" > beats.js
+else
+  "$C/venv/bin/python" -I "$HERE/music_short.py" music.wav beats.js --bpm "$BPM" --seconds "$TOTAL" --drop "$DROP" --mood "$MOOD"
+fi
 [ -f script.json ] || : > timeline.js
 if [ "$MODE" = preview ]; then
   OUT=/tmp/prev-$SLUG; rm -rf "$OUT"; mkdir -p "$OUT"

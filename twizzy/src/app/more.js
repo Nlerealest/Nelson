@@ -133,7 +133,7 @@ function SettingsForm({ toast, s }) {
         <Body bold>Replies to comments</Body>
         <Chips value={s.reply_mode || 'approve'} onChange={(v) => set({ reply_mode: v })} options={[['approve', 'I approve each one'], ['auto_simple', 'Auto-reply to simple ones']]} />
         <Body bold>Music</Body>
-        <Chips value={s.music || 'original'} onChange={(v) => set({ music: v })} options={[['original', 'Original (safe)'], ['mine', 'Tracks I provide']]} />
+        <Chips value={s.music || 'ask'} onChange={(v) => set({ music: v })} options={[['ask', 'Ask me for each video'], ['original', 'Twizzy makes the music']]} />
       </Card>
       <Card>
         <Field label="Tone" value={form.tone} onChangeText={(v) => setForm({ ...form, tone: v })} />

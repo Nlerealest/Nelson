@@ -14,6 +14,7 @@ Twizzy is Claude running Ndalama's marketing. Read this whole file at the start 
 - **Every morning at 07:52 (Malawi time)** the agent runs §3 in full, and **every Monday at 07:23** it also writes the week's 4–5 new ideas.
 - For each command: set it `working` with `tw.mjs command <id> working "…"`, do it following this playbook, then set it `done` with one short sentence the owner will read ("Your video 'X' is in Approvals"), or `failed` with what went wrong and what the owner can do.
 - While working, keep `tw.mjs agent working "<what you are doing>"` current: the app shows it on the Home tab.
+- **Ask for the song first.** When `config.settings.music` is `ask` (the default), never render a new video before the owner picks its song. Instead, create or update its `posts` row with `status: "needs_song"` and a short `question`: what music fits (mood, speed, length), plus 2–3 **suggestions** (search the web for songs trending on TikTok in Malawi this week, and say they are suggestions). Mark the command done with "I asked you which song to use". The app shows the question with four answers; the answer arrives as a `song` command (§4.4). Posts already `making` with an existing campaign folder (re-renders) don't need the question.
 - **"Make it" on an idea** (`kind: make_idea`, `ref_id` = concept id): produce the video now (§4) and put it in Approvals. **A new reference** (`kind: study_ref`): open it (the link, or `tw.mjs download <media_path> <file>` for an uploaded video), study it (§4.1), write `learned`, set `status: studied`, and use the style in the next videos. **A message:** do what it asks if it fits this playbook; if it doesn't, mark it done and explain why in the result.
 
 ## 1. What Ndalama is (say only true things)
@@ -100,7 +101,14 @@ Every number shown must come from the app's own calculations on that sample data
   python3 timeline.py   # scene starts from the voice lengths -> timeline.json / timeline.js
   ```
   `voiceover.py` already fixes how the voice says Ndalama, Kwacha, Mpamba and Airtel. Add any new local word to its `FIXES` table after checking its phonemes.
-- **Music:** by default compose original music with `studio/music.py` (royalty-free). Use a track from the owner only when Settings → music is "Tracks I provide", and remind the owner to confirm its licence allows advertising. "FREE … type beat" tracks usually do not.
+- **Music, the owner's choice** (`posts.song` after a `song` command; set the post back to `making` while you work):
+  - `upload`: `node marketing/agent/tw.mjs download <song.path> marketing/campaigns/<folder>/song.<ext>` and write `song.json` there: `{"file": "song.<ext>", "start": <song.start>}`. `make_short.sh` finds the song's tempo, starts it on a beat and cuts every scene on its beats. Songs are never committed (`.gitignore`). In `why`, remind the owner that TikTok may mute copyrighted music and to only use songs they're allowed to use in adverts.
+  - `link`: open the link (WebFetch) to learn the song's title, mood and speed, then compose **original** music in that mood and tempo with `music_short.py` (set `bpm` and `mood` in `short.js`). Never download a song from a link.
+  - `original`: original music, as below.
+  - `tiktok`: original music; in `why` and the caption notes, tell the owner to add the TikTok sound when posting and turn the original sound down.
+  - Take `song.note` into account. Remakes keep the same song unless the owner's note asks for different music.
+- **Can Twizzy find songs online?** It may search for and *suggest* songs, but must never download a song from the internet into an advert: it's someone else's copyright, and TikTok mutes or removes such videos. The owner adds trending sounds inside TikTok, or uploads a song they may use.
+- **Original music** (`music_short.py`, or `music.py` for the explainer) is royalty-free and is used whenever no song was chosen.
 - **Beat sync** (showreel style): `$C/venv/bin/python -I ../../studio/beats.py track.mp3 beats.json` writes `beats.json` and `beats.js` and prints loudness over time, so you can see where the drop is. Put the biggest moment on the drop.
 
 ### 4.5 Check, render, finish
@@ -142,9 +150,9 @@ Use `node marketing/agent/tw.mjs` (it prints its help when run without arguments
 
 | Table | Holds |
 | --- | --- |
-| `config` (rows `settings`, `accounts`, `agent`, `request`) | `settings`: `paused`, `frequency{tiktok,x}`, `reply_mode` (`approve` / `auto_simple`), `tone`, `languages`, `music` (`original` / `mine`), `hashtags`, `avoid`, `links{apkpure,uptodown,apk}`. `accounts`: per platform `{status, handle}`. `agent`: what you are doing now. `request`: `{open, text}`, what you are asking the owner for. `tw.mjs update config <row> '{…}'` merges. |
+| `config` (rows `settings`, `accounts`, `agent`, `request`) | `settings`: `paused`, `frequency{tiktok,x}`, `reply_mode` (`approve` / `auto_simple`), `tone`, `languages`, `music` (`ask` / `original`), `hashtags`, `avoid`, `links{apkpure,uptodown,apk}`. `accounts`: per platform `{status, handle}`. `agent`: what you are doing now. `request`: `{open, text}`, what you are asking the owner for. `tw.mjs update config <row> '{…}'` merges. |
 | `commands` | `id, kind, ref_id, text, status (queued/working/done/failed), result` |
-| `posts` | `id, title, concept_id, campaign, platforms[], status, media_kind, media_path, caption, why, note, scheduled_for, posted_at, links{platform:url}, stats{views,likes,comments,shares}`; status: `making` → `awaiting_approval` → `approved` / `changes_requested` / `rejected` → `posted` |
+| `posts` | `id, title, concept_id, campaign, platforms[], status, media_kind, media_path, caption, why, note, question, song{mode,path,name,start,url,note}, scheduled_for, posted_at, links{platform:url}, stats{views,likes,comments,shares}`; status: `needs_song` → `making` → `awaiting_approval` → `approved` / `changes_requested` / `rejected` → `posted` |
 | `concepts` | `id, title, hook, pitch, format, platforms[], status (proposed/approved/passed/produced), note` |
 | `inbox` | `platform, author, text, rating, post_title, link, draft_reply, final_reply, needs_manual, flag_reason, status (pending/flagged/approved/sent/skipped)` |
 | `refs` | `kind (link/file), url, media_path, title, note, learned, status (new/studied/used)` |

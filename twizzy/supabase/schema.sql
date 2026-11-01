@@ -25,8 +25,8 @@ create table if not exists concepts (
   decided_at timestamptz
 );
 
--- Finished videos and posters. status: making → awaiting_approval → approved /
--- changes_requested / rejected → posted.
+-- Finished videos and posters. status: needs_song → making → awaiting_approval →
+-- approved / changes_requested / rejected → posted.
 create table if not exists posts (
   id text primary key default 'p-' || substr(md5(random()::text), 1, 8),
   title text not null,
@@ -41,6 +41,8 @@ create table if not exists posts (
   posted_at timestamptz,
   links jsonb default '{}',
   stats jsonb,
+  question text,                       -- what Twizzy asks before making it (the song)
+  song jsonb,                          -- the answer: {mode: upload|link|original|tiktok, path, url, note}
   created_at timestamptz not null default now(),
   decided_at timestamptz
 );
@@ -94,7 +96,7 @@ create table if not exists config (
 );
 insert into config (id, data) values
   ('settings', '{"paused": false, "reply_mode": "approve", "tone": "friendly", "languages": "English, with some Chichewa",
-                 "music": "original", "hashtags": "#Ndalama #Malawi #Kwacha #MoneyTips #Budgeting #MalawiTikTok",
+                 "music": "ask", "hashtags": "#Ndalama #Malawi #Kwacha #MoneyTips #Budgeting #MalawiTikTok",
                  "avoid": "Promises of profit, interest rates, competitors by name",
                  "frequency": {"tiktok": 4, "x": 7},
                  "links": {"apkpure": "https://apkpure.com/ndalama/mw.nelson.ndalama", "uptodown": "",
@@ -104,6 +106,10 @@ insert into config (id, data) values
   ('agent', '{"state": "idle", "message": "Waiting for your first command"}'),
   ('request', '{"open": true, "text": "Send me 2–3 TikToks or Reels you love the style of. I''ll use them for the next videos."}')
 on conflict (id) do nothing;
+
+-- Upgrades for databases made with an earlier version of this file.
+alter table posts add column if not exists question text;
+alter table posts add column if not exists song jsonb;
 
 -- Row-level security: the owner only.
 do $$ declare t text; begin
