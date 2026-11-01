@@ -7,11 +7,11 @@ insert into concepts (id, title, hook, pitch, format, platforms, status, created
  ('c-schoolfees', 'School fees without the panic', 'School fees are due in January.', 'A school-fees goal: how much to save each month, and the early warning if spending puts it at risk.', '30s voiceover video', '{tiktok,facebook}', 'produced', '2026-10-30T18:05:00Z'),
  ('c-chichewa', 'Ndalama in Chichewa', 'Ndalama zanu, m''manja mwanu.', 'Chichewa on screen with English subtitles.', '20–30s vertical', '{tiktok}', 'produced', '2026-10-30T18:06:00Z'),
  ('c-festive', 'December budget challenge', 'Survive December without going broke in January.', 'A 4-week challenge: budget, track, save K10,000, one no-spend weekend.', 'Weekly challenge video', '{tiktok,x}', 'produced', '2026-10-30T18:07:00Z'),
- ('c-fuel', 'Fuel queues, minibus fares', 'Fuel costs more. Does your transport budget know?', 'Fuel shortages and record pump prices are in the news (AFP / France 24, 30 Oct). Without joking about the queues, show how small minibus trips add up, and how the Transport budget warns you early.', '20s vertical, real budget screen', '{tiktok,x}', 'proposed', '2026-10-30T23:55:00Z'),
- ('c-maize', 'Groceries cost more every week', 'Maize went up again. Will your grocery money last the month?', 'AGRA reports maize up about 10% from August to September. Show Ndalama''s real warning that Groceries will go over budget at this pace.', '20s vertical, warning card zoom', '{tiktok,facebook}', 'proposed', '2026-10-30T23:55:30Z'),
- ('c-paydaychecklist', '3 things to do on payday', 'Salary just landed? Do these 3 things before you spend a kwacha.', 'Mark the bills, set savings aside, check the safe-to-spend number. Each step on the real app.', '15s vertical checklist', '{tiktok,x}', 'proposed', '2026-10-30T23:56:00Z'),
- ('c-christmas', '8 weeks to Christmas', 'Christmas is 8 weeks away. Start a small goal tonight.', 'A Christmas savings goal; the app works out the amount per month and per day.', '20s vertical, countdown', '{tiktok,facebook}', 'proposed', '2026-10-30T23:56:30Z'),
- ('c-pov', 'POV: you check your money on day 15', 'POV: it''s the 15th and you actually know where your money went.', 'Trending POV format: a calm mid-month moment on Ndalama''s home screen.', '10–12s vertical POV', '{tiktok}', 'proposed', '2026-10-30T23:57:00Z')
+ ('c-fuel', 'Fuel queues, minibus fares', 'Fuel costs more. Does your transport budget know?', 'Fuel shortages and record pump prices are in the news (AFP / France 24, 30 Oct). Without joking about the queues, show how small minibus trips add up, and how the Transport budget warns you early.', '20s vertical, real budget screen', '{tiktok,x}', 'produced', '2026-10-30T23:55:00Z'),
+ ('c-maize', 'Groceries cost more every week', 'Maize went up again. Will your grocery money last the month?', 'AGRA reports maize up about 10% from August to September. Show Ndalama''s real warning that Groceries will go over budget at this pace.', '20s vertical, warning card zoom', '{tiktok,facebook}', 'produced', '2026-10-30T23:55:30Z'),
+ ('c-paydaychecklist', '3 things to do on payday', 'Salary just landed? Do these 3 things before you spend a kwacha.', 'Mark the bills, set savings aside, check the safe-to-spend number. Each step on the real app.', '15s vertical checklist', '{tiktok,x}', 'produced', '2026-10-30T23:56:00Z'),
+ ('c-christmas', '8 weeks to Christmas', 'Christmas is 8 weeks away. Start a small goal tonight.', 'A Christmas savings goal; the app works out the amount per month and per day.', '20s vertical, countdown', '{tiktok,facebook}', 'produced', '2026-10-30T23:56:30Z'),
+ ('c-pov', 'POV: you check your money on day 15', 'POV: it''s the 15th and you actually know where your money went.', 'Trending POV format: a calm mid-month moment on Ndalama''s home screen.', '10–12s vertical POV', '{tiktok}', 'produced', '2026-10-30T23:57:00Z')
 on conflict (id) do nothing;
 
 insert into posts (id, title, concept_id, campaign, platforms, status, media_kind, caption, why, scheduled_for, created_at) values
@@ -29,7 +29,22 @@ insert into posts (id, title, concept_id, campaign, platforms, status, media_kin
   'Chichewa on screen with English subtitles. Please check the Chichewa wording before approving.', null, '2026-10-31T00:05:00Z'),
  ('p-festive', 'December budget challenge (30s)', 'c-festive', '2026-12-festive', '{tiktok,x}', 'making', 'video',
   E'Survive December without going broke in January 🎄\n\n4 weeks, 4 goals:\n1️⃣ Set a budget from what you earn\n2️⃣ Track every kwacha\n3️⃣ Save K10,000 for January\n4️⃣ One no-spend weekend\n\nJoin in and post your progress with #NdalamaChallenge\n\n📲 Free on APKPure & Uptodown. Google Play and iPhone coming soon.\n\n#Ndalama #Malawi #Kwacha #BudgetChallenge',
-  'A challenge gives people a reason to come back every week. Best posted on 1 December.', '2026-12-01', '2026-10-31T00:10:00Z')
+  'A challenge gives people a reason to come back every week. Best posted on 1 December.', '2026-12-01', '2026-10-31T00:10:00Z'),
+ ('p-christmas', '8 weeks to Christmas (24s)', 'c-christmas', '2026-11-christmas', '{tiktok,facebook}', 'making', 'video',
+  E'Christmas is 8 weeks away 🎄 Start a small goal tonight.\n\nK40,000 by 24 December? Ndalama works it out: K20,000 a month, about K667 a day, and warns you early if you fall behind.\n\n📲 Free on APKPure & Uptodown. Google Play and iPhone coming soon.\n\n#Ndalama #Malawi #Christmas #Savings #Kwacha',
+  'Seasonal and positive; numbers from the app''s goal plan. Original music.', null, '2026-11-01T06:30:00Z'),
+ ('p-fuel', 'Fuel costs more: transport budget (23s)', 'c-fuel', '2026-11-fuel', '{tiktok,x}', 'making', 'video',
+  E'Fuel costs more. Does your transport budget know? 🚐\n\nLog every minibus trip in seconds and Ndalama shows where your transport money is heading, so you can adjust early.\n\n📲 Free on APKPure & Uptodown. Google Play and iPhone coming soon.\n\n#Ndalama #Malawi #Transport #Budgeting #Kwacha',
+  'Tied to this week''s fuel news without making light of it. Numbers from the app''s budget forecast. Original music.', null, '2026-11-01T06:31:00Z'),
+ ('p-groceries', 'Will your grocery money last? (21s)', 'c-maize', '2026-11-groceries', '{tiktok,facebook}', 'making', 'video',
+  E'Food prices keep climbing. Will your grocery money last the month? 🛒\n\nNdalama warns you mid-month when groceries are heading over budget, not on day 28.\n\n📲 Free on APKPure & Uptodown. Google Play and iPhone coming soon.\n\n#Ndalama #Malawi #Groceries #MoneyTips #Kwacha',
+  'Relatable worry right now; shows the app''s real over-budget warning. Original music.', null, '2026-11-01T06:32:00Z'),
+ ('p-paydaychecklist', '3 things to do on payday (20s)', 'c-paydaychecklist', '2026-11-paydaychecklist', '{tiktok,x}', 'making', 'video',
+  E'Salary just landed? Do these 3 things before you spend a kwacha 💡\n\n1. Mark your bills\n2. Set your savings aside first\n3. Check what''s safe to spend\n\nSave this for next payday!\n\n📲 Free on APKPure & Uptodown. Google Play and iPhone coming soon.\n\n#Ndalama #Malawi #Payday #MoneyTips',
+  'A save-worthy tip format people bookmark and share. Original music.', null, '2026-11-01T06:33:00Z'),
+ ('p-pov', 'POV: day 15 and calm (17s)', 'c-pov', '2026-11-pov', '{tiktok}', 'making', 'video',
+  E'POV: it''s the 15th and you actually know where your money went 😌\n\n📲 Ndalama, free on APKPure & Uptodown. Google Play and iPhone coming soon.\n\n#Ndalama #Malawi #POV #MoneyTok #Kwacha',
+  'Short trending POV format; loops well. Original music.', null, '2026-11-01T06:34:00Z')
 on conflict (id) do nothing;
 
 insert into refs (id, kind, title, note, learned, status, created_at) values
@@ -38,4 +53,4 @@ insert into refs (id, kind, title, note, learned, status, created_at) values
 on conflict (id) do nothing;
 
 insert into activity (text) values ('Twizzy moved into its own app. Rendering the five videos again from their sources…');
-insert into commands (kind, text) values ('message', 'Setup: render the 5 posts with status "making" from their campaign folders, upload them and set them to awaiting_approval.');
+insert into commands (kind, text) values ('message', 'Setup: render the posts with status "making" from their campaign folders, upload them and set them to awaiting_approval.');
