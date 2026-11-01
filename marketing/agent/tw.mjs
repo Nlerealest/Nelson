@@ -19,7 +19,9 @@ import { extname } from 'node:path';
 
 const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) { console.error('Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.'); process.exit(1); }
-const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+// Keep only https://<project>.supabase.co, even if the secret holds the REST URL (…/rest/v1/).
+const baseUrl = (() => { try { return new URL(SUPABASE_URL.trim()).origin; } catch { return SUPABASE_URL.trim(); } })();
+const sb = createClient(baseUrl, SUPABASE_SERVICE_ROLE_KEY.trim(), { auth: { persistSession: false } });
 const TABLES = ['concepts', 'posts', 'refs', 'inbox', 'commands', 'activity', 'config'];
 const MIME = { '.mp4': 'video/mp4', '.mov': 'video/quicktime', '.webm': 'video/webm', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg' };
 
