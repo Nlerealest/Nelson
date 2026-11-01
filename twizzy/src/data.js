@@ -1,48 +1,83 @@
-// Live data from Supabase: every list updates by itself when Twizzy (or you)
-// changes something.
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+// Live data from Supabase, shared by the whole app: everything is loaded once,
+// then one Realtime connection applies each change as it happens (no reloads),
+// so the app stays smooth while Twizzy is busy.
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { AppState } from 'react-native';
 import { db } from './supabase';
 
 const ToastContext = createContext(() => {});
 export const ToastProvider = ToastContext.Provider;
 export const useToast = () => useContext(ToastContext);
 
+const TABLES = { concepts: 300, posts: 300, refs: 200, inbox: 200, commands: 40, activity: 100, config: 20 };
 const ORDER = { activity: 'at', config: 'id' };
+const DataContext = createContext(null);
 
-// rows of a table, newest first, kept live with Realtime.
-export function useRows(table, { filter, limit = 200 } = {}) {
-  const [rows, setRows] = useState(null);
-  const [error, setError] = useState(null);
-  const key = JSON.stringify(filter || null);
-  const load = useCallback(async () => {
-    let q = db().from(table).select('*');
-    if (filter) for (const [col, val] of Object.entries(filter)) q = Array.isArray(val) ? q.in(col, val) : q.eq(col, val);
-    const { data, error: e } = await q.order(ORDER[table] || 'created_at', { ascending: false }).limit(limit);
-    if (e) setError(e.message);
-    else { setError(null); setRows(data); }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [table, key, limit]);
+export function DataProvider({ children }) {
+  const [store, setStore] = useState({});
+  const [errors, setErrors] = useState({});
 
-  const timer = useRef(null);
+  const loadTable = useCallback(async (table) => {
+    const { data, error } = await db().from(table).select('*').order(ORDER[table] || 'created_at', { ascending: false }).limit(TABLES[table]);
+    if (error) setErrors((e) => ({ ...e, [table]: error.message }));
+    else {
+      setErrors((e) => (e[table] ? { ...e, [table]: null } : e));
+      setStore((s) => ({ ...s, [table]: data }));
+    }
+  }, []);
+  const loadAll = useCallback(() => Promise.all(Object.keys(TABLES).map(loadTable)), [loadTable]);
+
   useEffect(() => {
-    Promise.resolve().then(load);
+    // Apply one change from Realtime to the table it belongs to.
+    const apply = ({ table, eventType, new: row, old }) => {
+      if (!TABLES[table]) return;
+      setStore((s) => {
+        const rows = s[table];
+        if (!rows) return s;
+        let next;
+        if (eventType === 'DELETE') next = rows.filter((r) => r.id !== old?.id);
+        else {
+          const i = rows.findIndex((r) => r.id === row.id);
+          next = i >= 0 ? rows.map((r, k) => (k === i ? row : r)) : [row, ...rows].slice(0, TABLES[table]);
+        }
+        return { ...s, [table]: next };
+      });
+    };
+    // Load straight away, and again once live updates are connected (to catch
+    // anything that changed in between). Lists work even if live updates fail.
+    Promise.resolve().then(loadAll);
     const ch = db()
-      .channel(`live-${table}-${key}-${Math.random().toString(36).slice(2)}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table }, () => {
-        clearTimeout(timer.current);
-        timer.current = setTimeout(load, 250);
-      })
-      .subscribe();
-    return () => { clearTimeout(timer.current); db().removeChannel(ch); };
-  }, [load, table, key]);
+      .channel('twizzy-live')
+      .on('postgres_changes', { event: '*', schema: 'public' }, apply)
+      .subscribe((status) => { if (status === 'SUBSCRIBED') loadAll(); });
+    // Catch up after the phone was asleep or the app was in the background.
+    const sub = AppState.addEventListener('change', (st) => { if (st === 'active') loadAll(); });
+    return () => { sub.remove(); db().removeChannel(ch); };
+  }, [loadAll]);
 
-  return { rows, error, reload: load };
+  const value = useMemo(() => ({ store, errors, loadAll }), [store, errors, loadAll]);
+  return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
+}
+
+const matches = (row, filter) => !filter || Object.entries(filter).every(([col, val]) => (Array.isArray(val) ? val.includes(row[col]) : row[col] === val));
+
+// Rows of a table, newest first, kept live.
+export function useRows(table, { filter, limit = 200 } = {}) {
+  const { store, errors, loadAll } = useContext(DataContext);
+  const all = store[table];
+  const key = JSON.stringify(filter || null);
+  const rows = useMemo(() => {
+    if (!all) return null;
+    const f = JSON.parse(key);
+    return all.filter((r) => matches(r, f)).slice(0, limit);
+  }, [all, key, limit]);
+  return { rows, error: errors[table] || null, reload: loadAll };
 }
 
 export function useConfig() {
   const { rows, reload } = useRows('config');
-  const map = Object.fromEntries((rows || []).map((r) => [r.id, r.data]));
-  return { config: map, loaded: !!rows, reload };
+  const config = useMemo(() => Object.fromEntries((rows || []).map((r) => [r.id, r.data])), [rows]);
+  return { config, loaded: !!rows, reload };
 }
 
 export async function saveConfig(id, patch) {
@@ -80,6 +115,5 @@ export function ago(iso) {
   if (s < 60) return 'just now';
   if (s < 3600) return `${Math.floor(s / 60)} min ago`;
   if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
-  const d = new Date(iso);
-  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }

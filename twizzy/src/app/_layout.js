@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { connect, forgetConnection, loadConnection, saveConnection } from '../supabase';
-import { ToastProvider, useRows } from '../data';
+import { DataProvider, ToastProvider, useRows } from '../data';
 import { BRAND, GOLD, useTheme } from '../theme';
 import { Body, Button, Card, Field } from '../components/ui';
 
@@ -137,7 +137,7 @@ export default function RootLayout() {
   if (conn === undefined || (conn && session === undefined)) body = <View style={{ flex: 1, justifyContent: 'center', backgroundColor: t.bg }}><ActivityIndicator color={t.primary} /></View>;
   else if (!conn) body = <ConnectScreen onDone={setConn} />;
   else if (!session) body = <LoginScreen client={connect(conn)} onReset={conn.builtIn ? null : async () => { await forgetConnection(); setSession(undefined); setConn(null); }} />;
-  else body = <AppTabs />;
+  else body = <DataProvider><AppTabs /></DataProvider>;
 
   return (
     <SafeAreaProvider>

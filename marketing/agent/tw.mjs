@@ -8,14 +8,16 @@
 //   node tw.mjs get <table> <id>
 //   node tw.mjs insert <table> '<json>'       prints the new row
 //   node tw.mjs update <table> <id> '<json>'
-//   node tw.mjs upload <local-file> <storage-path>     into the "media" bucket (overwrites)
+//   node tw.mjs upload <local-file> <storage-path>     into the "media" bucket (overwrites; videos also get a .jpg still)
 //   node tw.mjs download <storage-path> <local-file>
 //   node tw.mjs log "<text>"                  one activity entry
 //   node tw.mjs agent <state> "<message>"     what Twizzy is doing now (working / idle / error)
 //   node tw.mjs command <id> <done|failed|working> "<result>"
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync, writeFileSync } from 'node:fs';
-import { extname } from 'node:path';
+import { extname, join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
 
 const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) { console.error('Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.'); process.exit(1); }
@@ -65,6 +67,16 @@ switch (cmd) {
     const [file, path] = a;
     must(await sb.storage.from('media').upload(path, readFileSync(file), { contentType: MIME[extname(file).toLowerCase()] || 'application/octet-stream', upsert: true }));
     console.log(path);
+    // A still frame next to every video (same path, .jpg): the app shows it until you tap play.
+    if (/^video\//.test(MIME[extname(file).toLowerCase()] || '')) {
+      const jpg = join(tmpdir(), `poster-${process.pid}.jpg`);
+      const r = spawnSync('ffmpeg', ['-v', 'error', '-y', '-ss', '4', '-i', file, '-frames:v', '1', '-vf', 'scale=540:-2', '-q:v', '4', jpg]);
+      if (r.status === 0) {
+        const posterPath = path.replace(/\.[a-z0-9]+$/i, '.jpg');
+        must(await sb.storage.from('media').upload(posterPath, readFileSync(jpg), { contentType: 'image/jpeg', upsert: true }));
+        console.log(posterPath);
+      }
+    }
     break;
   }
   case 'download': {

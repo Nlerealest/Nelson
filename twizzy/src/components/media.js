@@ -1,6 +1,7 @@
 // Video and image previews from Supabase storage, and saving / sharing them.
 import { useEffect, useState } from 'react';
-import { Alert, Image, Platform, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -21,14 +22,25 @@ export function useSignedUrl(path) {
   return signed.path === path ? signed.url : null;
 }
 
+// Only one video plays at a time; the others show their still frame.
+let stopCurrent = null;
+
 function Video({ url }) {
-  const player = useVideoPlayer(url, (p) => { p.loop = false; });
+  const player = useVideoPlayer(url, (p) => { p.loop = false; p.play(); });
   return <VideoView player={player} style={{ width: '100%', aspectRatio: 9 / 16, maxHeight: 520, borderRadius: 14, backgroundColor: '#000' }} contentFit="contain" nativeControls fullscreenOptions={{ enable: true }} />;
 }
 
+// The still frame Twizzy uploads next to each video (same path, .jpg).
+const posterOf = (path) => (path ? path.replace(/\.[a-z0-9]+$/i, '.jpg') : null);
+
 export function MediaPreview({ post }) {
   const t = useTheme();
-  const url = useSignedUrl(post.media_path);
+  const [playing, setPlaying] = useState(false);
+  const isImage = post.media_kind === 'image';
+  const url = useSignedUrl(playing || isImage ? post.media_path : null);
+  const poster = useSignedUrl(!isImage && !playing ? posterOf(post.media_path) : null);
+  const [stop] = useState(() => () => setPlaying(false));
+  useEffect(() => () => { if (stopCurrent === stop) stopCurrent = null; }, [stop]);
   if (!post.media_path) {
     return (
       <View style={{ aspectRatio: 16 / 9, borderRadius: 14, backgroundColor: t.input, alignItems: 'center', justifyContent: 'center' }}>
@@ -36,9 +48,22 @@ export function MediaPreview({ post }) {
       </View>
     );
   }
-  if (!url) return <View style={{ aspectRatio: 9 / 16, maxHeight: 520, borderRadius: 14, backgroundColor: '#000' }} />;
-  if (post.media_kind === 'image') return <Image source={{ uri: url }} style={{ width: '100%', aspectRatio: 1, borderRadius: 14 }} resizeMode="contain" />;
-  return <Video url={url} />;
+  if (isImage) return url ? <Image source={{ uri: url }} style={{ width: '100%', aspectRatio: 1, borderRadius: 14 }} resizeMode="contain" /> : <View style={{ aspectRatio: 1, borderRadius: 14, backgroundColor: t.input }} />;
+  if (playing && url) return <Video url={url} />;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Play video"
+      onPress={() => { stopCurrent?.(); stopCurrent = stop; setPlaying(true); }}
+      style={{ width: '100%', aspectRatio: 9 / 16, maxHeight: 420, borderRadius: 14, backgroundColor: '#0d1a13', overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}
+    >
+      {poster ? <Image source={{ uri: poster }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null}
+      <View style={{ width: 68, height: 68, borderRadius: 34, backgroundColor: 'rgba(0,0,0,.55)', alignItems: 'center', justifyContent: 'center' }}>
+        {playing ? <ActivityIndicator color="#fff" /> : <Ionicons name="play" size={34} color="#fff" style={{ marginLeft: 4 }} />}
+      </View>
+      {!poster ? <Body small color="rgba(255,255,255,.7)" style={{ marginTop: 10 }}>Tap to play</Body> : null}
+    </Pressable>
+  );
 }
 
 const fileName = (post) =>
