@@ -29,7 +29,8 @@ concurrency:
 
 jobs:
   run:
-    runs-on: ubuntu-latest
+    # Playwright's browser dependencies support Ubuntu 24.04, not newer images yet.
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -54,6 +55,8 @@ jobs:
           $TW agent working "Getting the studio ready…"
 
       - name: Fonts, ffmpeg and the browser
+        id: browser
+        continue-on-error: true
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-noto-color-emoji >/dev/null
           mkdir -p ~/.local/share/fonts && curl -sSL -o /tmp/inter.zip https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip
@@ -67,6 +70,8 @@ jobs:
           key: studio-${{ hashFiles('marketing/studio/setup.sh', 'marketing/studio/build_voices.py') }}
 
       - name: Studio setup
+        id: studio
+        continue-on-error: true
         run: bash marketing/studio/setup.sh
 
       - name: What to do
@@ -75,6 +80,8 @@ jobs:
           EVENT: ${{ github.event_name }}
           SCHEDULE: ${{ github.event.schedule }}
           EXTRA: ${{ github.event.inputs.task }}
+          BROWSER: ${{ steps.browser.outcome }}
+          STUDIO: ${{ steps.studio.outcome }}
         run: |
           if [ "$EVENT" = schedule ] && [ "$SCHEDULE" = '23 5 * * 1' ]; then
             T="It is Monday: do the weekly ideas (TWIZZY.md section 3, step 3) and then everything else waiting."
@@ -84,6 +91,9 @@ jobs:
             T="The owner just asked for something in the Twizzy app: handle the queued commands first, then anything else waiting."
           fi
           [ -n "$EXTRA" ] && T="$T Also: $EXTRA"
+          if [ "$BROWSER" != success ] || [ "$STUDIO" != success ]; then
+            T="$T NOTE: the video studio failed to set up on this run, so you cannot render videos now. Do the work that needs no rendering (ideas, captions, replies, studying references) and mark video commands failed with a short explanation; they will be retried."
+          fi
           echo "text=$T" >> "$GITHUB_OUTPUT"
 
       - name: Twizzy works
