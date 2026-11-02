@@ -9,7 +9,7 @@ import { ago, insert, logYou, nowIso, saveConfig, tellTwizzy, update, useConfig,
 import { Body, Button, Card, Chips, Empty, Field, Loading, Pill, Row, Screen, Section } from '../components/ui';
 import { useTheme } from '../theme';
 
-const REF_TONE = { new: ['Studying…', 'warn'], studied: ['Studied', 'ok'], used: ['Used', 'ok'] };
+const REF_TONE = { new: ['Studying…', 'warn'], studied: ['Studied', 'info'], used: ['Studied', 'info'], active: ['In use', 'ok'] };
 
 function References({ toast }) {
   const { rows, error } = useRows('refs');
@@ -42,7 +42,7 @@ function References({ toast }) {
     <>
       <Card>
         <Body bold>Add a video you like</Body>
-        <Body small muted>Paste a TikTok/Instagram/YouTube link, or upload the video file. Twizzy studies the style (pace, text, music, transitions) and uses it.</Body>
+        <Body small muted>Upload the video file (best: Twizzy can watch it frame by frame), or paste a link. Twizzy studies the style (pace, cuts, text, transitions, music). When it’s done, tap “Use in next videos”.</Body>
         <Field value={url} onChangeText={setUrl} placeholder="https://www.tiktok.com/@…/video/…" autoCapitalize="none" keyboardType="url" />
         <Field value={note} onChangeText={setNote} placeholder="What do you like about it? (optional)" />
         <Row>
@@ -69,6 +69,22 @@ function References({ toast }) {
           </Row>
           {r.note ? <Body small muted>You: {r.note}</Body> : null}
           {r.learned ? <Body small>Twizzy learned: {r.learned}</Body> : null}
+          {r.status !== 'new' ? (
+            r.status === 'active' ? (
+              <Row>
+                <Pill label="Twizzy uses this style in every new video" tone="ok" />
+                <Button small kind="plain" title="Stop using" onPress={async () => { await update('refs', r.id, { status: 'studied' }); toast('Twizzy won’t use this style any more.'); }} />
+              </Row>
+            ) : (
+              <Row>
+                <Button small icon="checkmark-circle-outline" title="Use in next videos" onPress={async () => {
+                  await update('refs', r.id, { status: 'active' });
+                  logYou(`You chose “${r.title || r.url}” as a style for the next videos`);
+                  toast('Twizzy will follow this style in the next videos.');
+                }} />
+              </Row>
+            )
+          ) : null}
           <Row style={{ justifyContent: 'space-between' }}>
             <Body small muted>{ago(r.created_at)}</Body>
             <Button small kind="danger" icon="trash-outline" title={r.status === 'new' ? 'Cancel' : 'Remove'} onPress={() => removeRef(r)} />

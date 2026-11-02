@@ -262,11 +262,12 @@ const stage = document.getElementById('stage');
 let t0 = SONG ? SONG.offset || 0 : SHORT.offset || 0;
 
 // ---------- the edit: beat-synced camera, background and transitions ----------
-// Like an editor's timeline: every cut sits on a beat and gets a transition;
-// the picture pulses gently on each beat (it never shakes); the background
-// (streaks, rings, drifting particles) moves with the music's energy.
+// Like an editor's timeline: every cut sits on a beat and gets a transition.
+// The owner's rules: no camera zoom, no shaking, and a still background.
+// (addFx below is kept switched off; window.BACKGROUND_FX turns it on.)
 const ENERGY = window.ENERGY || null;            // loudness per beat, 0..1 (from make_short.sh)
-const TRANSITIONS = ['whip', 'zoom', 'flash', 'slide', 'glitch', 'spin', 'circle'];
+// No zoom or spin (the owner's rule: no zoom effects).
+const TRANSITIONS = ['whip', 'slide', 'flash', 'circle', 'glitch'];
 const beatIndex = (T) => { let i = -1; for (let k = 0; k < BEATS.length && BEATS[k] <= T + 1e-6; k++) i = k; return i; };
 const sinceBeat = (T) => { const i = beatIndex(T); return i < 0 ? 9 : T - BEATS[i]; };
 const kick = (T) => Math.exp(-sinceBeat(T) * 10);
@@ -309,7 +310,7 @@ const scenes = SHORT.scenes.map((c, i) => {
   const root = el(stage, '', {}, 'scene ' + (c.bg || 'dark'));
   if (c.glow !== false && (c.bg || 'dark') !== 'light') el(root, '', {}, 'glow');
   else el(root, '', { display: 'none' }); // keeps the fx layer second
-  const fx = addFx(root);
+  const fx = window.BACKGROUND_FX ? addFx(root) : () => {};
   const sc = { id, start: TL?.[id] ? TL[id].start : t0, dur, root, fx, update: S[c.type](root, c), drop: !!c.drop,
     // the transition INTO this scene
     transition: i === 0 ? null : c.transition || (c.drop ? 'flash' : TRANSITIONS[(i * 3) % TRANSITIONS.length]) };
@@ -357,16 +358,13 @@ window.renderAt = (T) => {
     if (tin && (tin === 'flash' || tin === 'glitch')) flashOp = Math.max(flashOp, tin === 'flash' ? Math.max(0, 1 - Math.abs(T - s.start) / (H * 1.6)) * 0.95 : 0);
     s.root.style.display = on ? 'block' : 'none';
     if (!on) return;
-    const e = energy(T), k = kick(T) * e, b = bar(T) * e;
-    // camera: a gentle zoom pulse on the beat (no shaking: the owner's choice)
-    const cam = `scale(${1 + 0.012 * k + 0.008 * b})`;
-    s.root.style.transform = `${look.tf || ''} ${cam}`;
+    // No camera zoom and no shaking (the owner's rule): the picture only moves in transitions.
+    s.root.style.transform = look.tf || 'none';
     s.root.style.filter = look.filter || 'none';
     s.root.style.opacity = look.op ?? 1;
     s.root.style.clipPath = look.clip || 'none';
     s.root.style.zIndex = look.clip ? 3 : T >= s.start ? 2 : 1;
-    const g = s.root.querySelector('.glow'); if (g) g.style.opacity = 0.35 + 0.55 * kick(T) * (0.4 + e);
-    s.fx(T);
+    // The background stays still (the owner's rule): no pulsing glow, streaks, rings or particles.
     s.update(T - s.start, s.dur, T);
   });
   // the drop gets its own flash

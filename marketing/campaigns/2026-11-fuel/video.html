@@ -8,6 +8,8 @@
 <script src="short.js"></script>
 <script src="beats.js"></script>
 <script src="timeline.js"></script>
+<!-- song.js (optional): window.SONG = {bpm, offset} when the owner chose a song -->
+<script src="song.js"></script>
 <style>
   :root { --g: #14b866; --g2: #0b6b3a; --ink: #121513; --muted: #6b746f; --bad: #ff7a66; }
   * { box-sizing: border-box; margin: 0; }
@@ -45,6 +47,13 @@
   .digit > span { display: block; }
   .digit > span > span { display: block; height: 1em; line-height: 1; }
   .tick { display: inline-flex; width: 74px; height: 74px; border-radius: 50%; align-items: center; justify-content: center; background: var(--g); color: #fff; font-size: 44px; font-weight: 800; flex: none; }
+  .fx { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .streak { position: absolute; top: -40%; width: 260px; height: 180%; transform: rotate(18deg);
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,.16), transparent); filter: blur(8px); }
+  .ring { position: absolute; left: 50%; top: 46%; border-radius: 50%; border: 6px solid rgba(20,184,102,.55); }
+  .dot { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,.35); }
+  .light .dot { background: rgba(11,107,58,.25); } .light .streak { background: linear-gradient(90deg, transparent, rgba(20,184,102,.18), transparent); }
+  #flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 50; }
   .pill { display: inline-block; padding: 18px 34px; border-radius: 999px; font-size: 40px; font-weight: 700; }
 </style>
 </head>
@@ -71,6 +80,7 @@ function inn(n, t, at, { dur = 0.45, x = 0, y = 50, s = 0.92, blur = 22, rot = 0
   n._o = p; n._b = (1 - p) * blur; n._tx = (1 - p) * x; n._ty = (1 - p) * y; n._s = s + (1 - s) * p; n._r = (1 - p) * rot; return p;
 }
 function out(n, t, at, { dur = 0.3, x = 0, y = -40, s = 1.05, blur = 22 } = {}) {
+  if (window.EDIT !== false) return 0; // the cut's transition takes everything away (see the edit below)
   const p = easeIn(prog(t, at, dur)); if (p <= 0) return 0;
   n._o *= 1 - p; n._b += p * blur; n._tx += p * x; n._ty += p * y; n._s *= 1 + (s - 1) * p; return p;
 }
@@ -245,27 +255,121 @@ S.end = (root, c) => {
 };
 
 // ---------- timeline ----------
-const beatLen = 60 / SHORT.bpm;
+const SONG = window.SONG || null;
+const beatLen = 60 / (SONG?.bpm || SHORT.bpm);
 const TL = window.TIMELINE ? Object.fromEntries(window.TIMELINE.map((s) => [s.id, s])) : null;
 const stage = document.getElementById('stage');
-let t0 = SHORT.offset || 0;
+let t0 = SONG ? SONG.offset || 0 : SHORT.offset || 0;
+
+// ---------- the edit: beat-synced camera, background and transitions ----------
+// Like an editor's timeline: every cut sits on a beat and gets a transition.
+// The owner's rules: no camera zoom, no shaking, and a still background.
+// (addFx below is kept switched off; window.BACKGROUND_FX turns it on.)
+const ENERGY = window.ENERGY || null;            // loudness per beat, 0..1 (from make_short.sh)
+// No zoom or spin (the owner's rule: no zoom effects).
+const TRANSITIONS = ['whip', 'slide', 'flash', 'circle', 'glitch'];
+const beatIndex = (T) => { let i = -1; for (let k = 0; k < BEATS.length && BEATS[k] <= T + 1e-6; k++) i = k; return i; };
+const sinceBeat = (T) => { const i = beatIndex(T); return i < 0 ? 9 : T - BEATS[i]; };
+const kick = (T) => Math.exp(-sinceBeat(T) * 10);
+const bar = (T) => { const i = beatIndex(T); return i >= 0 && i % 4 === 0 ? Math.exp(-(T - BEATS[i]) * 7) : 0; };
+let DROP = 0;
+const energy = (T) => {
+  if (ENERGY && BEATS.length) { const i = Math.max(0, beatIndex(T)); return ENERGY[Math.min(i, ENERGY.length - 1)] ?? 0.7; }
+  return T < DROP ? 0.45 : 1;
+};
+const rnd = (n) => { const x = Math.sin(n * 12.9898) * 43758.5453; return x - Math.floor(x); };
+
+function addFx(root) {
+  const fx = el(root, '', {}, 'fx');
+  fx.style.zIndex = 0;
+  const streaks = [0, 1].map(() => el(fx, '', {}, 'streak'));
+  const rings = [0, 1, 2].map(() => el(fx, '', {}, 'ring'));
+  const dots = Array.from({ length: 26 }, (_, i) => { const d = el(fx, '', {}, 'dot'); d._x = rnd(i + 1) * 1080; d._v = 40 + rnd(i + 7) * 120; d._s = 0.5 + rnd(i + 3) * 1.6; d._p = rnd(i + 11) * 1920; return d; });
+  root.insertBefore(fx, root.firstChild.nextSibling);
+  return (T) => {
+    const e = energy(T);
+    // streaks sweep across on each bar
+    const i = beatIndex(T), barStart = i >= 0 ? BEATS[i - (i % 4)] : 0, bp = clamp((T - barStart) / (beatLen * 1.2));
+    streaks.forEach((st, k) => { st.style.left = `${-500 + bp * 2100 + k * 380}px`; st.style.opacity = (1 - bp) * (0.4 + e); });
+    // a ring bursts out of the middle on every beat
+    rings.forEach((r, k) => {
+      const b = BEATS[i - k]; const age = b !== undefined ? T - b : 9; const size = 200 + age * 1900;
+      Object.assign(r.style, { width: `${size}px`, height: `${size}px`, marginLeft: `${-size / 2}px`, marginTop: `${-size / 2}px`, opacity: Math.max(0, 0.55 - age * 0.9) * e });
+    });
+    // particles drift up, faster when the music is louder
+    dots.forEach((d) => {
+      const y = ((d._p - T * d._v * (0.6 + e)) % 1920 + 1920) % 1920;
+      d.style.transform = `translate(${d._x + Math.sin(T + d._p) * 30}px, ${y}px) scale(${d._s * (1 + 0.6 * kick(T) * e)})`;
+    });
+  };
+}
+
 const scenes = SHORT.scenes.map((c, i) => {
   const id = c.id || 's' + i;
   const dur = TL?.[id] ? TL[id].dur : c.beats * beatLen;
   const root = el(stage, '', {}, 'scene ' + (c.bg || 'dark'));
   if (c.glow !== false && (c.bg || 'dark') !== 'light') el(root, '', {}, 'glow');
-  const sc = { id, start: TL?.[id] ? TL[id].start : t0, dur, root, update: S[c.type](root, c) };
+  else el(root, '', { display: 'none' }); // keeps the fx layer second
+  const fx = window.BACKGROUND_FX ? addFx(root) : () => {};
+  const sc = { id, start: TL?.[id] ? TL[id].start : t0, dur, root, fx, update: S[c.type](root, c), drop: !!c.drop,
+    // the transition INTO this scene
+    transition: i === 0 ? null : c.transition || (c.drop ? 'flash' : TRANSITIONS[(i * 3) % TRANSITIONS.length]) };
+  if (c.drop && !DROP) DROP = sc.start;
   t0 = sc.start + dur;
   return sc;
 });
+const flash = el(stage, '', {}, ''); flash.id = 'flash';
 window.TOTAL = t0;
-window.SCENES = scenes.map(({ id, start, dur }) => ({ id, start, dur }));
-window.renderAt = (T) => {
-  for (const s of scenes) {
-    const on = T >= s.start && T < s.start + s.dur + (s === scenes[scenes.length - 1] ? 1 : 0);
-    s.root.style.display = on ? 'block' : 'none';
-    if (on) { const g = s.root.querySelector('.glow'); if (g) g.style.opacity = 0.45 + 0.4 * pulse(T); s.update(T - s.start, s.dur, T); }
+window.SCENES = scenes.map(({ id, start, dur, transition, drop }) => ({ id, start, dur, transition, drop }));
+const H = Math.min(0.24, beatLen * 0.45); // half-length of a transition
+
+// How a scene looks while the transition `kind` takes it out (side = 'out')
+// or brings it in (side = 'in'); p goes 0 → 1 across the transition.
+function transit(kind, side, p, T) {
+  const q = side === 'out' ? p : 1 - p; // 0 = fully on screen
+  const mb = Math.sin(Math.PI * p) * 26;  // motion blur peaks mid-transition
+  switch (kind) {
+    case 'whip': return { tf: `translateX(${(side === 'out' ? -1 : 1) * q * 1180}px) skewX(${(side === 'out' ? 1 : -1) * q * 8}deg)`, filter: `blur(${mb}px)` };
+    case 'slide': return { tf: `translateY(${(side === 'out' ? -1 : 1) * q * 2000}px)`, filter: `blur(${mb * 0.8}px)` };
+    case 'zoom': return side === 'out' ? { tf: `scale(${1 + q * 2.2})`, filter: `blur(${mb}px)`, op: 1 - q } : { tf: `scale(${1 - q * 0.45})`, filter: `blur(${mb}px)`, op: 1 - q };
+    case 'spin': return { tf: `rotate(${(side === 'out' ? 1 : -1) * q * 28}deg) scale(${side === 'out' ? 1 + q * 0.9 : 1 - q * 0.4})`, filter: `blur(${mb}px)`, op: 1 - q * 0.6 };
+    case 'circle': return side === 'in' ? { clip: `circle(${(1 - q) * 1250}px at 50% 50%)` } : {};
+    case 'glitch': {
+      const j = Math.sin(Math.PI * p);
+      return { tf: '',
+        filter: `drop-shadow(${14 * j}px 0 0 rgba(255,0,90,.75)) drop-shadow(${-14 * j}px 0 0 rgba(0,220,255,.75)) contrast(${1 + j * 0.4})`, cut: true };
+    }
+    default: return { cut: true }; // flash: a hard cut under a white flash
   }
+}
+
+window.renderAt = (T) => {
+  let flashOp = 0;
+  scenes.forEach((s, i) => {
+    const next = scenes[i + 1], last = !next;
+    const tin = s.transition, tout = next?.transition;
+    const from = s.start - (tin ? H : 0), to = s.start + s.dur + (last ? 1 : tout ? H : 0);
+    let on = T >= from && T < to;
+    let look = {};
+    if (on && tin && T < s.start + H) look = transit(tin, 'in', clamp((T - (s.start - H)) / (2 * H)), T);
+    if (on && tout && T >= s.start + s.dur - H) look = transit(tout, 'out', clamp((T - (s.start + s.dur - H)) / (2 * H)), T);
+    // hard-cut styles: only one side is on screen
+    if (on && look.cut && ((tin && T < s.start) || (tout && T >= s.start + s.dur))) on = false;
+    if (tin && (tin === 'flash' || tin === 'glitch')) flashOp = Math.max(flashOp, tin === 'flash' ? Math.max(0, 1 - Math.abs(T - s.start) / (H * 1.6)) * 0.95 : 0);
+    s.root.style.display = on ? 'block' : 'none';
+    if (!on) return;
+    // No camera zoom and no shaking (the owner's rule): the picture only moves in transitions.
+    s.root.style.transform = look.tf || 'none';
+    s.root.style.filter = look.filter || 'none';
+    s.root.style.opacity = look.op ?? 1;
+    s.root.style.clipPath = look.clip || 'none';
+    s.root.style.zIndex = look.clip ? 3 : T >= s.start ? 2 : 1;
+    // The background stays still (the owner's rule): no pulsing glow, streaks, rings or particles.
+    s.update(T - s.start, s.dur, T);
+  });
+  // the drop gets its own flash
+  if (DROP) flashOp = Math.max(flashOp, Math.max(0, 1 - Math.abs(T - DROP) / 0.35));
+  flash.style.opacity = flashOp;
 };
 renderAt(0);
 </script>

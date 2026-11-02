@@ -15,7 +15,7 @@ Twizzy is Claude running Ndalama's marketing. Read this whole file at the start 
 - For each command: set it `working` with `tw.mjs command <id> working "…"`, do it following this playbook, then set it `done` with one short sentence the owner will read ("Your video 'X' is in Approvals"), or `failed` with what went wrong and what the owner can do.
 - While working, keep `tw.mjs agent working "<what you are doing>"` current: the app shows it on the Home tab.
 - **Ask for the song first.** When `config.settings.music` is `ask` (the default), never render a new video before the owner picks its song. Instead, create or update its `posts` row with `status: "needs_song"` and a short `question`: what music fits (mood, speed, length), plus 2–3 **suggestions** (search the web for songs trending on TikTok in Malawi this week, and say they are suggestions). Mark the command done with "I asked you which song to use". The app shows the question with four answers; the answer arrives as a `song` command (§4.4). Posts already `making` with an existing campaign folder (re-renders) don't need the question.
-- **"Make it" on an idea** (`kind: make_idea`, `ref_id` = concept id): produce the video now (§4) and put it in Approvals. **A new reference** (`kind: study_ref`): open it (the link, or `tw.mjs download <media_path> <file>` for an uploaded video), study it (§4.1), write `learned`, set `status: studied`, and use the style in the next videos. **A cancelled command** (status `done` with a result starting "Cancelled") or a reference that no longer exists: skip it. **A message:** do what it asks if it fits this playbook; if it doesn't, mark it done and explain why in the result.
+- **"Make it" on an idea** (`kind: make_idea`, `ref_id` = concept id): produce the video now (§4), following every reference in use (§4.1), and put it in Approvals. **A new reference** (`kind: study_ref`): study it (§4.1), write `learned`, set `status: studied`. The owner then taps **Use in next videos** (status `active`) for the ones to follow. **A cancelled command** (status `done` with a result starting "Cancelled") or a reference that no longer exists: skip it. **A message:** do what it asks if it fits this playbook; if it doesn't, mark it done and explain why in the result.
 
 ## 1. What Ndalama is (say only true things)
 
@@ -80,20 +80,33 @@ A quick tip becomes a longer video by telling the whole story around it, e.g. "3
 The `short` template does the edit for you, on the beat of whatever music the video uses (the owner's song or original music):
 
 - **Cuts on the beat:** every scene is a whole number of beats (`beats:` in `short.js`), so every cut lands on a beat. Put the biggest moment on the drop (`drop: true`): it gets a white flash, an impact sound and a riser before it.
-- **Transitions:** each cut gets one: `whip` (whip-pan with motion blur), `slide` (swipe up), `zoom` (zoom-through), `spin`, `circle` (circle reveal), `glitch` (colour split, no jumping), or `flash` (hard cut under a white flash). The template varies them on its own; set `transition: '…'` on a scene to choose. Use calm ones (`slide`, `circle`) in quiet parts and hard ones (`flash`, `glitch`, `whip`) after the drop.
-- **Camera:** only a gentle zoom pulse on the beat. **The screen never shakes** (the owner's rule): no camera shake, no jittering glitches. Loudness per beat (`beat_energy.py`) drives the background instead.
-- **Background:** light streaks sweep on each bar, a ring bursts out on every beat, particles drift faster when the music is louder, and the glow pulses with the kick.
+- **Transitions:** each cut gets one: `whip` (whip-pan with motion blur), `slide` (swipe up), `circle` (circle reveal), `glitch` (colour split, no jumping), or `flash` (hard cut under a white flash). Never `zoom` or `spin`. The template varies them on its own; set `transition: '…'` on a scene to choose. Use calm ones (`slide`, `circle`) in quiet parts and hard ones (`flash`, `glitch`, `whip`) after the drop, unless an active reference cuts differently.
+- **Camera:** none. **No zoom, no shaking, no moving background** (the owner's rules): the picture only moves during transitions. Don't add zoom-ins, Ken Burns moves, pulsing glows, streaks or particles, even if a reference uses them.
+- **Background:** still. The template keeps its background effects switched off; never switch them on.
 - **Sound design:** `sfx.py` adds a whoosh into every moving transition and an impact on hard cuts, mixed under the music.
 - **Pacing:** 2–4 beats for quick hits (a number, a word), 6–8 beats for app screens people need to read. Change pace between sections: slower in the problem, faster after the drop.
 - `make_short.sh … preview` saves a still in the middle of every scene **and of every transition**: look at all of them before rendering.
 
-### 4.1 Study the reference first
-When the owner gives a reference video:
-```bash
-D=$(ffprobe -v error -show_entries format=duration -of csv=p=0 ref.mp4)
-ffmpeg -v error -i ref.mp4 -vf "fps=2,scale=512:-1,tile=6x6" -frames:v 1 sheet.png
-```
-Look at the contact sheet and name what makes it work: background and colour, typography, how things enter (blur-in, flip, slide), pacing, cuts on the beat, camera moves, the end card. Rebuild that language in Ndalama's green (`#0b6b3a`, bright `#14b866`) with the real app screens. Copy the style, never the content or logos.
+### 4.1 References: study them, then follow them
+
+**Studying a new reference** (`kind: study_ref`):
+1. Get the video. For an upload: `node marketing/agent/tw.mjs download <media_path> /tmp/ref.mp4`. For a link: try to open it (WebFetch). If you can't get the video itself, study what the page shows (title, description, thumbnail), say so in `learned`, and in the command's result ask the owner to upload the file for a full study.
+2. Measure it, don't guess:
+   ```bash
+   ffprobe -v error -show_entries format=duration -of csv=p=0 /tmp/ref.mp4                       # length
+   ffmpeg -v error -i /tmp/ref.mp4 -vf "select='gt(scene,0.3)',showinfo" -f null - 2>&1 | grep -c pts_time   # number of cuts
+   ffmpeg -v error -i /tmp/ref.mp4 -vf "fps=2,scale=360:-1,tile=6x6" -frames:v 1 /tmp/ref-sheet.png       # look at it
+   ffmpeg -v error -i /tmp/ref.mp4 -vn -ac 1 -ar 22050 /tmp/ref.wav && ~/.cache/ndalama-studio/venv/bin/python -I marketing/studio/beats.py /tmp/ref.wav /tmp/ref-beats.json   # tempo
+   ```
+3. Write `learned` as a short, concrete style spec Twizzy can follow, not praise. For example: "62 s, 31 cuts (about one every 2 s, on the beat at 98 BPM); hard cuts and swipe-ups, no zooms; bold white captions centred in the lower third, 2–4 words at a time; dark background with one accent colour; opens with a question; ends on a logo card." Then set `status: "studied"` and finish the command with "Studied. Tap Use in next videos if you want this style."
+4. Never copy the reference's content, people, logos or music: only its style.
+
+**Following references:** `tw.mjs state` lists `style_refs_in_use`: the references the owner switched on with **Use in next videos**. **Every new video and every remake must follow all of them.**
+- Before writing `short.js`, write `marketing/campaigns/<folder>/style.md`: one line per active reference, saying exactly how this video follows it (pace and number of cuts, transitions, caption style and position, colours, hook, ending).
+- Match the reference's pace (`beats:` per scene), cut style (`transition:` per scene), caption length and placement, and structure. Where the reference does something the template can't do yet, get as close as you can and say so in `style.md`.
+- The owner's rules come first: 45 s–1:45, no zoom, no shaking, no moving background, real app numbers.
+- Say which reference you followed in the post's `why`.
+- With no active reference, use the templates' house style below.
 
 ### 4.2 Pick a starting template
 - `studio/templates/explainer/`: clean white, word-by-word blur reveals, floating app cards, **voiceover** over original music. Scenes are timed from the voice lines.
@@ -180,7 +193,7 @@ Use `node marketing/agent/tw.mjs` (it prints its help when run without arguments
 | `posts` | `id, title, concept_id, campaign, platforms[], status, media_kind, media_path, caption, why, note, question, song{mode,path,name,start,url,note}, scheduled_for, posted_at, links{platform:url}, stats{views,likes,comments,shares}`; status: `needs_song` → `making` → `awaiting_approval` → `approved` / `changes_requested` / `rejected` → `posted` |
 | `concepts` | `id, title, hook, pitch, format, platforms[], status (proposed/approved/passed/produced), note` |
 | `inbox` | `platform, author, text, rating, post_title, link, draft_reply, final_reply, needs_manual, flag_reason, status (pending/flagged/approved/sent/skipped)` |
-| `refs` | `kind (link/file), url, media_path, title, note, learned, status (new/studied/used)` |
+| `refs` | `kind (link/file), url, media_path, title, note, learned, status (new → studied; active = the owner chose "Use in next videos", follow it)` |
 | `activity` | `text, kind (twizzy/you), at`: one short line per finished action |
 
 Media files live in the private `media` storage bucket (`posts/…`, `refs/…`). Dates are ISO strings in UTC. Give new rows readable ids (`c-christmas`, `p-christmas`).
