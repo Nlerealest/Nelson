@@ -1,0 +1,1 @@
+No active references. House style: cuts on the beat of the owner's song (LA MuDANZA from 0:45), calm transitions in the problem, hard ones after the drop. No zoom, no shaking, still background. Screens recaptured from the latest app.
