@@ -1,0 +1,2 @@
+- r-2b9da5a7 (calm white explainer): one idea per beat, calm pace (5-12 beats per scene); word-by-word blur reveals from the title scenes; a repeated "No ..." line ("No data? No problem. No account. No ads."); floating app cards (card-goal, card-bills); soft slide/circle transitions in the quiet parts; clear end card with free links. Not possible in the template: typing prompt bar, mic wave, pulsing logo with ripples (no moving effects allowed), so skipped.
+- Owner's rules: 45 s+ story, no zoom/shake/moving background, uploaded song cut on its beats.
