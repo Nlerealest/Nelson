@@ -9,6 +9,8 @@
 //   node tw.mjs insert <table> '<json>'       prints the new row
 //   node tw.mjs update <table> <id> '<json>'
 //   node tw.mjs upload <local-file> <storage-path>     into the "media" bucket (overwrites; videos also get a .jpg still)
+//   node tw.mjs attach <post-id> <video.mp4> [status]  upload a finished video, check it, point the post at it
+//   node tw.mjs check                         posts whose video file is missing from storage
 //   node tw.mjs download <storage-path> <local-file>
 //   node tw.mjs log "<text>"                  one activity entry
 //   node tw.mjs agent <state> "<message>"     what Twizzy is doing now (working / idle / error)
@@ -77,6 +79,38 @@ switch (cmd) {
         console.log(posterPath);
       }
     }
+    break;
+  }
+  case 'attach': {
+    // Uploads a finished video (and its still frame), checks the file is really
+    // there, and points the post at it, in one step so they can never mismatch.
+    const [id, file, status = 'awaiting_approval'] = a;
+    const ext = extname(file).toLowerCase() || '.mp4';
+    const path = `posts/${id}-${new Date().toISOString().replace(/\D/g, '').slice(0, 12)}${ext}`;
+    const kind = /^image\//.test(MIME[ext] || '') ? 'image' : 'video';
+    must(await sb.storage.from('media').upload(path, readFileSync(file), { contentType: MIME[ext] || 'video/mp4', upsert: true }));
+    if (kind === 'video') {
+      const jpg = join(tmpdir(), `poster-${process.pid}.jpg`);
+      if (spawnSync('ffmpeg', ['-v', 'error', '-y', '-ss', '4', '-i', file, '-frames:v', '1', '-vf', 'scale=540:-2', '-q:v', '4', jpg]).status === 0) {
+        must(await sb.storage.from('media').upload(path.replace(/\.[a-z0-9]+$/i, '.jpg'), readFileSync(jpg), { contentType: 'image/jpeg', upsert: true }));
+      }
+    }
+    const signed = must(await sb.storage.from('media').createSignedUrl(path, 120));
+    const head = await fetch(signed.signedUrl, { method: 'HEAD' });
+    if (!head.ok) { console.error(`Uploaded ${path} but it can't be read back (HTTP ${head.status}).`); process.exit(1); }
+    out(must(await sb.from('posts').update({ media_path: path, media_kind: kind, status }).eq('id', id).select('id,title,status,media_path').single()));
+    break;
+  }
+  case 'check': {
+    // Every post that should have a video: is the file really in storage?
+    const posts = must(await sb.from('posts').select('id,title,status,media_path,campaign').not('media_path', 'is', null));
+    const bad = [];
+    for (const p of posts) {
+      const { data, error } = await sb.storage.from('media').createSignedUrl(p.media_path, 60);
+      const ok = !error && (await fetch(data.signedUrl, { method: 'HEAD' })).ok;
+      if (!ok) bad.push(p);
+    }
+    out({ checked: posts.length, missing: bad });
     break;
   }
   case 'download': {

@@ -1,12 +1,14 @@
 // Video and image previews from Supabase storage, and saving / sharing them.
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { useEvent } from 'expo';
 import { Ionicons } from '@expo/vector-icons';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { db } from '../supabase';
 import { Body, Button, Row } from './ui';
+import { tellTwizzy, useToast } from '../data';
 import { useTheme } from '../theme';
 
 // Not available on web, where saving opens a download link instead.
@@ -16,17 +18,48 @@ export function useSignedUrl(path) {
   const [signed, setSigned] = useState({});
   useEffect(() => {
     let live = true;
-    if (path) db().storage.from('media').createSignedUrl(path, 3600).then(({ data }) => live && setSigned({ path, url: data?.signedUrl || null }));
+    if (path) {
+      db().storage.from('media').createSignedUrl(path, 3600)
+        .then(({ data, error }) => live && setSigned({ path, url: data?.signedUrl || null, error: error ? error.message || 'not found' : null }))
+        .catch((e) => live && setSigned({ path, url: null, error: e.message || 'network error' }));
+    }
     return () => { live = false; };
   }, [path]);
-  return signed.path === path ? signed.url : null;
+  return signed.path === path ? signed : { url: null, error: null };
+}
+
+// Shown when a video can't be loaded: why, and two ways forward.
+function MediaProblem({ post, message }) {
+  const t = useTheme();
+  const toast = useToast();
+  return (
+    <View style={{ borderRadius: 14, backgroundColor: t.dangerSoft, padding: 16, gap: 10 }}>
+      <Body bold color={t.danger}>This video won’t load</Body>
+      <Body small>{/not.?found|object/i.test(message) ? 'The video file is missing from storage.' : message}</Body>
+      <Row>
+        <Button small icon="construct-outline" title="Ask Twizzy to fix it" onPress={async () => {
+          await tellTwizzy(`The video for "${post.title}" (posts/${post.id}) won't play or download in the app (${message}). Render it again and attach it.`, 'message', post.id);
+          toast('Sent. Twizzy will re-upload the video.');
+        }} />
+      </Row>
+    </View>
+  );
 }
 
 // Only one video plays at a time; the others show their still frame.
 let stopCurrent = null;
 
-function Video({ url }) {
+function Video({ url, post }) {
   const player = useVideoPlayer(url, (p) => { p.loop = false; p.play(); });
+  const { status, error } = useEvent(player, 'statusChange', { status: player.status, error: null });
+  if (status === 'error') {
+    return (
+      <View style={{ gap: 8 }}>
+        <MediaProblem post={post} message={error?.message || 'The phone could not play this video.'} />
+        <Button small kind="plain" icon="open-outline" title="Open in browser" onPress={() => Linking.openURL(url)} />
+      </View>
+    );
+  }
   return <VideoView player={player} style={{ width: '100%', aspectRatio: 9 / 16, maxHeight: 520, borderRadius: 14, backgroundColor: '#000' }} contentFit="contain" nativeControls fullscreenOptions={{ enable: true }} />;
 }
 
@@ -37,8 +70,8 @@ export function MediaPreview({ post }) {
   const t = useTheme();
   const [playing, setPlaying] = useState(false);
   const isImage = post.media_kind === 'image';
-  const url = useSignedUrl(playing || isImage ? post.media_path : null);
-  const poster = useSignedUrl(!isImage && !playing ? posterOf(post.media_path) : null);
+  const { url, error } = useSignedUrl(playing || isImage ? post.media_path : null);
+  const poster = useSignedUrl(!isImage && !playing ? posterOf(post.media_path) : null).url;
   const [stop] = useState(() => () => setPlaying(false));
   useEffect(() => () => { if (stopCurrent === stop) stopCurrent = null; }, [stop]);
   if (!post.media_path) {
@@ -48,8 +81,10 @@ export function MediaPreview({ post }) {
       </View>
     );
   }
+  if (isImage && error) return <MediaProblem post={post} message={error} />;
   if (isImage) return url ? <Image source={{ uri: url }} style={{ width: '100%', aspectRatio: 1, borderRadius: 14 }} resizeMode="contain" /> : <View style={{ aspectRatio: 1, borderRadius: 14, backgroundColor: t.input }} />;
-  if (playing && url) return <Video url={url} />;
+  if (playing && error) return <MediaProblem post={post} message={error} />;
+  if (playing && url) return <Video url={url} post={post} />;
   return (
     <Pressable
       accessibilityRole="button"
@@ -97,12 +132,23 @@ export async function shareMedia(post) {
   return true;
 }
 
+async function openInBrowser(post) {
+  const { data, error } = await db().storage.from('media').createSignedUrl(post.media_path, 3600, { download: fileName(post) });
+  if (error) throw error;
+  await Linking.openURL(data.signedUrl);
+}
+
 export function MediaActions({ post, toast }) {
   if (!post.media_path) return null;
   return (
     <Row>
       <Button small icon="download-outline" title="Save to phone" onPress={async () => {
-        try { if (await saveToPhone(post)) toast('Saved to your gallery.'); } catch (e) { toast('Couldn’t save: ' + (e.message || e)); }
+        try {
+          if (await saveToPhone(post)) toast('Saved to your gallery.');
+        } catch (e) {
+          // Fall back to the phone's browser, which downloads it to Downloads.
+          try { await openInBrowser(post); toast('Opening the download in your browser…'); } catch (e2) { toast('Couldn’t download: ' + (e2.message || e.message || e)); }
+        }
       }} />
       <Button small kind="plain" icon="share-social-outline" title="Share" onPress={async () => {
         try { await shareMedia(post); } catch (e) { toast('Couldn’t share: ' + (e.message || e)); }

@@ -38,7 +38,7 @@ Friendly, warm, practical, proudly Malawian. Short sentences. A little Chichewa 
 
 ## 3. Each run, in order
 
-1. **Read the app's data:** `node marketing/agent/tw.mjs state` (see §6). If `config.settings.paused` is true, log "Paused, nothing done" and stop.
+1. **Read the app's data:** `node marketing/agent/tw.mjs state` (see §6), and `node marketing/agent/tw.mjs check`: for every post whose video file is missing, render its campaign again and `attach` it (§4.6); if there is no campaign folder, set it to `making` and remake it. If `config.settings.paused` is true, log "Paused, nothing done" and stop.
 2. **Act on the owner's decisions:**
    - `posts` with `status: making` and a `campaign`: render that campaign (`bash marketing/studio/make_short.sh marketing/campaigns/<campaign> video`), check it (§4.5), upload it and set `awaiting_approval` (§4.6).
    - `posts` with `status: approved`: the owner posts them by hand (§5). Nothing to do unless a command asks.
@@ -152,12 +152,12 @@ Before calling it done:
 - Commit the campaign folder (scenes, script, timeline, beats.json) but **not** frames, MP4s or copyrighted music.
 
 ### 4.6 Hand it to the owner
-Upload the MP4 and point a `posts` row at it:
+
+Deliver every finished video with **one** command. It uploads the MP4 and its still frame, checks the file can really be read back, and points the post at it:
 ```bash
-node marketing/agent/tw.mjs upload campaigns/<folder>/ndalama-<slug>.mp4 posts/<post-id>-<yyyymmdd-hhmm>.mp4
-node marketing/agent/tw.mjs update posts <post-id> '{"media_kind":"video","media_path":"posts/…mp4","status":"awaiting_approval"}'
+node marketing/agent/tw.mjs attach <post-id> marketing/campaigns/<folder>/ndalama-<slug>.mp4
 ```
-A new post is `tw.mjs insert posts '{…}'` with `title, concept_id, campaign, platforms, caption, why, status: "awaiting_approval", media_kind, media_path`. A remake uploads to a new path (so the phone doesn't show the old cached video), clears `note`, and sets `awaiting_approval` again. Then set the concept `produced`.
+Never upload and update `media_path` by hand: a path that doesn't match the file is why videos wouldn't play or download in the app. For a new post, first `tw.mjs insert posts '{…}'` with `title, concept_id, campaign, platforms, caption, why, status: "making"`, then `attach`. A remake is the same `attach` (it uploads under a new name, so the phone never shows the old cached video); clear `note` afterwards. Then set the concept `produced`.
 
 ## 5. Publishing
 

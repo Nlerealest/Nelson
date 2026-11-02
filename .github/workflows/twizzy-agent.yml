@@ -115,6 +115,7 @@ jobs:
             Task: ${{ steps.task.outputs.text }}
 
             Every video you make must be 45 seconds to 1:45 long and tell a full story (TWIZZY.md section 4.0).
+            Deliver every finished video with `node marketing/agent/tw.mjs attach <post-id> <file.mp4>` (section 4.6), never by hand.
 
             Keep the app informed while you work: `tw.mjs agent working "<what you are doing>"`,
             mark each command working/done/failed with a short result the owner will read, and log
