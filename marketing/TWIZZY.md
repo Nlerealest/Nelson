@@ -32,9 +32,17 @@ Ndalama ("money" in Chichewa) is a free money manager for Malawi. Use only these
 
 Never promise profits, savings amounts, loans, interest, or financial outcomes. Ndalama tracks money; it does not lend, invest or give financial advice.
 
+## 1b. Audience and money (the owner's rules)
+
+- **Who Ndalama is for:** Malawi's middle and upper class: corporate staff in offices, business owners and millionaires, parents, young professionals. Most also run a **side business** (poultry, a minibus, a shop, tailoring, phone accessories). Show that income too.
+- **Big, aspirational, believable money.** Ndalama is a serious app: never make small sums the hero of a video (no K3,500 minibus fares or K250,000 salaries in the spotlight). Typical amounts: salaries K600,000–3,000,000 a month, savings goals K2,000,000–15,000,000 (a car, land, a second shop, school fees for the year), loans K400,000–5,000,000, rent K220,000–900,000.
+- **Use the four personas** in `studio/personas.mjs` (senior manager, business owner, parents of three, young professional). Pick the one who fits each idea, and use their screens (`assets/app/personas/<name>/`) and their numbers (`numbers.txt` there).
+- **Know the real economy.** Prices in `personas.mjs` are real Malawi prices (rent from listings, fuel about K5,600 a litre, ESCOM about K143 a unit, TNM home fibre from K57,000, private school fees K1–1.7M a term and up to K4.9–6.5M at international schools). Every Monday, while researching ideas, check the news for changes (fuel, ESCOM and water tariffs, the kwacha rate, inflation, maize prices, school fees) and update `personas.mjs` with the source in a comment. Never show prices that are years out of date.
+- **Aspirational, not boastful:** respect people with less, and never mock anyone's money situation.
+
 ## 2. Voice
 
-Friendly, warm, practical, proudly Malawian. Short sentences. A little Chichewa is welcome ("Moni!", "Zikomo!") with English alongside. Use kwacha amounts people recognise (K250,000 salary, K3,500 minibus, K6,000 water bill). Follow Settings → tone, languages, hashtags and "never mention".
+Friendly, warm, practical, proudly Malawian. Short sentences. A little Chichewa is welcome ("Moni!", "Zikomo!") with English alongside. Use kwacha amounts that fit the audience (§1b): K1,450,000 salary, K650,000 rent, a K9,000,000 car goal. Follow Settings → tone, languages, hashtags and "never mention".
 
 ## 3. Each run, in order
 
@@ -47,7 +55,7 @@ Friendly, warm, practical, proudly Malawian. Short sentences. A little Chichewa 
    - `inbox` items with `status: approved`: send the reply where possible, set `status: sent`.
    - New `references` (`status: new`): study each (§4.1), write what you learned in `learned`, set `status: studied`.
 3. **Plan:** keep the week's posts in line with Settings → frequency. **Every Monday, propose 4–5 new `concepts`** (never more than 5) as `status: proposed`:
-   - First search the web for what is happening in Malawi and the world that week: prices (fuel, maize, kwacha rate), payday and school calendar, holidays and festivals, football, viral TikTok formats and sounds. Note the source in each concept's `pitch`.
+   - First search the web for what is happening in Malawi and the world that week (and update prices in `personas.mjs`, §1b): prices (fuel, maize, kwacha rate), payday and school calendar, holidays and festivals, football, viral TikTok formats and sounds. Note the source in each concept's `pitch`.
    - Tie each idea to something relatable that week, and vary them: tips, feature demos, relatable money moments, seasonal campaigns, challenges, trends.
    - **Every idea is a long-form concept for a 45 s – 1:45 video** (see §4.0), not a quick 10–20 s clip. Write the `pitch` as a short story outline (hook → problem → how Ndalama helps, with 3–5 real app moments → payoff → call to action) and put the planned length in `format`, e.g. "75–90 s vertical story, voiceover".
    - Use only §1 facts about the app. Never make light of hardship, disasters or politics.
@@ -132,10 +140,10 @@ Videos always show the app **as it is today**: the current month, today's date, 
 ```bash
 bash marketing/studio/fresh_screens.sh            # today in Malawi; or give a date: … 2026-11-20
 ```
-It builds the current app, loads the sample month (`studio/sample-data.mjs`, a K250,000 salary, with all dates relative to the day) and captures every screen and card into `marketing/assets/app`. It writes the numbers the app shows into `marketing/assets/app/numbers.txt`. A card that isn't on today's screens (e.g. no goal warning early in the month) is removed rather than left stale.
+It builds the current app and, for each persona in `studio/personas.mjs`, loads their month (dates relative to the day) and captures every screen and card into `marketing/assets/app/personas/<name>/` with the numbers the app shows in `numbers.txt` there. The senior manager's set is also copied to `marketing/assets/app`. A card that isn't on today's screens (e.g. no goal warning early in the month) is removed rather than left stale.
 
 - **Every number in a video comes from `numbers.txt`** or from running the app's own calculations (`src/logic.js`) on the same sample month. Never type a number from an older video or invent one.
-- To tell a different story (a goal slipping, a bill due), adjust `sample-data.mjs` and run `fresh_screens.sh` again; dates must stay relative to today.
+- To tell a different story (a goal slipping, a bill due), adjust the persona in `personas.mjs` and run `fresh_screens.sh` again; dates stay relative to today.
 - Never show a screen from another month in a new video.
 
 ### 4.4 Sound

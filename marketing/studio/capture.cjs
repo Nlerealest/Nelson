@@ -69,11 +69,13 @@ const FIND = `(([text, kind, nth]) => {
   const monthName = new Date(process.env.APP_DATE || '2026-10-13T09:30:00').toLocaleString('en-US', { month: 'long' });
   await card('tiles', `In (${monthName})`, 'tiles');
   await card('goal-alert', 'is off track', 'alert');
-  await card('recent', 'Minibus');
+  await card('recent', JSON.parse(data).transactions.filter((t) => t.type === 'income').slice(-1)[0].note);
   await tab('Budget'); await card('budget', 'Groceries');
-  await tab('Goals'); await card('goal', 'New phone'); await card('goal2', 'school fees');
+  const sample = JSON.parse(data);
+  const lent = sample.loans.find((l) => l.direction === 'lent'), owe = sample.loans.find((l) => l.direction === 'borrowed');
+  await tab('Goals'); await card('goal', sample.goals[0].name); await card('goal2', sample.goals[1].name);
   await tab('Bills'); await card('bills', 'Water board');
-  await tab('Loans'); await card('loan-lent', 'Chikondi'); await card('loan-owe', 'Village bank');
+  await tab('Loans'); await card('loan-lent', lent.person); await card('loan-owe', owe.person);
   await tab('Report'); await card('insights', 'You kept'); await card('report-cats', 'Budget K');
 
   await page.setViewportSize({ width: 390, height: 844 });

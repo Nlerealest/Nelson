@@ -1,0 +1,11 @@
+# What the app shows on 2026-11-03 for this persona (sample-data.mjs). Use these numbers in videos.
+persona family - Parent of three, two salaries and a tailoring business - income a month 1750000
+safe 27192 leftToday 27192 days 28 available 761367.3469387755
+surplus 701000 needed 181633
+ goal Children's school fees 100000
+ goal Family car 81633
+[
+  'You kept 18% of your income (K315,000).',
+  'Most money went to Rent: K500,000 (35% of spending).',
+  'You put K4,600,000 towards your savings goals.'
+]

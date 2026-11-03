@@ -1,0 +1,11 @@
+# What the app shows on 2026-11-03 for this persona (sample-data.mjs). Use these numbers in videos.
+persona corporate - Senior manager in Lilongwe, sells broilers on the side - income a month 1730000
+safe 15142 leftToday 15142 days 28 available 423982.40469208214
+surplus 672667 needed 234018
+ goal New car 161290
+ goal Emergency fund 72727
+[
+  'You kept 21% of your income (K370,000).',
+  'Most money went to Rent: K650,000 (48% of spending).',
+  'You put K5,200,000 towards your savings goals.'
+]

@@ -1,0 +1,11 @@
+# What the app shows on 2026-11-03 for this persona (sample-data.mjs). Use these numbers in videos.
+persona young - Young professional, single, sells phone accessories on the side - income a month 740000
+safe 9173 leftToday 9173 days 28 available 256857.14285714284
+surplus 338000 needed 101143
+ goal New phone 57143
+ goal Rainy-day fund 44000
+[
+  'You kept 21% of your income (K153,000).',
+  'Most money went to Rent: K220,000 (37% of spending).',
+  'You put K1,700,000 towards your savings goals.'
+]
