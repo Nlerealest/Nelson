@@ -118,6 +118,11 @@ jobs:
             Deliver every finished video with `node marketing/agent/tw.mjs attach <post-id> <file.mp4>` (section 4.6), never by hand.
             If a reference is in use (style_refs_in_use), every video must look like it: set SHORT.style, copy its pace, transitions and signature elements, build any element the template lacks, and compare contact sheets before rendering (TWIZZY.md section 4.1). Never use zoom, shaking or a moving background.
 
+            Before you finish, write marketing/agent/last-run.md: the date, then one line per command or job you
+            handled (what was asked, what you did, the result), and for each video made: its title, the
+            reference followed (or none), the voice and the song mode. If you skipped something, say why.
+            No captions, no secrets, no personal data: this file is public.
+
             Keep the app informed while you work: `tw.mjs agent working "<what you are doing>"`,
             mark each command working/done/failed with a short result the owner will read, and log
             each finished action. Never print secrets. Do not commit or push: the workflow commits
@@ -127,7 +132,7 @@ jobs:
         if: always()
         run: |
           git config user.name "Twizzy" && git config user.email "twizzy@users.noreply.github.com"
-          git add marketing/campaigns marketing/TWIZZY.md marketing/studio 2>/dev/null || true
+          git add marketing/campaigns marketing/TWIZZY.md marketing/studio marketing/agent/last-run.md 2>/dev/null || true
           if ! git diff --cached --quiet; then
             git commit -q -m "Twizzy: campaign sources from run ${{ github.run_id }}"
             git push -q origin HEAD:claude/malawi-money-management-knal4c || echo "::warning::Push failed"
