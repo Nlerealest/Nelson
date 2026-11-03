@@ -80,9 +80,9 @@ const STYLE = SHORT.style || {};
 // The owner's rule: every video keeps Ndalama's green look (dark green stage,
 // green glow and highlights, white text, Inter), whatever the reference. A
 // reference only changes the movement: pace, transitions, text reveal and how
-// the app is shown. So the theme can only be dark or green, and the colours
-// and font are fixed.
-if (!['dark', 'green'].includes(STYLE.theme)) STYLE.theme = 'dark';
+// the app is shown. So the look is fixed: the dark green stage for every scene,
+// solid green only for the end card, Ndalama's colours and font.
+STYLE.theme = 'dark'; // the dark green stage of the launch videos, always
 // ---------- helpers ----------
 const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
 const easeOut = (x) => 1 - Math.pow(1 - clamp(x), 3);
@@ -433,7 +433,8 @@ function addFx(root) {
 const scenes = SHORT.scenes.map((c, i) => {
   const id = c.id || 's' + i;
   const dur = TL?.[id] ? TL[id].dur : c.beats * beatLen;
-  const bg = ['dark', 'green'].includes(c.bg) ? c.bg : STYLE.theme;
+  // Every scene is the dark green stage; only the closing logo card is solid green.
+  const bg = c.type === 'end' ? 'green' : 'dark';
   const root = el(stage, '', {}, 'scene ' + bg);
   if (c.glow !== false && bg !== 'light') el(root, '', {}, 'glow');
   else el(root, '', { display: 'none' }); // keeps the fx layer second
