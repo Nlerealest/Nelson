@@ -1,0 +1,4 @@
+- Reference in use: ref-motion (motion-design showreel). Learned: fast cuts on the beat, rolling counters, bento/cards, bold title reveals, end card. Followed: every cut on the beat of the owner's song, rolling counters, app cards and phone screens, varied transitions (slide up, drop down, push-left, whip, circle, glitch, flash), the drop on the first app screen, closing end card. Skipped (owner's rules): zoom, shaking, moving background, bouncing/pulsing effects.
+- Ndalama green look: near-black green stage, bold white headlines, key words in #14b866, Inter, solid green end card.
+- Owner's rules: 45 s+ story, no voiceover, uploaded song "LA MuDANZA" from 0:50.
+- Numbers from the corporate persona (3 Nov 2026): bills K792,000 a month, K142,000 still to pay, ESCOM K60,000 due 5 Nov, safe to spend K15,142 a day for 28 days, staff loan K2,250,000 of K2,500,000.

@@ -1,6 +1,5 @@
 # Last run: 2026-11-03
 
-- Command 21 (make "Never miss a bill again"): music setting is `ask` and the post had no song choice, so I created post p-billremind as `needs_song` with the voice and song question and marked the command done. No video rendered yet. A web search found no reliable Malawi TikTok chart, so the suggestions are by mood only.
-- Other failed video commands from today: none found.
-- Approved posts p-groceries and p-paydaychecklist: nothing to do (the owner posts by hand).
-- Videos made: none (waiting for the owner's voice and song answer). Reference in use: ref-motion, to be followed when the video is made.
+- Command 22 (song, "Never miss a bill again"): made the video with the uploaded song, no voiceover. Result: 95 s video delivered with attach, post is awaiting approval, concept marked produced.
+  - Video: "Never miss a bill again". Reference followed: ref-motion (motion-design showreel), in Ndalama green. Voice: none. Song mode: upload (own song from 0:50, cut on its beats, ~99 BPM). Audio limited to -14 LUFS, peak -1.4 dBFS.
+- Other posts (p-groceries, p-paydaychecklist) are approved and need nothing from Twizzy.
