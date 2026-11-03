@@ -77,9 +77,12 @@ const SHORT = window.SHORT, BEATS = window.BEATS || [];
 // SHORT.style = { theme: 'light'|'dark'|'green', accent: '#hex', font: 'Inter',
 //                 weight: 800, reveal: 'blur'|'type'|'fade', caret: true }
 const STYLE = SHORT.style || {};
-if (STYLE.accent) document.documentElement.style.setProperty('--g', STYLE.accent);
-if (STYLE.font) document.body.style.fontFamily = `'${STYLE.font}', 'Inter', sans-serif`;
-if (STYLE.weight) document.head.insertAdjacentHTML('beforeend', `<style>.big{font-weight:${STYLE.weight}}</style>`);
+// The owner's rule: every video keeps Ndalama's green look (dark green stage,
+// green glow and highlights, white text, Inter), whatever the reference. A
+// reference only changes the movement: pace, transitions, text reveal and how
+// the app is shown. So the theme can only be dark or green, and the colours
+// and font are fixed.
+if (!['dark', 'green'].includes(STYLE.theme)) STYLE.theme = 'dark';
 // ---------- helpers ----------
 const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
 const easeOut = (x) => 1 - Math.pow(1 - clamp(x), 3);
@@ -327,6 +330,37 @@ S.voice = (root, c) => {
   };
 };
 
+// App showcase: one phone, several real screens swapping inside it on the beat,
+// sliding up or down (or sideways) like someone swiping through the app, with a
+// caption for each. {imgs:[name], captions:[html], dir:'up'|'down'|'alternate'|'left'}
+S.showcase = (root, c) => {
+  const n = c.imgs.length;
+  const caps = (c.captions || []).map((h) => words(root, h, { top: '170px', fontSize: (c.size || 76) + 'px' }));
+  const ph = el(root, `<div class="scr">${c.imgs.map((img) => `<img src="img/${img}.png" style="will-change:transform">`).join('')}</div>`, { left: '240px', top: (c.top || 450) + 'px', transformOrigin: '50% 0' }, 'abs phone');
+  const shots = [...ph.querySelectorAll('img')];
+  sub(root, c.sub);
+  return (t, D) => {
+    const each = D / n, i = Math.min(n - 1, Math.floor(t / each)), local = t - i * each;
+    inn(ph, t, 0.15, { y: 300, s: 1, blur: 14, dur: 0.55 }); draw(ph);
+    shots.forEach((img, k) => {
+      const dirOf = (j) => (c.dir === 'down' ? -1 : c.dir === 'alternate' ? (j % 2 ? -1 : 1) : 1);
+      const horiz = c.dir === 'left';
+      let off = k < i ? -1 : k > i ? 1 : 0;
+      // the swipe into screen i takes the first 0.35 s of its slot
+      const p = easeInOut(clamp(local / 0.35));
+      if (i > 0 && (k === i || k === i - 1)) off = k === i ? 1 - p : -p;
+      const d = dirOf(i) * off * 100;
+      img.style.transform = horiz ? `translateX(${d}%)` : `translateY(${d}%)`;
+      img.style.opacity = Math.abs(off) >= 1 ? 0 : 1;
+    });
+    caps.forEach((cap, k) => {
+      if (k !== i) { cap.style.opacity = 0; return; }
+      cap.style.opacity = 1; playWords(cap, local, 0.05, each + 9, 0.06);
+    });
+    playSub(root, t, D);
+  };
+};
+
 // Brand end card.
 S.end = (root, c) => {
   const icon = el(root, '<img src="img/icon.png" style="width:240px;height:240px;border-radius:56px;box-shadow:0 40px 80px -30px rgba(0,0,0,.6)">', { left: '420px', top: '430px' });
@@ -359,7 +393,7 @@ let t0 = SONG ? SONG.offset || 0 : SHORT.offset || 0;
 // (addFx below is kept switched off; window.BACKGROUND_FX turns it on.)
 const ENERGY = window.ENERGY || null;            // loudness per beat, 0..1 (from make_short.sh)
 // No zoom or spin (the owner's rule: no zoom effects).
-const TRANSITIONS = ['whip', 'slide', 'flash', 'circle', 'glitch'];
+const TRANSITIONS = ['whip', 'slide', 'drop', 'flash', 'circle', 'glitch'];
 const beatIndex = (T) => { let i = -1; for (let k = 0; k < BEATS.length && BEATS[k] <= T + 1e-6; k++) i = k; return i; };
 const sinceBeat = (T) => { const i = beatIndex(T); return i < 0 ? 9 : T - BEATS[i]; };
 const kick = (T) => Math.exp(-sinceBeat(T) * 10);
@@ -399,7 +433,7 @@ function addFx(root) {
 const scenes = SHORT.scenes.map((c, i) => {
   const id = c.id || 's' + i;
   const dur = TL?.[id] ? TL[id].dur : c.beats * beatLen;
-  const bg = c.bg || STYLE.theme || 'dark';
+  const bg = ['dark', 'green'].includes(c.bg) ? c.bg : STYLE.theme;
   const root = el(stage, '', {}, 'scene ' + bg);
   if (c.glow !== false && bg !== 'light') el(root, '', {}, 'glow');
   else el(root, '', { display: 'none' }); // keeps the fx layer second
@@ -423,7 +457,10 @@ function transit(kind, side, p, T) {
   const mb = Math.sin(Math.PI * p) * 26;  // motion blur peaks mid-transition
   switch (kind) {
     case 'whip': return { tf: `translateX(${(side === 'out' ? -1 : 1) * q * 1180}px) skewX(${(side === 'out' ? 1 : -1) * q * 8}deg)`, filter: `blur(${mb}px)` };
-    case 'slide': return { tf: `translateY(${(side === 'out' ? -1 : 1) * q * 2000}px)`, filter: `blur(${mb * 0.8}px)` };
+    case 'slide': case 'lift': return { tf: `translateY(${(side === 'out' ? -1 : 1) * q * 2000}px)`, filter: `blur(${mb * 0.8}px)` };
+    case 'drop': return { tf: `translateY(${(side === 'out' ? 1 : -1) * q * 2000}px)`, filter: `blur(${mb * 0.8}px)` };
+    case 'push-left': return { tf: `translateX(${(side === 'out' ? -1 : 1) * q * 1180}px)` };
+    case 'push-right': return { tf: `translateX(${(side === 'out' ? 1 : -1) * q * 1180}px)` };
     case 'zoom': return side === 'out' ? { tf: `scale(${1 + q * 2.2})`, filter: `blur(${mb}px)`, op: 1 - q } : { tf: `scale(${1 - q * 0.45})`, filter: `blur(${mb}px)`, op: 1 - q };
     case 'spin': return { tf: `rotate(${(side === 'out' ? 1 : -1) * q * 28}deg) scale(${side === 'out' ? 1 + q * 0.9 : 1 - q * 0.4})`, filter: `blur(${mb}px)`, op: 1 - q * 0.6 };
     case 'circle': return side === 'in' ? { clip: `circle(${(1 - q) * 1250}px at 50% 50%)` } : {};

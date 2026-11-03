@@ -81,7 +81,7 @@ The `short` template does the edit for you, on the beat of whatever music the vi
 
 - **Cuts on the beat:** every scene is a whole number of beats (`beats:` in `short.js`), so every cut lands on a beat. Put the biggest moment on the drop (`drop: true`): it gets a white flash, an impact sound and a riser before it.
 - **Transitions:** each cut gets one: `whip` (whip-pan with motion blur), `slide` (swipe up), `circle` (circle reveal), `glitch` (colour split, no jumping), or `flash` (hard cut under a white flash). Never `zoom` or `spin`. The template varies them on its own; set `transition: '…'` on a scene to choose. Use calm ones (`slide`, `circle`) in quiet parts and hard ones (`flash`, `glitch`, `whip`) after the drop, unless an active reference cuts differently.
-- **Camera:** none. **No zoom, no shaking, no moving background** (the owner's rules): the picture only moves during transitions. Don't add zoom-ins, Ken Burns moves, pulsing glows, streaks or particles, even if a reference uses them. Everything else a reference does on screen (typing, prompt bars, waves, cards sliding in) is allowed and should be copied.
+- **Camera:** none. **No zoom, no shaking, no moving background** (the owner's rules): the picture only moves during transitions. Don't add zoom-ins, Ken Burns moves, pulsing glows, streaks or particles, even if a reference uses them. Everything else a reference does on screen (transitions, typing, prompt bars, waves, screens swiping, cards sliding in) is allowed and should be copied, in Ndalama green.
 - **Background:** still. The template keeps its background effects switched off; never switch them on.
 - **Sound design:** `sfx.py` adds a whoosh into every moving transition and an impact on hard cuts, mixed under the music.
 - **Pacing:** 2–4 beats for quick hits (a number, a word), 6–8 beats for app screens people need to read. Change pace between sections: slower in the problem, faster after the drop.
@@ -101,16 +101,14 @@ The `short` template does the edit for you, on the beat of whatever music the vi
 3. Write `learned` as a short, concrete style spec Twizzy can follow, not praise. For example: "62 s, 31 cuts (about one every 2 s, on the beat at 98 BPM); hard cuts and swipe-ups, no zooms; bold white captions centred in the lower third, 2–4 words at a time; dark background with one accent colour; opens with a question; ends on a logo card." Then set `status: "studied"` and finish the command with "Studied. Tap Use in next videos if you want this style."
 4. Never copy the reference's content, people, logos or music: only its style.
 
-**Following the reference in use (the owner's rule):** the owner switches one reference on with **Use in next videos**; it replaces any earlier one. `tw.mjs state` lists it under `style_refs_in_use` (if more than one shows, follow the newest). **Every video you make while it is on (every idea, the owner's own ideas, every remake) must look and feel like that reference**, telling Ndalama's story with Ndalama's real screens and numbers.
+**Following the reference in use (the owner's rule):** the owner switches one reference on with **Use in next videos**; it replaces any earlier one. `tw.mjs state` lists it under `style_refs_in_use` (if more than one shows, follow the newest). **Every video you make while it is on (every idea, the owner's own ideas, every remake) copies the reference's editing, and only its editing:**
 
-1. **Translate it into the template's settings:**
-   - `SHORT.style`: `theme` (`light` for white or bright references, `dark`, `green`), `accent` (its main colour), `font` and `weight`, and `reveal` (`blur`, `fade`, or `type` for typed text with a caret).
-   - Its pace as `beats:` per scene, its cut style as `transition:` per scene.
-   - Its signature elements as scenes: `prompt` (a search or AI prompt bar that types a question and shows the answer below), `voice` (mic with a sound wave and the words typed as they're heard), `cards`, `phone`, `counter`, `list`, `steps`, `split`, `title`.
-2. **Never skip a signature element.** Typing, prompt bars, sound waves, cards sliding in and counters rolling are content animation, and they are allowed. Only camera moves (zoom, shake) and a moving background are banned. If the template can't do something the reference does, build it: add a new scene type to the campaign's `video.html`, and copy it into `studio/templates/short/video.html` too so later videos can use it.
-3. **Write `style.md`** in the campaign folder: the reference's spec, then a checklist (theme, colours, font, text reveal, caption position, pace, cuts, transitions, each signature element, opening, ending) with how this video matches each item.
-4. **Compare before rendering:** make a contact sheet of the reference (`fps=1,scale=180:-1,tile=8x3`) and one of your preview stills, look at them side by side, and fix anything that doesn't match. A viewer who saw the reference should recognise the style straight away.
-5. The owner's rules still come first: 45 s–1:45, no zoom, no shaking, no moving background, real app numbers. Say which reference you followed in the post's `why`.
+- **Copy from the reference:** its transitions (directions: up, down, sideways, cuts, reveals), its pace and rhythm (`beats:` per scene, how many cuts), how text appears (`SHORT.style.reveal`: `blur`, `fade` or `type`), and how it shows the app (screens swiping inside a phone: `showcase` scene with `dir: 'up' | 'down' | 'alternate' | 'left'`; a typed question: `prompt`; a voice note: `voice`; cards flying in: `cards`). Transitions available: `slide`/`lift` (up), `drop` (down), `push-left`, `push-right`, `whip`, `circle`, `flash`, `glitch`.
+- **Never copy from the reference:** its colours, background, fonts or theme. **Every video keeps Ndalama's own green look, as in the first launch videos:** dark green stage with the green glow, Ndalama green (`#14b866` / `#0b6b3a`) for highlights, numbers and panels, white text, Inter, the green end card. The template enforces this: `SHORT.style.theme` can only be `dark` or `green`, and colours and font are fixed.
+- **Never skip an editing idea** from the reference. If the template can't do a movement yet, build it as a new scene type or transition in the campaign's `video.html`, and copy it into `studio/templates/short/video.html` for later videos.
+- **Write `style.md`** in the campaign: the reference's editing spec, then a checklist (transitions and their directions, pace, cuts, text reveal, how the app is shown, opening, ending) with how this video matches each item, and one line confirming the Ndalama green look.
+- **Compare before rendering:** a contact sheet of the reference next to your preview stills. The movement should feel the same; the colours should be Ndalama's.
+- The owner's rules still come first: 45 s–1:45, no zoom, no shaking, no moving background, real app numbers. Say which reference you followed in the post's `why`.
 
 With no reference in use, use the template's house style.
 
@@ -126,7 +124,7 @@ cd marketing/campaigns && cp -r ../studio/templates/showreel 2026-11-payday && c
 ```
 Then rewrite the scenes for the new concept. Keep the helpers (`inn`, `out`, `draw`, `reveal`, `snap`, `pulse`) and the `window.renderAt(seconds)` / `window.TOTAL` contract that `render.cjs` uses.
 
-**TikTok and Reels need vertical video.** Plan 14–24 scenes for 60–90 s. Scene types: `title`, `split`, `phone`, `cards`, `counter`, `list`, `steps`, `prompt`, `voice`, `end`; set the look with `SHORT.style` (§4.1). Set `window.VIDEO_SIZE = {width: 1080, height: 1920}` at the top of the page script and lay the scenes out for portrait. Make a 16:9 version too when the post also goes to X or Facebook.
+**TikTok and Reels need vertical video.** Plan 14–24 scenes for 60–90 s. Scene types: `title`, `split`, `phone`, `showcase`, `cards`, `counter`, `list`, `steps`, `prompt`, `voice`, `end`. The look is always Ndalama green (§4.1). Set `window.VIDEO_SIZE = {width: 1080, height: 1920}` at the top of the page script and lay the scenes out for portrait. Make a 16:9 version too when the post also goes to X or Facebook.
 
 ### 4.3 App screens with honest numbers
 ```bash
