@@ -1,0 +1,3 @@
+- r-2b9da5a7 (calm white explainer): one idea per beat, calm pace (6-10 beats per scene); word-by-word blur reveals in title scenes; repeated "No ..." line ("No data? No problem. No account. No ads."); floating app card; soft slide/circle transitions, hard ones only after the drop; clear end card with free links. Typing bar, mic wave and pulsing ripple logo not possible (no moving effects allowed), skipped.
+- Owner's rules: 45 s+ story, no zoom/shake/moving background, uploaded song "MONEY CONSTANT" from 2:30 cut on its beats. No voiceover (song is the sound).
+- Numbers from the app's logic.js on sample data, 13 Oct: safe to spend K2,189 a day for 19 days; after two extra K3,500 minibus trips K2,004 a day; Transport budget K25,000 on pace for K35,769 (warning).
