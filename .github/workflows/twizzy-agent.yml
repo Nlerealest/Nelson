@@ -74,6 +74,15 @@ jobs:
         continue-on-error: true
         run: bash marketing/studio/setup.sh
 
+      # Videos always show today's app: build it, load the sample month dated
+      # today, and capture every screen into marketing/assets/app.
+      - name: Fresh app screens
+        id: screens
+        continue-on-error: true
+        run: |
+          npm ci --no-audit --no-fund --silent
+          bash marketing/studio/fresh_screens.sh
+
       - name: What to do
         id: task
         env:
@@ -118,6 +127,9 @@ jobs:
             Deliver every finished video with `node marketing/agent/tw.mjs attach <post-id> <file.mp4>` (section 4.6), never by hand.
             If a reference is in use (style_refs_in_use), copy its editing only (transitions and their directions, pace, text reveal, how the app is shown) and build any movement the template lacks, but always keep Ndalama's green look from the first videos: never copy a reference's colours, background or fonts (TWIZZY.md section 4.1). Never use zoom, shaking or a moving background.
 
+            The app screens in marketing/assets/app were just captured from today's app, and marketing/assets/app/numbers.txt
+            has the numbers they show: use those screens and numbers (TWIZZY.md 4.3).
+
             Before you finish, write marketing/agent/last-run.md: the date, then one line per command or job you
             handled (what was asked, what you did, the result), and for each video made: its title, the
             reference followed (or none), the voice and the song mode. If you skipped something, say why.
@@ -132,7 +144,7 @@ jobs:
         if: always()
         run: |
           git config user.name "Twizzy" && git config user.email "twizzy@users.noreply.github.com"
-          git add marketing/campaigns marketing/TWIZZY.md marketing/studio marketing/agent/last-run.md 2>/dev/null || true
+          git add marketing/campaigns marketing/TWIZZY.md marketing/studio marketing/assets marketing/agent/last-run.md 2>/dev/null || true
           if ! git diff --cached --quiet; then
             git commit -q -m "Twizzy: campaign sources from run ${{ github.run_id }}"
             git push -q origin HEAD:claude/malawi-money-management-knal4c || echo "::warning::Push failed"

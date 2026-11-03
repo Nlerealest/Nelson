@@ -1,0 +1,10 @@
+# What the app shows on 2026-11-03 for the sample month (sample-data.mjs). Use these numbers in videos.
+safe 3655 leftToday 3655 days 28 available 102333.33333333333
+surplus 123000 needed 56667
+ goal New phone 31667
+ goal Children's school fees 25000
+[
+  'You kept 28% of your income (K70,000).',
+  'Most money went to Rent: K60,000 (33% of spending).',
+  'You put K105,000 towards your savings goals.'
+]

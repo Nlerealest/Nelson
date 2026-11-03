@@ -126,14 +126,17 @@ Then rewrite the scenes for the new concept. Keep the helpers (`inn`, `out`, `dr
 
 **TikTok and Reels need vertical video.** Plan 14–24 scenes for 60–90 s. Scene types: `title`, `split`, `phone`, `showcase`, `cards`, `counter`, `list`, `steps`, `prompt`, `voice`, `end`. The look is always Ndalama green (§4.1). Set `window.VIDEO_SIZE = {width: 1080, height: 1920}` at the top of the page script and lay the scenes out for portrait. Make a 16:9 version too when the post also goes to X or Facebook.
 
-### 4.3 App screens with honest numbers
+### 4.3 App screens: today's app, honest numbers
+
+Videos always show the app **as it is today**: the current month, today's date, the latest design. The workflow runs this at the start of every run (run it yourself if you change the sample month):
 ```bash
-bash marketing/studio/setup.sh                                     # once per machine
-npx expo export --platform web --output-dir /tmp/web && (cd /tmp/web && python3 -m http.server 8090 &)
-cd marketing/studio && node sample-data.mjs 2026-10-13 /tmp/data.json   # prints what the app calculates
-node capture.cjs ../assets/app /tmp/data.json
+bash marketing/studio/fresh_screens.sh            # today in Malawi; or give a date: … 2026-11-20
 ```
-Every number shown must come from the app's own calculations on that sample data. Adjust `sample-data.mjs` to tell the story you need (a calm month, a goal slightly behind) and rerun until the printed numbers look right. Never type made-up numbers into a scene.
+It builds the current app, loads the sample month (`studio/sample-data.mjs`, a K250,000 salary, with all dates relative to the day) and captures every screen and card into `marketing/assets/app`. It writes the numbers the app shows into `marketing/assets/app/numbers.txt`. A card that isn't on today's screens (e.g. no goal warning early in the month) is removed rather than left stale.
+
+- **Every number in a video comes from `numbers.txt`** or from running the app's own calculations (`src/logic.js`) on the same sample month. Never type a number from an older video or invent one.
+- To tell a different story (a goal slipping, a bill due), adjust `sample-data.mjs` and run `fresh_screens.sh` again; dates must stay relative to today.
+- Never show a screen from another month in a new video.
 
 ### 4.4 Sound
 - **Voiceover** (explainer style): write `script.json` (one line per scene), then

@@ -39,13 +39,19 @@ const FIND = `(([text, kind, nth]) => {
   const hide = () => page.evaluate(() => {
     // Hide the toast so it never appears in a capture.
     for (const d of document.querySelectorAll('div')) if (/loaded|saved|added/.test(d.textContent) && d.childElementCount === 0 && getComputedStyle(d.parentElement).position === 'absolute') d.parentElement.style.display = 'none';
+    // The web build's testing note about reminders in Expo Go never belongs in an advert.
+    for (const d of document.querySelectorAll('div')) if (d.childElementCount === 0 && /Expo Go/.test(d.textContent)) { let box = d; while (box.parentElement && getComputedStyle(box).borderLeftWidth !== '4px') box = box.parentElement; (box.parentElement ? box : d).style.display = 'none'; }
   });
   const shot = async (name) => { await page.waitForTimeout(500); await hide(); await page.screenshot({ path: `${out}/${name}.png` }); };
   const tab = async (name) => { await page.getByRole('tab', { name }).click(); await page.waitForTimeout(500); };
   const card = async (name, text, kind, nth) => {
     await hide();
     const r = await page.evaluate(`${FIND}(${JSON.stringify([text, kind, nth])})`);
-    if (!r) return console.log('MISSING', name);
+    if (!r) {
+      // Not on today's screens: remove the old picture so no video shows stale numbers.
+      require('fs').rmSync(`${out}/card-${name}.png`, { force: true });
+      return console.log('MISSING (not shown today)', name);
+    }
     await page.screenshot({ path: `${out}/card-${name}.png`, clip: r });
   };
 
@@ -60,7 +66,8 @@ const FIND = `(([text, kind, nth]) => {
   await page.setViewportSize({ width: 390, height: 2400 });
   await page.waitForTimeout(600);
   await card('hero', 'Safe to spend today');
-  await card('tiles', 'In (October)', 'tiles');
+  const monthName = new Date(process.env.APP_DATE || '2026-10-13T09:30:00').toLocaleString('en-US', { month: 'long' });
+  await card('tiles', `In (${monthName})`, 'tiles');
   await card('goal-alert', 'is off track', 'alert');
   await card('recent', 'Minibus');
   await tab('Budget'); await card('budget', 'Groceries');
