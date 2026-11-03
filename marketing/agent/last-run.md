@@ -1,5 +1,7 @@
 # Last run: 2026-11-03
 
-- Command 22 (song, "Never miss a bill again"): made the video with the uploaded song, no voiceover. Result: 95 s video delivered with attach, post is awaiting approval, concept marked produced.
-  - Video: "Never miss a bill again". Reference followed: ref-motion (motion-design showreel), in Ndalama green. Voice: none. Song mode: upload (own song from 0:50, cut on its beats, ~99 BPM). Audio limited to -14 LUFS, peak -1.4 dBFS.
-- Other posts (p-groceries, p-paydaychecklist) are approved and need nothing from Twizzy.
+- Command 23 (study the new TikTok reference link): opened the page and read its details (20 s, landscape spec ad). TikTok blocked the video download, so its editing could not be measured. Marked the reference "studied" with a note and asked the owner to upload the video file. Not set as a style in use. Result: done.
+- Check of video files: all 14 posts have their file. Nothing to remake.
+- Approved posts (p-groceries, p-paydaychecklist): the owner posts them by hand, nothing to do.
+
+Videos made this run: none (no video was requested). Reference followed: none. Voice: none. Song mode: none.
