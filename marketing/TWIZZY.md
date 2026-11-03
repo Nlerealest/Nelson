@@ -81,7 +81,7 @@ The `short` template does the edit for you, on the beat of whatever music the vi
 
 - **Cuts on the beat:** every scene is a whole number of beats (`beats:` in `short.js`), so every cut lands on a beat. Put the biggest moment on the drop (`drop: true`): it gets a white flash, an impact sound and a riser before it.
 - **Transitions:** each cut gets one: `whip` (whip-pan with motion blur), `slide` (swipe up), `circle` (circle reveal), `glitch` (colour split, no jumping), or `flash` (hard cut under a white flash). Never `zoom` or `spin`. The template varies them on its own; set `transition: '…'` on a scene to choose. Use calm ones (`slide`, `circle`) in quiet parts and hard ones (`flash`, `glitch`, `whip`) after the drop, unless an active reference cuts differently.
-- **Camera:** none. **No zoom, no shaking, no moving background** (the owner's rules): the picture only moves during transitions. Don't add zoom-ins, Ken Burns moves, pulsing glows, streaks or particles, even if a reference uses them.
+- **Camera:** none. **No zoom, no shaking, no moving background** (the owner's rules): the picture only moves during transitions. Don't add zoom-ins, Ken Burns moves, pulsing glows, streaks or particles, even if a reference uses them. Everything else a reference does on screen (typing, prompt bars, waves, cards sliding in) is allowed and should be copied.
 - **Background:** still. The template keeps its background effects switched off; never switch them on.
 - **Sound design:** `sfx.py` adds a whoosh into every moving transition and an impact on hard cuts, mixed under the music.
 - **Pacing:** 2–4 beats for quick hits (a number, a word), 6–8 beats for app screens people need to read. Change pace between sections: slower in the problem, faster after the drop.
@@ -101,12 +101,18 @@ The `short` template does the edit for you, on the beat of whatever music the vi
 3. Write `learned` as a short, concrete style spec Twizzy can follow, not praise. For example: "62 s, 31 cuts (about one every 2 s, on the beat at 98 BPM); hard cuts and swipe-ups, no zooms; bold white captions centred in the lower third, 2–4 words at a time; dark background with one accent colour; opens with a question; ends on a logo card." Then set `status: "studied"` and finish the command with "Studied. Tap Use in next videos if you want this style."
 4. Never copy the reference's content, people, logos or music: only its style.
 
-**Following references:** `tw.mjs state` lists `style_refs_in_use`: the references the owner switched on with **Use in next videos**. **Every new video and every remake must follow all of them.**
-- Before writing `short.js`, write `marketing/campaigns/<folder>/style.md`: one line per active reference, saying exactly how this video follows it (pace and number of cuts, transitions, caption style and position, colours, hook, ending).
-- Match the reference's pace (`beats:` per scene), cut style (`transition:` per scene), caption length and placement, and structure. Where the reference does something the template can't do yet, get as close as you can and say so in `style.md`.
-- The owner's rules come first: 45 s–1:45, no zoom, no shaking, no moving background, real app numbers.
-- Say which reference you followed in the post's `why`.
-- With no active reference, use the templates' house style below.
+**Following the reference in use (the owner's rule):** the owner switches one reference on with **Use in next videos**; it replaces any earlier one. `tw.mjs state` lists it under `style_refs_in_use` (if more than one shows, follow the newest). **Every video you make while it is on (every idea, the owner's own ideas, every remake) must look and feel like that reference**, telling Ndalama's story with Ndalama's real screens and numbers.
+
+1. **Translate it into the template's settings:**
+   - `SHORT.style`: `theme` (`light` for white or bright references, `dark`, `green`), `accent` (its main colour), `font` and `weight`, and `reveal` (`blur`, `fade`, or `type` for typed text with a caret).
+   - Its pace as `beats:` per scene, its cut style as `transition:` per scene.
+   - Its signature elements as scenes: `prompt` (a search or AI prompt bar that types a question and shows the answer below), `voice` (mic with a sound wave and the words typed as they're heard), `cards`, `phone`, `counter`, `list`, `steps`, `split`, `title`.
+2. **Never skip a signature element.** Typing, prompt bars, sound waves, cards sliding in and counters rolling are content animation, and they are allowed. Only camera moves (zoom, shake) and a moving background are banned. If the template can't do something the reference does, build it: add a new scene type to the campaign's `video.html`, and copy it into `studio/templates/short/video.html` too so later videos can use it.
+3. **Write `style.md`** in the campaign folder: the reference's spec, then a checklist (theme, colours, font, text reveal, caption position, pace, cuts, transitions, each signature element, opening, ending) with how this video matches each item.
+4. **Compare before rendering:** make a contact sheet of the reference (`fps=1,scale=180:-1,tile=8x3`) and one of your preview stills, look at them side by side, and fix anything that doesn't match. A viewer who saw the reference should recognise the style straight away.
+5. The owner's rules still come first: 45 s–1:45, no zoom, no shaking, no moving background, real app numbers. Say which reference you followed in the post's `why`.
+
+With no reference in use, use the template's house style.
 
 ### 4.2 Pick a starting template
 - `studio/templates/explainer/`: clean white, word-by-word blur reveals, floating app cards, **voiceover** over original music. Scenes are timed from the voice lines.
@@ -120,7 +126,7 @@ cd marketing/campaigns && cp -r ../studio/templates/showreel 2026-11-payday && c
 ```
 Then rewrite the scenes for the new concept. Keep the helpers (`inn`, `out`, `draw`, `reveal`, `snap`, `pulse`) and the `window.renderAt(seconds)` / `window.TOTAL` contract that `render.cjs` uses.
 
-**TikTok and Reels need vertical video.** Plan 14–24 scenes for 60–90 s. Set `window.VIDEO_SIZE = {width: 1080, height: 1920}` at the top of the page script and lay the scenes out for portrait. Make a 16:9 version too when the post also goes to X or Facebook.
+**TikTok and Reels need vertical video.** Plan 14–24 scenes for 60–90 s. Scene types: `title`, `split`, `phone`, `cards`, `counter`, `list`, `steps`, `prompt`, `voice`, `end`; set the look with `SHORT.style` (§4.1). Set `window.VIDEO_SIZE = {width: 1080, height: 1920}` at the top of the page script and lay the scenes out for portrait. Make a 16:9 version too when the post also goes to X or Facebook.
 
 ### 4.3 App screens with honest numbers
 ```bash

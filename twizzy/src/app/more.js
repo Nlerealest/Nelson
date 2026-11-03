@@ -72,15 +72,17 @@ function References({ toast }) {
           {r.status !== 'new' ? (
             r.status === 'active' ? (
               <Row>
-                <Pill label="Twizzy uses this style in every new video" tone="ok" />
+                <Pill label="In use: every new video follows this" tone="ok" />
                 <Button small kind="plain" title="Stop using" onPress={async () => { await update('refs', r.id, { status: 'studied' }); toast('Twizzy won’t use this style any more.'); }} />
               </Row>
             ) : (
               <Row>
                 <Button small icon="checkmark-circle-outline" title="Use in next videos" onPress={async () => {
+                  // One reference at a time: the new one replaces whichever was in use.
+                  for (const other of (rows || []).filter((x) => x.status === 'active' && x.id !== r.id)) await update('refs', other.id, { status: 'studied' });
                   await update('refs', r.id, { status: 'active' });
                   logYou(`You chose “${r.title || r.url}” as a style for the next videos`);
-                  toast('Twizzy will follow this style in the next videos.');
+                  toast('Every new video will now follow this reference.');
                 }} />
               </Row>
             )

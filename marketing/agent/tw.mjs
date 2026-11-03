@@ -43,7 +43,7 @@ switch (cmd) {
       q('posts', 'status', ['making', 'changes_requested', 'approved']), q('refs', 'status', ['new']),
       q('inbox', 'status', ['approved']), sb.from('config').select('*'),
     ].map((p) => p.then(must)));
-    const activeRefs = must(await sb.from('refs').select('id,title,url,media_path,note,learned').eq('status', 'active').order('created_at'));
+    const activeRefs = must(await sb.from('refs').select('id,title,url,media_path,note,learned').eq('status', 'active').order('created_at', { ascending: false }));
     const recent = must(await sb.from('concepts').select('id,title,status,created_at').order('created_at', { ascending: false }).limit(40));
     out({ now: new Date().toISOString(), commands, approved_concepts: concepts, posts_to_handle: posts, new_refs: refs,
       style_refs_in_use: activeRefs,

@@ -116,7 +116,7 @@ jobs:
 
             Every video you make must be 45 seconds to 1:45 long and tell a full story (TWIZZY.md section 4.0).
             Deliver every finished video with `node marketing/agent/tw.mjs attach <post-id> <file.mp4>` (section 4.6), never by hand.
-            Follow every reference listed in style_refs_in_use (section 4.1). Never use zoom, shaking or a moving background.
+            If a reference is in use (style_refs_in_use), every video must look like it: set SHORT.style, copy its pace, transitions and signature elements, build any element the template lacks, and compare contact sheets before rendering (TWIZZY.md section 4.1). Never use zoom, shaking or a moving background.
 
             Keep the app informed while you work: `tw.mjs agent working "<what you are doing>"`,
             mark each command working/done/failed with a short result the owner will read, and log

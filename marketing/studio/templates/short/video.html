@@ -53,6 +53,17 @@
   .ring { position: absolute; left: 50%; top: 46%; border-radius: 50%; border: 6px solid rgba(20,184,102,.55); }
   .dot { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,.35); }
   .light .dot { background: rgba(11,107,58,.25); } .light .streak { background: linear-gradient(90deg, transparent, rgba(20,184,102,.18), transparent); }
+  .caret { display: inline-block; width: .08em; height: .9em; margin-left: .06em; vertical-align: -0.08em; background: var(--g); border-radius: 2px; }
+  .w { white-space: nowrap; }
+  .promptbar { position: absolute; left: 70px; right: 70px; height: 150px; border-radius: 75px; background: #fff; display: flex; align-items: center; gap: 22px; padding: 0 22px 0 44px;
+               box-shadow: 0 30px 80px -30px rgba(0,0,0,.35), 0 0 0 2px rgba(0,0,0,.06) inset; color: var(--ink); font-size: 46px; font-weight: 600; }
+  .promptbar .ptext { flex: 1; white-space: nowrap; overflow: hidden; }
+  .promptbar .ptext.placeholder { color: #9aa39e; }
+  .promptbar .send { width: 106px; height: 106px; border-radius: 50%; background: var(--g); display: flex; align-items: center; justify-content: center; flex: none; }
+  .wave { position: absolute; left: 140px; right: 140px; height: 260px; display: flex; align-items: center; justify-content: space-between; }
+  .wave i { display: block; width: 18px; border-radius: 9px; background: var(--g); }
+  .mic { position: absolute; left: 50%; width: 220px; height: 220px; margin-left: -110px; border-radius: 50%; background: var(--g); display: flex; align-items: center; justify-content: center;
+         box-shadow: 0 30px 70px -20px rgba(11,107,58,.6); }
   #flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 50; }
   .pill { display: inline-block; padding: 18px 34px; border-radius: 999px; font-size: 40px; font-weight: 700; }
 </style>
@@ -62,6 +73,13 @@
 <script>
 window.VIDEO_SIZE = { width: 1080, height: 1920 };
 const SHORT = window.SHORT, BEATS = window.BEATS || [];
+// The look of the whole video, usually taken from a reference the owner chose:
+// SHORT.style = { theme: 'light'|'dark'|'green', accent: '#hex', font: 'Inter',
+//                 weight: 800, reveal: 'blur'|'type'|'fade', caret: true }
+const STYLE = SHORT.style || {};
+if (STYLE.accent) document.documentElement.style.setProperty('--g', STYLE.accent);
+if (STYLE.font) document.body.style.fontFamily = `'${STYLE.font}', 'Inter', sans-serif`;
+if (STYLE.weight) document.head.insertAdjacentHTML('beforeend', `<style>.big{font-weight:${STYLE.weight}}</style>`);
 // ---------- helpers ----------
 const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
 const easeOut = (x) => 1 - Math.pow(1 - clamp(x), 3);
@@ -102,8 +120,32 @@ function words(parent, html, style) {
   box._words = [...box.querySelectorAll('.w')];
   return box;
 }
-function playWords(box, t, at, D, gap = 0.09) {
-  box._words.forEach((w, i) => { inn(w, t, at + i * gap, { y: 40, blur: 18 }); out(w, t, D - 0.3); draw(w); });
+// How words appear: 'blur' (blur-in, default), 'fade', or 'type' (typed letter
+// by letter with a caret). Set for the whole video in SHORT.style.reveal, or per
+// scene with reveal: '…'.
+function playWords(box, t, at, D, gap = 0.09, mode = box._mode || STYLE.reveal || 'blur') {
+  if (mode === 'type') {
+    const cps = 26; // letters per second
+    let typed = Math.max(0, (t - at) * cps), current = null;
+    box._words.forEach((w) => {
+      const n = w.textContent.length, shown = clamp(typed / n);
+      typed -= n + 1;
+      w.style.opacity = shown > 0 ? 1 : 0; w.style.filter = 'none'; w.style.transform = 'none';
+      w.style.clipPath = `inset(0 ${((1 - shown) * 100).toFixed(1)}% 0 0)`;
+      if (shown > 0) current = w;
+    });
+    if (STYLE.caret !== false) {
+      if (!box._caret) { box._caret = document.createElement('span'); box._caret.className = 'caret'; }
+      const done = typed > 0;
+      if (current) current.after(box._caret);
+      box._caret.style.opacity = done ? (Math.floor(t * 2) % 2 ? 0 : 1) : 1;
+    }
+    return;
+  }
+  box._words.forEach((w, i) => {
+    if (mode === 'fade') { w.style.opacity = easeOut(prog(t, at + i * gap, 0.35)); return; }
+    inn(w, t, at + i * gap, { y: 40, blur: 18 }); out(w, t, D - 0.3); draw(w);
+  });
 }
 // Rolling kwacha number.
 function counter(parent, value, style) {
@@ -133,6 +175,7 @@ const S = {};
 S.title = (root, c) => {
   const kick = c.kicker ? el(root, c.kicker, { top: (c.top || 640) - 110 + 'px' }, 'abs center kicker') : null;
   const box = words(root, c.lines.join('<br>'), { top: (c.top || 640) + 'px', fontSize: (c.size || 128) + 'px' });
+  if (c.reveal) box._mode = c.reveal;
   sub(root, c.sub);
   return (t, D, T) => {
     if (kick) anim(kick, t, 0.05, D, { y: 20 });
@@ -235,6 +278,55 @@ S.steps = (root, c) => {
     playSub(root, t, D);
   };
 };
+// A prompt / search bar that types a question, then presses send; optional
+// cards or lines appear below as the answer. {caption, text, placeholder, cards:[name], answer:[html]}
+S.prompt = (root, c) => {
+  const cap = c.caption ? words(root, c.caption, { top: '220px', fontSize: (c.size || 80) + 'px' }) : null;
+  const bar = el(root, `<svg width="52" height="52" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2l2.2 6.3L20.5 10l-6.3 2.2L12 18.5l-2.2-6.3L3.5 10l6.3-1.7z" opacity=".55"/></svg>
+    <span class="ptext"></span><span class="send"><svg width="54" height="54" viewBox="0 0 24 24"><path fill="#fff" d="M4 12l16-8-6 16-2-6z"/></svg></span>`, { top: (c.top || 640) + 'px' }, 'abs promptbar');
+  const ptext = bar.querySelector('.ptext'), send = bar.querySelector('.send');
+  const text = c.text || '', typeAt = 0.6, cps = 22, doneAt = typeAt + text.length / cps;
+  const below = (c.cards || []).map((name, i) => el(root, `<img src="img/${name}.png">`, { left: '110px', right: '110px', top: (c.top || 640) + 210 + i * 40 + 'px' }, 'abs card'));
+  const answer = c.answer ? words(root, c.answer.join('<br>'), { top: (c.top || 640) + 230 + 'px', fontSize: (c.answerSize || 64) + 'px', fontWeight: 600 }) : null;
+  sub(root, c.sub);
+  return (t, D) => {
+    if (cap) playWords(cap, t, 0.05, D, 0.07);
+    inn(bar, t, 0.1, { y: 60, blur: 10 }); draw(bar);
+    const n = Math.floor(clamp((t - typeAt) * cps, 0, text.length));
+    ptext.classList.toggle('placeholder', n === 0);
+    ptext.innerHTML = n === 0 ? (c.placeholder || 'Ask Ndalama…') : text.slice(0, n) + `<span class="caret" style="opacity:${t > doneAt && Math.floor(t * 2) % 2 ? 0 : 1}"></span>`;
+    ptext.scrollLeft = ptext.scrollWidth; // long questions scroll like a real input
+    const press = Math.exp(-Math.max(0, t - doneAt - 0.15) * 10) * (t > doneAt + 0.15 ? 1 : 0);
+    send.style.transform = `scale(${1 - 0.18 * press})`;
+    below.forEach((b, i) => { inn(b, t, doneAt + 0.45 + i * 0.3, { y: 120, blur: 14, dur: 0.5 }); draw(b); });
+    if (answer) playWords(answer, t, doneAt + 0.45, D, 0.06);
+    playSub(root, t, D);
+  };
+};
+
+// A voice note: a mic with a live sound wave, and the words typed below as
+// they are "heard". {caption, text}
+S.voice = (root, c) => {
+  const cap = c.caption ? words(root, c.caption, { top: '220px', fontSize: (c.size || 80) + 'px' }) : null;
+  const mic = el(root, `<svg width="110" height="110" viewBox="0 0 24 24"><path fill="#fff" d="M12 14a3 3 0 003-3V5a3 3 0 10-6 0v6a3 3 0 003 3zm5-3a5 5 0 01-10 0H5a7 7 0 006 6.9V21h2v-3.1A7 7 0 0019 11z"/></svg>`, { top: '560px' }, 'abs mic');
+  const wave = el(root, Array.from({ length: 28 }, () => '<i></i>').join(''), { top: '860px' }, 'abs wave');
+  const bars = [...wave.querySelectorAll('i')];
+  const said = words(root, c.text || '', { top: '1220px', fontSize: (c.textSize || 66) + 'px', fontWeight: 600 });
+  said._mode = 'type';
+  sub(root, c.sub);
+  return (t, D, T) => {
+    if (cap) playWords(cap, t, 0.05, D, 0.07);
+    inn(mic, t, 0.1, { y: 0, s: 0.7, blur: 10 }); draw(mic);
+    const talking = t > 0.5 && t < 0.5 + (c.text || '').length / 26 + 0.3;
+    bars.forEach((b, i) => {
+      const h = talking ? 30 + Math.abs(Math.sin(T * 9 + i * 0.7) * Math.sin(T * 3.3 + i)) * 200 : 18;
+      b.style.height = `${h.toFixed(0)}px`; b.style.opacity = easeOut(prog(t, 0.2, 0.4));
+    });
+    playWords(said, t, 0.5, D);
+    playSub(root, t, D);
+  };
+};
+
 // Brand end card.
 S.end = (root, c) => {
   const icon = el(root, '<img src="img/icon.png" style="width:240px;height:240px;border-radius:56px;box-shadow:0 40px 80px -30px rgba(0,0,0,.6)">', { left: '420px', top: '430px' });
@@ -307,8 +399,9 @@ function addFx(root) {
 const scenes = SHORT.scenes.map((c, i) => {
   const id = c.id || 's' + i;
   const dur = TL?.[id] ? TL[id].dur : c.beats * beatLen;
-  const root = el(stage, '', {}, 'scene ' + (c.bg || 'dark'));
-  if (c.glow !== false && (c.bg || 'dark') !== 'light') el(root, '', {}, 'glow');
+  const bg = c.bg || STYLE.theme || 'dark';
+  const root = el(stage, '', {}, 'scene ' + bg);
+  if (c.glow !== false && bg !== 'light') el(root, '', {}, 'glow');
   else el(root, '', { display: 'none' }); // keeps the fx layer second
   const fx = window.BACKGROUND_FX ? addFx(root) : () => {};
   const sc = { id, start: TL?.[id] ? TL[id].start : t0, dur, root, fx, update: S[c.type](root, c), drop: !!c.drop,
