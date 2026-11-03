@@ -46,6 +46,7 @@ jobs:
           node-version: 22
 
       - uses: actions/setup-python@v5
+        id: py
         with:
           python-version: '3.12'
 
@@ -67,7 +68,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/ndalama-studio
-          key: studio-${{ hashFiles('marketing/studio/setup.sh', 'marketing/studio/build_voices.py') }}
+          key: studio-py${{ steps.py.outputs.python-version }}-${{ hashFiles('marketing/studio/setup.sh', 'marketing/studio/build_voices.py') }}
 
       - name: Studio setup
         id: studio

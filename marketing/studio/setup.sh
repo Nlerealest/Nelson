@@ -12,8 +12,10 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 MODEL_SHA=fbae9257e1e05ffc727e951ef9b9c98418e6d79f1c9b6b13bd59f5c9028a1478
 mkdir -p "$CACHE"
 
-if [ ! -x "$CACHE/venv/bin/python" ]; then
+# A cached environment from another Python version has broken links: rebuild it.
+if ! "$CACHE/venv/bin/python" -c 'import sys' 2>/dev/null; then
   echo "Creating Python environment…"
+  rm -rf "$CACHE/venv"
   python3 -m venv "$CACHE/venv"
 fi
 "$CACHE/venv/bin/pip" install -q kokoro-onnx soundfile librosa
