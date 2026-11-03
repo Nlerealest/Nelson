@@ -147,7 +147,11 @@ jobs:
           git add marketing/campaigns marketing/TWIZZY.md marketing/studio marketing/assets marketing/agent/last-run.md 2>/dev/null || true
           if ! git diff --cached --quiet; then
             git commit -q -m "Twizzy: campaign sources from run ${{ github.run_id }}"
-            git push -q origin HEAD:claude/malawi-money-management-knal4c || echo "::warning::Push failed"
+            # Someone may have pushed while Twizzy worked: catch up, then push (a few tries).
+            for i in 1 2 3 4; do
+              git pull -q --rebase -X theirs origin claude/malawi-money-management-knal4c && git push -q origin HEAD:claude/malawi-money-management-knal4c && break
+              echo "Push attempt $i failed; retrying"; sleep $((i * 5))
+            done || echo "::warning::Push failed"
           fi
 
       - name: Back to waiting
