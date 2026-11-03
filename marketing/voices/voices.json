@@ -1,0 +1,12 @@
+[
+  { "id": "af_heart",   "name": "Grace",   "gender": "woman", "accent": "American", "style": "Warm and friendly" },
+  { "id": "af_bella",   "name": "Bella",   "gender": "woman", "accent": "American", "style": "Bright and energetic" },
+  { "id": "af_nicole",  "name": "Nicole",  "gender": "woman", "accent": "American", "style": "Soft and close, like a voice note" },
+  { "id": "af_kore",    "name": "Kore",    "gender": "woman", "accent": "American", "style": "Confident and clear" },
+  { "id": "bf_emma",    "name": "Emma",    "gender": "woman", "accent": "British",  "style": "Calm and polished" },
+  { "id": "am_michael", "name": "Michael", "gender": "man",   "accent": "American", "style": "Friendly and easy-going" },
+  { "id": "am_fenrir",  "name": "Fenrir",  "gender": "man",   "accent": "American", "style": "Deep and strong" },
+  { "id": "am_puck",    "name": "Puck",    "gender": "man",   "accent": "American", "style": "Upbeat and playful" },
+  { "id": "bm_george",  "name": "George",  "gender": "man",   "accent": "British",  "style": "Mature and trustworthy" },
+  { "id": "bm_fable",   "name": "Fable",   "gender": "man",   "accent": "British",  "style": "Storyteller" }
+]

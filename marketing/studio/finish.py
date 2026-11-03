@@ -52,8 +52,10 @@ def voice_over_music(timeline_path, vo_dir, music, duration, out):
     parts.append(f'{labels}amix=inputs={len(scenes)}:normalize=0,highpass=f=90,'
                  f'acompressor=threshold=0.12:ratio=3:attack=5:release=120:makeup=1.6,'
                  f'apad=whole_dur={duration},asplit=2[vo][sc]')
-    parts.append('[0:a]volume=0.5[m]')
-    parts.append('[m][sc]sidechaincompress=threshold=0.03:ratio=8:attack=25:release=450[md]')
+    # The music sits low under the voice and dips further while it speaks, so
+    # every word is clear; it comes back up in the gaps.
+    parts.append('[0:a]volume=0.32[m]')
+    parts.append('[m][sc]sidechaincompress=threshold=0.02:ratio=14:attack=20:release=500:makeup=1[md]')
     parts.append(f'[vo][md]amix=inputs=2:normalize=0,atrim=0:{duration}[out]')
     run(['ffmpeg', '-v', 'error', '-y', *inputs, '-filter_complex', ';'.join(parts), '-map', '[out]', '-ar', '48000', out])
 

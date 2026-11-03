@@ -31,7 +31,7 @@ for scene in json.loads(Path(script_path).read_text()):
     if not text:
         lengths[scene['id']] = 0
         continue
-    phonemes = tok.phonemize(text, 'en-us')
+    phonemes = tok.phonemize(text, 'en-gb' if voice.startswith('b') else 'en-us')
     for wrong, right in FIXES.items():
         phonemes = phonemes.replace(wrong, right)
     samples, rate = kokoro.create(phonemes, voice=voice, speed=float(speed), is_phonemes=True)

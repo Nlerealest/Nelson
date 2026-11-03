@@ -88,9 +88,9 @@ export default function Home() {
 
       {songs.length ? (
         <Card style={{ backgroundColor: t.warnSoft, borderColor: t.warnSoft }}>
-          <Row><Ionicons name="musical-notes" size={18} color={t.warn} /><Body bold color={t.warn}>Twizzy needs a song</Body></Row>
-          <Body>{songs.length === 1 ? `Which song should “${songs[0].title}” use?` : `${songs.length} videos are waiting for you to pick a song.`}</Body>
-          <Row><Button small title="Choose the song" icon="arrow-forward" onPress={() => router.push('/approvals')} /></Row>
+          <Row><Ionicons name="musical-notes" size={18} color={t.warn} /><Body bold color={t.warn}>Twizzy needs your choices</Body></Row>
+          <Body>{songs.length === 1 ? `Pick the voice and song for “${songs[0].title}”.` : `${songs.length} videos are waiting for you to pick a voice and song.`}</Body>
+          <Row><Button small title="Choose voice and song" icon="arrow-forward" onPress={() => router.push('/approvals')} /></Row>
         </Card>
       ) : null}
 

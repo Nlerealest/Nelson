@@ -7,22 +7,26 @@ import { logYou, nowIso, tellTwizzy, update, useRows, useToast } from '../data';
 import { Body, Button, Card, Chips, Empty, Field, Loading, Pill, Row, Screen } from '../components/ui';
 import { MediaActions, MediaPreview } from '../components/media';
 import { useTheme } from '../theme';
+import { VoicePicker, voiceName } from '../components/voices';
 
 const PLAT = { tiktok: 'TikTok', x: 'X', facebook: 'Facebook', instagram: 'Instagram' };
-const STATUS = { needs_song: ['Needs a song', 'bad'], making: ['Being made', 'warn'], awaiting_approval: ['Needs your OK', 'info'], changes_requested: ['Being changed', 'warn'] };
+const STATUS = { needs_song: ['Needs your choices', 'bad'], making: ['Being made', 'warn'], awaiting_approval: ['Needs your OK', 'info'], changes_requested: ['Being changed', 'warn'] };
 
 const SONG_MODES = [['upload', 'Upload from phone'], ['link', 'Paste a link'], ['original', 'Twizzy makes music'], ['tiktok', 'I’ll add a TikTok sound']];
 
-// Twizzy asks which song to use before it makes the video.
+// Before making a video, Twizzy asks: a voiceover or not (and which voice),
+// and which song.
 function SongQuestion({ p, toast }) {
   const t = useTheme();
+  const [voiceOn, setVoiceOn] = useState(p.song?.voice ? 'voice' : 'none');
+  const [voice, setVoice] = useState(p.song?.voice || 'af_heart');
   const [mode, setMode] = useState('upload');
   const [file, setFile] = useState(null);
   const [link, setLink] = useState('');
   const [start, setStart] = useState('');
   const [note, setNote] = useState('');
   const answer = async () => {
-    let song = { mode, note: note.trim() || null };
+    let song = { mode, note: note.trim() || null, voice: voiceOn === 'voice' ? voice : null };
     if (mode === 'upload') {
       if (!file) return toast('Pick the song file first.');
       toast('Uploading the song…');
@@ -38,15 +42,25 @@ function SongQuestion({ p, toast }) {
       song = { ...song, url: link.trim() };
     }
     await update('posts', p.id, { song, status: 'making', decided_at: nowIso() });
-    await tellTwizzy(`Make "${p.title}" with the song I chose (${SONG_MODES.find(([k]) => k === mode)[1]}).`, 'song', p.id);
+    const v = voiceOn === 'voice' ? `, voiceover by ${voiceName(voice)} (${voice}) with the music turned down under the voice` : ', no voiceover';
+    await tellTwizzy(`Make "${p.title}" with the song I chose (${SONG_MODES.find(([k]) => k === mode)[1]})${v}.`, 'song', p.id);
     logYou(`You chose the song for “${p.title}”`);
     toast('Thanks! Twizzy is making the video now.');
   };
   return (
     <Card style={{ borderColor: t.warn }}>
       <Row><Pill label="Twizzy asks" tone="warn" />{(p.platforms || []).map((x) => <Pill key={x} label={PLAT[x] || x} tone="info" />)}</Row>
-      <Body bold style={{ fontSize: 17 }}>Which song for “{p.title}”?</Body>
+      <Body bold style={{ fontSize: 17 }}>Before I make “{p.title}”</Body>
       {p.question ? <Body>{p.question}</Body> : null}
+      <Body bold>1. Voiceover</Body>
+      <Chips value={voiceOn} onChange={setVoiceOn} options={[['none', 'No voice, music only'], ['voice', 'Use a voice']]} />
+      {voiceOn === 'voice' ? (
+        <>
+          <Body small muted>Tap ▶ to hear each voice, then choose one. The music is turned down while the voice speaks.</Body>
+          <VoicePicker value={voice} onChange={setVoice} />
+        </>
+      ) : null}
+      <Body bold>2. Song</Body>
       <Chips value={mode} onChange={setMode} options={SONG_MODES} />
       {mode === 'upload' ? (
         <>
@@ -72,7 +86,7 @@ function SongQuestion({ p, toast }) {
       ) : null}
       {mode === 'tiktok' ? <Body small muted>Twizzy makes the video with soft music. When you post, add the TikTok sound and turn the original sound down.</Body> : null}
       <Field label="Anything else about the music? (optional)" value={note} onChangeText={setNote} placeholder="e.g. Amapiano, upbeat, no lyrics" />
-      <Row><Button icon="checkmark" title="Use this song" onPress={answer} /></Row>
+      <Row><Button icon="checkmark" title="Make the video" onPress={answer} /></Row>
     </Card>
   );
 }

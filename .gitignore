@@ -30,3 +30,6 @@ marketing/**/vo/
 marketing/campaigns/*/song.*
 *.m4a
 *.aac
+
+# Voice samples for the Twizzy app's voice picker
+!marketing/voices/*.mp3

@@ -11,10 +11,6 @@ DIR="$(cd "$1" && pwd)"; MODE="${2:-preview}"
 SLUG="$(basename "$DIR" | sed 's/^[0-9]*-[0-9]*-//')"
 C=~/.cache/ndalama-studio
 cd "$DIR"
-if [ -f script.json ]; then
-  [ -f vo/lengths.json ] || "$C/venv/bin/python" -I "$HERE/voiceover.py" "$C/kokoro-q8.onnx" "$C/voices.npz" script.json vo af_heart 1.0
-  python3 timeline.py
-fi
 # The owner's song (song.json: {"file": "song.mp3", "start": <seconds into the song>}):
 # find its tempo and first beat, so every scene cut lands on its beat.
 SONGFILE=""
@@ -31,6 +27,24 @@ print(round(t,2), d["beats"][0] if d["beats"] else 0)' "$WANT")
   echo "song: $SBPM bpm, first beat at $SFIRST s after $SONGSTART s"
 else
   : > song.js
+fi
+if [ -f script.json ]; then
+  # Voiceover in the chosen voice (voice.txt, default af_heart), then scene
+  # lengths from the voice, rounded up to whole beats so cuts stay on the beat.
+  VOICE=$(cat voice.txt 2>/dev/null || echo af_heart)
+  [ -f vo/lengths.json ] && [ "$(cat vo/.voice 2>/dev/null)" = "$VOICE" ] || { rm -rf vo; "$C/venv/bin/python" -I "$HERE/voiceover.py" "$C/kokoro-q8.onnx" "$C/voices.npz" script.json vo "$VOICE" 1.0; echo "$VOICE" > vo/.voice; }
+  python3 timeline.py
+  VBPM=${SBPM:-$(node -e 'global.window={};require(process.argv[1]);console.log(window.SHORT.bpm)' "$DIR/short.js")}
+  python3 - "$VBPM" <<'PY'
+import json, math, sys
+beat = 60 / float(sys.argv[1]); t = 0.0; scenes = json.load(open('timeline.json'))
+for s in scenes:
+    lead = s['vo_at'] - s['start']
+    s['start'] = round(t, 3); s['dur'] = round(math.ceil(s['dur'] / beat - 0.05) * beat, 3); s['vo_at'] = round(t + lead, 3); t += s['dur']
+json.dump(scenes, open('timeline.json', 'w'), indent=1)
+open('timeline.js', 'w').write('window.TIMELINE = ' + json.dumps(scenes) + ';\n')
+print(f'voiceover by {open("voice.txt").read().strip() if __import__("os").path.exists("voice.txt") else "af_heart"}: {t:.1f}s, cut on {sys.argv[1]} bpm')
+PY
 fi
 read -r TOTAL DROP BPM MOOD < <(node -e '
   global.window = {}; require(process.argv[1]); try { require(process.argv[3]); } catch {} const s = window.SHORT, b = 60 / (window.SONG?.bpm || s.bpm);
