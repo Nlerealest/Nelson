@@ -74,9 +74,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cp android/app/build/outputs/apk/release/app-release.apk twizzy.apk
-          gh release delete twizzy-latest --yes --cleanup-tag || true
-          gh release create twizzy-latest twizzy.apk \
-            --target "$GITHUB_SHA" \
-            --prerelease \
-            --title "Twizzy $(node -p "require('./app.json').expo.version")" \
-            --notes "Twizzy, the control app for Ndalama's marketing agent. From commit ${GITHUB_SHA::7}. On your Android phone: download twizzy.apk, open it and allow installing from your browser if asked."
+          TITLE="Twizzy $(node -p "require('./app.json').expo.version")"
+          NOTES="Twizzy, the control app for Ndalama's marketing agent. From commit ${GITHUB_SHA::7}. On your Android phone: download twizzy.apk, open it and allow installing from your browser if asked."
+          # Never delete the old download first: replace the file in place, so
+          # the link keeps working even if publishing fails.
+          if gh release view twizzy-latest >/dev/null 2>&1; then
+            gh release upload twizzy-latest twizzy.apk --clobber
+            gh release edit twizzy-latest --title "$TITLE" --notes "$NOTES" --prerelease
+          else
+            gh release create twizzy-latest twizzy.apk --target "$GITHUB_SHA" --prerelease --title "$TITLE" --notes "$NOTES"
+          fi

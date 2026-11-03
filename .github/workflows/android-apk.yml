@@ -91,9 +91,16 @@ jobs:
           else
             NOTE="Test build signed with the shared debug key. Not for app stores."
           fi
-          gh release delete ndalama-latest --yes --cleanup-tag || true
-          gh release create ndalama-latest ndalama.apk \
-            --target "$GITHUB_SHA" \
-            --prerelease \
-            --title "Ndalama $APK_VERSION" \
-            --notes "$NOTE From commit ${GITHUB_SHA::7}. On your Android phone: download ndalama.apk, open it and allow installing from your browser if asked."
+          # Never delete the old download first: replace the file in place, so
+          # the link keeps working even if publishing fails.
+          if gh release view ndalama-latest >/dev/null 2>&1; then
+            gh release upload ndalama-latest ndalama.apk --clobber
+            gh release edit ndalama-latest --title "Ndalama $APK_VERSION" --prerelease \
+              --notes "$NOTE From commit ${GITHUB_SHA::7}. On your Android phone: download ndalama.apk, open it and allow installing from your browser if asked."
+          else
+            gh release create ndalama-latest ndalama.apk \
+              --target "$GITHUB_SHA" \
+              --prerelease \
+              --title "Ndalama $APK_VERSION" \
+              --notes "$NOTE From commit ${GITHUB_SHA::7}. On your Android phone: download ndalama.apk, open it and allow installing from your browser if asked."
+          fi
