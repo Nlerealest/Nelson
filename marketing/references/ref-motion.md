@@ -1,6 +1,6 @@
 # Reference: motion-design showreel (`ref-motion`)
 
-The owner's motion reference: an 18 s, 30 fps showreel (16:9). Studied frame by frame on 4 Nov 2026. **While this reference is in use, every video and every remake follows this file.** Colours, background and font stay Ndalama's (TWIZZY.md 4.1): only the motion is copied.
+The owner's motion reference: an 18 s, 30 fps showreel (16:9). Studied frame by frame on 4 Nov 2026. **Only while this reference is in use** (the owner switched it on with *Use in next videos*) every video and every remake follows this file. When another reference is in use, follow that one's file instead. Colours, background and font stay Ndalama's (TWIZZY.md 4.1): only the motion is copied.
 
 ## What makes it work
 - **One hero object carries the whole video.** A letter becomes a ball; the ball bounces, is revealed inside an editor, morphs into a toggle and a dial, then grows to fill the screen and wipes into the next scene. There are almost no plain cuts: each scene is born from the last.

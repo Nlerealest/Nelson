@@ -126,7 +126,11 @@ jobs:
 
             Every video you make must be 45 seconds to 1:45 long and tell a full story (TWIZZY.md section 4.0).
             Deliver every finished video with `node marketing/agent/tw.mjs attach <post-id> <file.mp4>` (section 4.6), never by hand.
-            If a reference is in use, first read marketing/references/<its id>.md if it exists and follow it beat by beat (for ref-motion: chrome -> bounce -> pullback -> morph -> fill -> bento -> showcase -> counter -> namereveal -> end, as in campaigns/2026-11-motion-payday). This applies to remakes too.
+            References: follow ONLY the reference currently in use (style_refs_in_use in tw.mjs state, the one the owner
+            switched on; if several show, the newest). Read marketing/references/<its id>.md and follow it beat by beat.
+            If it has no spec file yet, study it first (TWIZZY.md 4.1) and write the spec, then make the video.
+            Never use a reference that is not in use, even if an older video or campaign used it. Remakes follow the
+            reference in use at the time of the remake. With no reference in use, use the template's house style.
             If a reference is in use (style_refs_in_use), copy its editing only (transitions and their directions, pace, text reveal, how the app is shown) and build any movement the template lacks, but always keep Ndalama's green look from the first videos: never copy a reference's colours, background or fonts (TWIZZY.md section 4.1). Never use zoom, shaking or a moving background.
 
             The app screens in marketing/assets/app were just captured from today's app, and marketing/assets/app/numbers.txt
