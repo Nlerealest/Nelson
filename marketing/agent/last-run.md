@@ -1,7 +1,6 @@
-# Last run: 2026-11-04
+# Twizzy last run: 2026-11-04
 
-- Queued commands: none.
-- Checked that every post's video file exists in storage: all 15 present, nothing to re-render.
-- Approved concept "Christmas budget: 7 weeks to go": its post (p-christmasplan) is already `needs_song` with the voice and song question. Music setting is `ask`, so no video was rendered. Waiting for the owner's voice and song choice.
-- Approved posts (p-groceries, p-paydaychecklist): the owner posts them by hand, nothing to do.
-- Videos made: none this run. Reference in use: ref-apple (no spec file, no video file, so it will be handled when a video is made).
+- Command 30 (song, "Christmas budget: 7 weeks to go"): made the video with the owner's uploaded song, no voiceover; attached to post p-christmasplan, now awaiting approval.
+- Command 31 (study_ref, VID-20251103-WA0005.mp4): studied, spec written in marketing/references/r-43dfc391.md, status studied. Not in use, so no video was made with it.
+
+Video: "Christmas budget: 7 weeks to go" (89 s). Reference followed: none (house style). Voice: none. Song mode: upload (owner's song, cut on its beats).
