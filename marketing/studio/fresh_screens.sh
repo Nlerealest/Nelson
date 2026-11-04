@@ -26,6 +26,7 @@ for P in corporate business family young; do
   node sample-data.mjs "$DAY" "${TMPDIR:-/tmp}/ndalama-data-$P.json" "$P" 2>/dev/null > "$OUT/personas/$P/numbers.txt"
   sed -i "1i # What the app shows on ${DAY} for this persona (sample-data.mjs). Use these numbers in videos." "$OUT/personas/$P/numbers.txt"
   APP_DATE="${DAY}T09:30:00" node capture.cjs "$OUT/personas/$P" "${TMPDIR:-/tmp}/ndalama-data-$P.json"
+  cp "$OUT/icon.png" "$OUT/personas/$P/icon.png"
 done
 cp "$OUT"/personas/corporate/*.png "$OUT"/personas/corporate/numbers.txt "$OUT"/
 cat "$OUT/numbers.txt"

@@ -64,6 +64,21 @@
   .wave i { display: block; width: 18px; border-radius: 9px; background: var(--g); }
   .mic { position: absolute; left: 50%; width: 220px; height: 220px; margin-left: -110px; border-radius: 50%; background: var(--g); display: flex; align-items: center; justify-content: center;
          box-shadow: 0 30px 70px -20px rgba(11,107,58,.6); }
+  /* Motion kit (from the owner's motion-design reference), in Ndalama green */
+  .chrome-wrap { position: absolute; left: 0; right: 0; text-align: center; font-weight: 800; letter-spacing: 0.02em; perspective: 1400px; white-space: nowrap; }
+  .chrome-letter { display: inline-block; position: relative; transform-style: preserve-3d; }
+  .chrome-letter .back { position: absolute; left: 0; top: 0; color: #2f4a3b;
+    text-shadow: 0 2px 0 #2b4436, 0 4px 0 #273e31, 0 6px 0 #22382c, 0 9px 0 #1d3127, 0 13px 0 #182a21, 0 40px 60px rgba(0,0,0,.6); }
+  .chrome-letter .front { position: relative; background: linear-gradient(180deg, #ffffff 0%, #d9e6de 33%, #7f9a8a 50%, #e6f0ea 58%, #a9c2b3 80%, #f3f8f5 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .coin { width: 170px; height: 170px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 92px; font-weight: 800; color: #063d21;
+    background: radial-gradient(circle at 35% 30%, #c9ffe0, #3ee08a 35%, #14b866 62%, #0b6b3a); box-shadow: 0 24px 50px -12px rgba(0,0,0,.6), inset 0 -10px 18px rgba(0,0,0,.25); }
+  .trail path { fill: none; stroke: rgba(255,255,255,.7); stroke-width: 5; stroke-dasharray: 2 14; stroke-linecap: round; }
+  .tilebox { position: absolute; border-radius: 34px; background: #16231c; border: 2px solid #23362b; overflow: hidden; box-shadow: 0 30px 70px -30px rgba(0,0,0,.7); }
+  .tilebox .tl { position: absolute; left: 24px; top: 18px; font-size: 26px; font-weight: 600; color: #8fb3a0; }
+  .cube { position: absolute; width: 150px; height: 150px; transform-style: preserve-3d; }
+  .cube i { position: absolute; inset: 0; border-radius: 18px; border: 3px solid rgba(255,255,255,.85); background: rgba(20,184,102,.18); display: flex; align-items: center; justify-content: center; font-style: normal; font-weight: 800; font-size: 70px; color: #fff; }
+  #fillc { position: absolute; left: 50%; top: 50%; border-radius: 50%; background: var(--g); pointer-events: none; z-index: 40; opacity: 0; }
   #flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 50; }
   .pill { display: inline-block; padding: 18px 34px; border-radius: 999px; font-size: 40px; font-weight: 700; }
 </style>
@@ -167,6 +182,9 @@ function rollCounter(box, t, at, dur = 1.1) {
     const p = easeOut(prog(t, at + i * 0.05, dur));
     const pos = lerp(0, 10 + d.v, p);
     d.col.style.transform = `translateY(${-pos}em)`;
+    // motion blur while the digits roll, as in the reference
+    const speed = 1 - p;
+    d.col.style.filter = speed > 0.02 ? `blur(${(speed * 9).toFixed(1)}px)` : 'none';
   });
 }
 function sub(root, text) { if (text) root._sub = el(root, text, {}, 'sub'); }
@@ -384,6 +402,177 @@ S.pair = (root, c) => {
   };
 };
 
+
+// ---------- motion kit: the owner's motion-design reference, rebuilt for Ndalama ----------
+// One hero object carries the video from scene to scene, as in the reference:
+// chrome letters -> one becomes the K-coin -> it bounces -> the camera pulls
+// back to reveal the app -> the coin morphs into a goal ring -> it grows to
+// fill the screen ('fill' transition) -> a bento grid flies in -> numbers roll
+// with motion blur -> the name reveals letter by letter.
+
+// Chrome 3D letters tumble in one by one, hold, then scatter; the last-picked
+// letter shrinks into the coin. {word, sub, coinLetter (index), top, size}
+S.chrome = (root, c) => {
+  const word = c.word || 'NDALAMA', size = c.size || (word.length > 7 ? 170 : 200);
+  const wrap = el(root, '', { top: (c.top || 720) + 'px', fontSize: size + 'px' }, 'chrome-wrap');
+  const letters = [...word].map((ch, i) => {
+    const l = document.createElement('span'); l.className = 'chrome-letter';
+    l.innerHTML = `<span class="back">${ch}</span><span class="front">${ch}</span>`;
+    l._r = [rnd(i + 1) * 160 - 80, rnd(i + 9) * 260 - 130, rnd(i + 4) * 60 - 30];
+    wrap.appendChild(l); return l;
+  });
+  const sub = c.sub ? el(root, c.sub, { top: (c.top || 720) + size + 60 + 'px', fontSize: '46px', fontWeight: 500, color: 'rgba(255,255,255,.75)' }, 'abs center') : null;
+  const ci = c.coinLetter ?? Math.floor(word.length / 2);
+  const coin = el(root, 'K', { left: '455px', top: (c.top || 720) + 20 + 'px', opacity: 0 }, 'abs coin');
+  return (t, D) => {
+    const scatterAt = c.scatter === false ? 99 : D - 1.0;
+    letters.forEach((l, i) => {
+      const a = 0.1 + i * 0.14, p = easeOut(prog(t, a, 0.75));
+      const [rx, ry, rz] = l._r;
+      const s2 = easeIn(prog(t, scatterAt + (i === ci ? 0.25 : 0), 0.55));
+      const fly = i === ci ? 0 : s2;
+      const dx = (i - (word.length - 1) / 2) * 260 * fly, dy = (rnd(i + 20) - 0.5) * 900 * fly;
+      const shrink = i === ci ? 1 - easeInOut(prog(t, scatterAt + 0.1, 0.5)) : 1;
+      l.style.opacity = p * (1 - fly) * (i === ci ? (shrink > 0.25 ? 1 : shrink * 4) : 1);
+      l.style.filter = (1 - p) * 16 + fly * 22 > 0.3 ? `blur(${((1 - p) * 16 + fly * 22).toFixed(1)}px)` : 'none';
+      l.style.transform = `translate3d(${dx}px, ${(1 - p) * -220 + dy}px, ${(1 - p) * -900 + fly * 600}px) rotateX(${(1 - p) * rx + fly * 120}deg) rotateY(${(1 - p) * ry - fly * 90}deg) rotateZ(${(1 - p) * rz}deg) scale(${shrink})`;
+    });
+    if (sub) { inn(sub, t, 0.9 + word.length * 0.1, { y: 20 }); draw(sub); sub.style.opacity *= 1 - easeIn(prog(t, scatterAt, 0.3)); }
+    const cp = easeOut(prog(t, scatterAt + 0.45, 0.35));
+    coin.style.opacity = cp; coin.style.transform = `scale(${0.4 + 0.6 * cp})`;
+  };
+};
+
+// The coin drops and bounces with squash & stretch on the beat, leaving a
+// dotted trail over a floor line; captions reveal one after another.
+// {captions:[html], top (floor y)}
+S.bounce = (root, c) => {
+  const floorY = c.top || 1180;
+  const floor = el(root, '', { left: '140px', right: '140px', top: floorY + 'px', height: '4px', background: 'rgba(255,255,255,.55)', borderRadius: '2px' });
+  const trail = el(root, '<svg width="1080" height="1920" class="trail" style="position:absolute;inset:0"><path/></svg>', { inset: 0 });
+  const coin = el(root, 'K', { left: 0, top: 0 }, 'abs coin');
+  const caps = (c.captions || []).map((h) => words(root, h, { top: floorY + 110 + 'px', fontSize: (c.size || 64) + 'px', fontWeight: 700 }));
+  return (t, D) => {
+    const hitsT = BEATS.filter((b) => b > (c._start || 0) + 0.5 && b < (c._start || 0) + D - 0.3).map((b) => b - (c._start || 0)).slice(0, 6);
+    const hits = hitsT.length >= 3 ? hitsT : [0.8, 1.5, 2.15, 2.75, 3.3];
+    const X = (u) => lerp(150, 760, clamp(u / Math.max(1, D - 0.4)));
+    const Y = (u) => {
+      if (u < hits[0]) return lerp(560, floorY - 170, easeIn(u / hits[0]));
+      for (let i = 0; i < hits.length - 1; i++) if (u < hits[i + 1]) { const q = (u - hits[i]) / (hits[i + 1] - hits[i]); return floorY - 170 - 520 * Math.pow(0.7, i) * 4 * q * (1 - q); }
+      return floorY - 170;
+    };
+    const pts = []; for (let u = 0; u <= t; u += 0.035) pts.push(`${(X(u) + 85).toFixed(1)},${(Y(u) + 85).toFixed(1)}`);
+    trail.querySelector('path').setAttribute('d', pts.length ? 'M' + pts.join(' L') : '');
+    let sq = 0; for (const h of hits) sq = Math.max(sq, Math.exp(-Math.abs(t - h) * 16));
+    coin.style.transformOrigin = '85px 170px';
+    coin.style.transform = `translate(${X(t)}px, ${Y(t)}px) scale(${1 + sq * 0.3}, ${1 - sq * 0.32})`;
+    floor.style.opacity = clamp(t / 0.4);
+    const each = D / Math.max(1, caps.length);
+    caps.forEach((cap, i) => { const local = t - i * each; cap.style.opacity = local >= 0 && local < each ? 1 : 0; if (local >= 0 && local < each) playWords(cap, local, 0.15, each + 9, 0.08); });
+  };
+};
+
+// The camera pulls back: the phone starts filling the screen (focused on the
+// hero card) and settles to full view, then a curve draws in a panel below,
+// like the reference's editor reveal. {img, caption, focusY (0..1), curve:[values], label, value}
+S.pullback = (root, c) => {
+  const cap = c.caption ? words(root, c.caption, { top: '130px', fontSize: (c.size || 72) + 'px' }) : null;
+  const ph = el(root, `<div class="scr"><img src="img/${c.img || 'screen-home'}.png"></div>`, { left: '240px', top: '330px', transformOrigin: `50% ${((c.focusY ?? 0.2) * 100).toFixed(0)}%` }, 'abs phone');
+  const vals = c.curve || [100, 92, 80, 74, 66, 61, 52, 46];
+  const max = Math.max(...vals), min = Math.min(...vals);
+  const panel = el(root, `<div class="tl">${c.label || 'This month'}</div><div style="position:absolute;right:24px;top:14px;font-size:34px;font-weight:800;color:#fff" class="pv">${c.value || ''}</div>
+    <svg width="880" height="190" style="position:absolute;left:30px;top:70px"><path class="cv" fill="none" stroke="var(--g)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><circle class="cd" r="13" fill="#fff"/></svg>`,
+    { left: '70px', right: '70px', top: '1480px', height: '290px' }, 'tilebox');
+  return (t, D) => {
+    if (cap) playWords(cap, t, 0.9, D, 0.07);
+    const pb = easeInOut(prog(t, 0.05, 1.1));
+    ph.style.transform = `scale(${lerp(3.1, 1, pb)})`;
+    ph.style.filter = pb < 1 ? `blur(${((1 - pb) * 6).toFixed(1)}px)` : 'none';
+    inn(panel, t, 1.0, { y: 160, blur: 14, dur: 0.5 }); draw(panel);
+    const q = easeInOut(prog(t, 1.3, Math.max(0.8, D - 2)));
+    const pts = []; const n = vals.length - 1;
+    for (let s2 = 0; s2 <= q * n + 1e-6; s2 += 0.05) { const i = Math.min(n - 1, Math.floor(s2)), f = s2 - i, v = lerp(vals[i], vals[i + 1], easeInOut(f)); pts.push([s2 / n * 860, 170 - ((v - min) / (max - min || 1)) * 150]); }
+    if (pts.length) { panel.querySelector('.cv').setAttribute('d', 'M' + pts.map((p2) => p2.map((x) => x.toFixed(1)).join(',')).join(' L')); const last = pts[pts.length - 1]; panel.querySelector('.cd').setAttribute('cx', last[0]); panel.querySelector('.cd').setAttribute('cy', last[1]); }
+  };
+};
+
+// The coin morphs: it slides into a toggle switch (switching ON), then the
+// toggle closes into a progress ring that fills to the goal. {caption, goal, saved, label}
+S.morph = (root, c) => {
+  const cap = c.caption ? words(root, c.caption, { top: '1330px', fontSize: (c.size || 76) + 'px' }) : null;
+  const pill = el(root, '', { left: '290px', top: '720px', width: '500px', height: '250px', borderRadius: '125px', background: 'rgba(255,255,255,.12)', border: '3px solid rgba(255,255,255,.25)' });
+  const knob = el(root, 'K', { left: '330px', top: '760px', width: '170px', height: '170px' }, 'abs coin');
+  const ring = el(root, `<svg width="520" height="520" viewBox="0 0 520 520"><circle cx="260" cy="260" r="220" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="34"/>
+    <circle class="arc" cx="260" cy="260" r="220" fill="none" stroke="var(--g)" stroke-width="34" stroke-linecap="round" transform="rotate(-90 260 260)" stroke-dasharray="1382.3" stroke-dashoffset="1382.3"/></svg>
+    <div class="rv" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff"><div class="pc" style="font-size:120px;font-weight:800;letter-spacing:-.04em">0%</div><div style="font-size:36px;font-weight:600;opacity:.8">${c.label || ''}</div></div>`,
+    { left: '280px', top: '590px', width: '520px', height: '520px', opacity: 0 });
+  const pct = clamp((c.saved || 0) / (c.goal || 1));
+  return (t, D) => {
+    const slide = easeInOut(prog(t, 0.3, 0.6));
+    pill.style.opacity = 1 - easeIn(prog(t, 1.5, 0.4));
+    pill.style.background = slide > 0.5 ? 'rgba(20,184,102,.55)' : 'rgba(255,255,255,.12)';
+    const toRing = easeInOut(prog(t, 1.4, 0.6));
+    knob.style.transform = `translate(${slide * 240 - toRing * 120}px, ${-toRing * 0}px) scale(${1 + toRing * 2.2})`;
+    knob.style.opacity = 1 - easeIn(prog(t, 1.75, 0.25));
+    const rp = easeOut(prog(t, 1.8, 0.4)); ring.style.opacity = rp; ring.style.transform = `scale(${0.85 + 0.15 * rp})`;
+    const fill = easeInOut(prog(t, 2.1, Math.max(0.8, D - 3))) * pct;
+    ring.querySelector('.arc').setAttribute('stroke-dashoffset', (1382.3 * (1 - fill)).toFixed(1));
+    ring.querySelector('.pc').textContent = Math.round(fill * 100) + '%';
+    if (cap) playWords(cap, t, 2.0, D, 0.07);
+  };
+};
+
+// Bento grid: tiles fly in from different sides with motion blur and settle
+// with a spring, then keep a gentle drift: a kinetic word, real app cards, a
+// bar chart that grows, a curve that draws, and a spinning 3D cube.
+// {word, cards:[name,name], bars:[values], caption}
+S.bento = (root, c) => {
+  const cap = c.caption ? words(root, c.caption, { top: '120px', fontSize: (c.size || 72) + 'px' }) : null;
+  const T0 = 330;
+  const tiles = [
+    { x: 60, y: T0, w: 470, h: 330, from: [-700, 0], html: `<div class="tl">Kinetic</div><div class="kw" style="position:absolute;left:30px;bottom:30px;font-size:110px;font-weight:800;color:#fff;letter-spacing:-.04em">${c.word || 'Budget'}</div>` },
+    { x: 550, y: T0, w: 470, h: 330, from: [700, -200], html: `<img src="img/${(c.cards || ['card-hero'])[0]}.png" style="position:absolute;left:18px;top:18px;width:434px;border-radius:24px">` },
+    { x: 60, y: T0 + 350, w: 300, h: 330, from: [-500, 400], html: `<div class="tl">3D</div><div class="cube" style="left:75px;top:110px"><i style="transform:translateZ(75px)">K</i><i style="transform:rotateY(90deg) translateZ(75px)"></i><i style="transform:rotateY(180deg) translateZ(75px)"></i><i style="transform:rotateY(-90deg) translateZ(75px)"></i><i style="transform:rotateX(90deg) translateZ(75px)"></i><i style="transform:rotateX(-90deg) translateZ(75px)"></i></div>` },
+    { x: 380, y: T0 + 350, w: 640, h: 330, from: [0, 700], html: `<div class="tl">Spending</div><div class="bars" style="position:absolute;left:30px;right:30px;bottom:30px;height:220px;display:flex;align-items:flex-end;gap:14px">${(c.bars || [40, 65, 52, 80, 58, 90, 72]).map((v) => `<b style="flex:1;border-radius:8px;background:var(--g);height:${v}%;transform-origin:bottom"></b>`).join('')}</div>` },
+    { x: 60, y: T0 + 700, w: 960, h: 360, from: [0, 900], html: `<div class="tl">${c.curveLabel || 'Savings'}</div><svg width="900" height="270" style="position:absolute;left:30px;top:70px"><path class="bc" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/></svg>` },
+  ];
+  const nodes = tiles.map((tt, i) => { const n = el(root, tt.html, { left: tt.x + 'px', top: tt.y + 'px', width: tt.w + 'px', height: tt.h + 'px' }, 'tilebox'); n._t = tt; return n; });
+  if (c.cards?.[1]) nodes[4].insertAdjacentHTML('beforeend', `<img src="img/${c.cards[1]}.png" style="position:absolute;right:20px;bottom:20px;width:380px;border-radius:20px">`);
+  return (t, D) => {
+    if (cap) playWords(cap, t, 0.05, D, 0.07);
+    nodes.forEach((n, i) => {
+      const a = 0.15 + i * 0.16, p = clamp((t - a) / 0.55);
+      const sp = p >= 1 ? 1 : 1 - Math.exp(-6 * p) * Math.cos(9 * p); // spring settle
+      const [fx, fy] = n._t.from, mv = 1 - sp;
+      const drift = Math.sin(t * 0.8 + i) * 6;
+      n.style.opacity = p > 0 ? 1 : 0;
+      n.style.filter = Math.abs(mv) > 0.04 ? `blur(${Math.min(24, Math.abs(mv) * 30).toFixed(1)}px)` : 'none';
+      n.style.transform = `translate(${fx * mv}px, ${fy * mv + drift}px)`;
+    });
+    const k = nodes[0].querySelector('.kw'); k.style.letterSpacing = `${(-0.04 + 0.03 * Math.sin(t * 2)).toFixed(3)}em`;
+    nodes[2].querySelector('.cube').style.transform = `rotateX(${-20 + t * 40}deg) rotateY(${t * 70}deg)`;
+    nodes[3].querySelectorAll('b').forEach((b, i) => { b.style.transform = `scaleY(${easeOut(prog(t, 0.9 + i * 0.08, 0.5)).toFixed(3)})`; });
+    const q = easeInOut(prog(t, 1.1, Math.max(1, D - 1.8))); const pts = [];
+    for (let x = 0; x <= q * 860; x += 8) pts.push(`${x},${(220 - (x / 860) * 150 - Math.sin(x / 70) * 22).toFixed(1)}`);
+    nodes[4].querySelector('.bc').setAttribute('d', pts.length ? 'M' + pts.join(' L') : '');
+  };
+};
+
+// The name reveals letter by letter from a blur, first letter in Ndalama green,
+// while the stage darkens. {name, sub}
+S.namereveal = (root, c) => {
+  const name = c.name || 'Ndalama';
+  const box = el(root, [...name].map((ch, i) => `<span class="w" style="${i === 0 ? 'color:var(--g)' : ''}">${ch}</span>`).join(''), { top: '820px', fontSize: (c.size || 190) + 'px', letterSpacing: '-0.04em' }, 'abs center big');
+  const sub = c.sub ? el(root, c.sub, { top: '1080px', fontSize: '52px', fontWeight: 600, color: 'rgba(255,255,255,.8)' }, 'abs center') : null;
+  const shade = el(root, '', { inset: 0, background: '#000', opacity: 0 });
+  const ws = [...box.querySelectorAll('.w')];
+  return (t, D) => {
+    ws.forEach((w, i) => { const p = easeOut(prog(t, 0.1 + i * 0.07, 0.45)); w.style.opacity = p; w.style.filter = p < 1 ? `blur(${((1 - p) * 18).toFixed(1)}px)` : 'none'; w.style.transform = `translateX(${(1 - p) * -60}px)`; });
+    if (sub) { inn(sub, t, 0.9, { y: 20 }); draw(sub); }
+    shade.style.opacity = 0.45 * easeInOut(prog(t, 0.6, D));
+  };
+};
+
 // Brand end card.
 S.end = (root, c) => {
   const icon = el(root, '<img src="img/icon.png" style="width:240px;height:240px;border-radius:56px;box-shadow:0 40px 80px -30px rgba(0,0,0,.6)">', { left: '420px', top: '430px' });
@@ -417,6 +606,8 @@ let t0 = SONG ? SONG.offset || 0 : SHORT.offset || 0;
 const ENERGY = window.ENERGY || null;            // loudness per beat, 0..1 (from make_short.sh)
 // No zoom or spin (the owner's rule: no zoom effects).
 const TRANSITIONS = ['whip', 'slide', 'drop', 'flash', 'circle', 'glitch'];
+// 'fill': the hero coin grows to fill the screen in Ndalama green, then the next scene appears (the reference's ball wipe).
+// 'pull': the next scene starts close up and the camera pulls back (the reference's reveal).
 const beatIndex = (T) => { let i = -1; for (let k = 0; k < BEATS.length && BEATS[k] <= T + 1e-6; k++) i = k; return i; };
 const sinceBeat = (T) => { const i = beatIndex(T); return i < 0 ? 9 : T - BEATS[i]; };
 const kick = (T) => Math.exp(-sinceBeat(T) * 10);
@@ -462,7 +653,8 @@ const scenes = SHORT.scenes.map((c, i) => {
   if (c.glow !== false && bg !== 'light') el(root, '', {}, 'glow');
   else el(root, '', { display: 'none' }); // keeps the fx layer second
   const fx = window.BACKGROUND_FX ? addFx(root) : () => {};
-  const sc = { id, start: TL?.[id] ? TL[id].start : t0, dur, root, fx, update: S[c.type](root, c), drop: !!c.drop,
+  c._start = TL?.[id] ? TL[id].start : t0;
+  const sc = { id, start: c._start, dur, root, fx, update: S[c.type](root, c), drop: !!c.drop,
     // the transition INTO this scene
     transition: i === 0 ? null : c.transition || (c.drop ? 'flash' : TRANSITIONS[(i * 3) % TRANSITIONS.length]) };
   if (c.drop && !DROP) DROP = sc.start;
@@ -470,6 +662,7 @@ const scenes = SHORT.scenes.map((c, i) => {
   return sc;
 });
 const flash = el(stage, '', {}, ''); flash.id = 'flash';
+const fillc = el(stage, '', {}, ''); fillc.id = 'fillc';
 window.TOTAL = t0;
 window.SCENES = scenes.map(({ id, start, dur, transition, drop }) => ({ id, start, dur, transition, drop }));
 const H = Math.min(0.24, beatLen * 0.45); // half-length of a transition
@@ -493,6 +686,8 @@ function transit(kind, side, p, T) {
       return { tf: '',
         filter: `drop-shadow(${14 * j}px 0 0 rgba(255,0,90,.75)) drop-shadow(${-14 * j}px 0 0 rgba(0,220,255,.75)) contrast(${1 + j * 0.4})`, cut: true };
     }
+    case 'pull': return side === 'in' ? { tf: `scale(${1 + q * 1.6})`, filter: `blur(${(q * 14).toFixed(1)}px)` } : { tf: `scale(${1 - q * 0.35})`, filter: `blur(${(q * 10).toFixed(1)}px)`, op: 1 - q };
+    case 'fill': return { cut: true };
     default: return { cut: true }; // flash: a hard cut under a white flash
   }
 }
@@ -521,8 +716,12 @@ window.renderAt = (T) => {
     // The background stays still (the owner's rule): no pulsing glow, streaks, rings or particles.
     s.update(T - s.start, s.dur, T);
   });
+  // 'fill': a green disc grows from the centre to cover the cut
+  let fillR = 0;
+  scenes.forEach((s) => { if (s.transition === 'fill') { const d = T - s.start; if (Math.abs(d) < H * 1.8) fillR = Math.max(fillR, d < 0 ? easeIn(clamp(1 + d / (H * 1.8))) : 1 - easeOut(clamp(d / (H * 1.8)))); } });
+  const R = fillR * 1250; Object.assign(fillc.style, { width: `${2 * R}px`, height: `${2 * R}px`, marginLeft: `${-R}px`, marginTop: `${-R}px`, opacity: fillR > 0 ? 1 : 0 });
   // the drop gets its own flash
-  if (DROP) flashOp = Math.max(flashOp, Math.max(0, 1 - Math.abs(T - DROP) / 0.35));
+  if (DROP && !scenes.some((x) => x.start === DROP && x.transition === 'fill')) flashOp = Math.max(flashOp, Math.max(0, 1 - Math.abs(T - DROP) / 0.35));
   flash.style.opacity = flashOp;
 };
 renderAt(0);

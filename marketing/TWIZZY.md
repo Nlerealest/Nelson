@@ -109,6 +109,8 @@ The `short` template does the edit for you, on the beat of whatever music the vi
 3. Write `learned` as a short, concrete style spec Twizzy can follow, not praise. For example: "62 s, 31 cuts (about one every 2 s, on the beat at 98 BPM); hard cuts and swipe-ups, no zooms; bold white captions centred in the lower third, 2–4 words at a time; dark background with one accent colour; opens with a question; ends on a logo card." Then set `status: "studied"` and finish the command with "Studied. Tap Use in next videos if you want this style."
 4. Never copy the reference's content, people, logos or music: only its style.
 
+**Reference specs come first.** If `marketing/references/<reference id>.md` exists for the reference in use, follow it exactly: it is the frame-by-frame breakdown of that reference and the Ndalama scene for each beat, made from the real video. For a new reference, write that file yourself when you study it (same layout as `references/ref-motion.md`), from the downloaded video, and build any motion it needs into `studio/templates/short/video.html` as new scene types or transitions. If the reference has no video file (only a text description), don't guess: mark the study command failed and ask the owner to upload the video.
+
 **Following the reference in use (the owner's rule):** the owner switches one reference on with **Use in next videos**; it replaces any earlier one. `tw.mjs state` lists it under `style_refs_in_use` (if more than one shows, follow the newest). **Every video you make while it is on (every idea, the owner's own ideas, every remake) copies the reference's editing, and only its editing:**
 
 - **Copy from the reference:** its transitions (directions: up, down, sideways, cuts, reveals), its pace and rhythm (`beats:` per scene, how many cuts), how text appears (`SHORT.style.reveal`: `blur`, `fade` or `type`), and how it shows the app (screens swiping inside a phone: `showcase` scene with `dir: 'up' | 'down' | 'alternate' | 'left'`; a typed question: `prompt`; a voice note: `voice`; cards flying in: `cards`). Transitions available: `slide`/`lift` (up), `drop` (down), `push-left`, `push-right`, `whip`, `circle`, `flash`, `glitch`.
@@ -132,7 +134,7 @@ cd marketing/campaigns && cp -r ../studio/templates/showreel 2026-11-payday && c
 ```
 Then rewrite the scenes for the new concept. Keep the helpers (`inn`, `out`, `draw`, `reveal`, `snap`, `pulse`) and the `window.renderAt(seconds)` / `window.TOTAL` contract that `render.cjs` uses.
 
-**TikTok and Reels need vertical video.** Plan 14–24 scenes for 60–90 s. Scene types: `title`, `split`, `phone`, `showcase`, `cards`, `counter`, `list`, `steps`, `prompt`, `voice`, `end`. The look is always Ndalama green (§4.1). Set `window.VIDEO_SIZE = {width: 1080, height: 1920}` at the top of the page script and lay the scenes out for portrait. Make a 16:9 version too when the post also goes to X or Facebook.
+**TikTok and Reels need vertical video.** Plan 14–24 scenes for 60–90 s. Scene types: `title`, `split`, `phone`, `showcase`, `cards`, `counter`, `list`, `steps`, `prompt`, `voice`, `chrome`, `bounce`, `pullback`, `morph`, `bento`, `namereveal`, `end`; transitions include `pull` (camera pull-back) and `fill` (green disc wipe). The look is always Ndalama green (§4.1). Set `window.VIDEO_SIZE = {width: 1080, height: 1920}` at the top of the page script and lay the scenes out for portrait. Make a 16:9 version too when the post also goes to X or Facebook.
 
 ### 4.3 App screens: today's app, honest numbers
 
