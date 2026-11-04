@@ -1,6 +1,6 @@
-# Twizzy last run: 2026-11-04
+# Last run: 2026-11-04
 
-- Command 30 (song, "Christmas budget: 7 weeks to go"): made the video with the owner's uploaded song, no voiceover; attached to post p-christmasplan, now awaiting approval.
-- Command 31 (study_ref, VID-20251103-WA0005.mp4): studied, spec written in marketing/references/r-43dfc391.md, status studied. Not in use, so no video was made with it.
-
-Video: "Christmas budget: 7 weeks to go" (89 s). Reference followed: none (house style). Voice: none. Song mode: upload (owner's song, cut on its beats).
+- Commands: none queued.
+- Approved concept "Christmas budget: 7 weeks to go" (c-christmasplan): post p-christmasplan already exists with a finished video awaiting approval (owner's uploaded song, no voice), made by an earlier run. I did not remake it. My insert attempt failed on the duplicate id, so nothing was changed.
+- Approved posts p-groceries and p-paydaychecklist: owner posts by hand; nothing to do. Video file check: all files present.
+- Videos made this run: none. Reference followed: none in use. Voice/song: n/a.
