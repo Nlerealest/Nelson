@@ -1,6 +1,5 @@
 # Last run: 2026-11-04
 
-- Command 26 (new ideas now): researched the week (web news was thin), proposed 5 long-form concepts: c-doublesalary, c-rainseason, c-term3fees, c-lentback, c-christmasplan. Done.
-- Command 27 (remake "Payday, in motion"): the owner wants to pick song and voice and music is set to ask, so I set the post to needs_song with a question and suggestions. No video rendered; the remake follows once the answer arrives. Done.
+- Queue check: no queued commands, no new references, no approved concepts or replies, no posts needing changes. `check` found no missing video files. The two approved posts (p-groceries, p-paydaychecklist) wait for the owner to post them by hand.
 
-Videos made: none (no reference spec used; reference in use is ref-apple, no video made this run).
+Videos made: none (nothing was asked). Reference in use: ref-apple. Voice: n/a. Song mode: n/a.
