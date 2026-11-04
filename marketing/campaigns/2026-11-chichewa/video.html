@@ -183,7 +183,6 @@ S.title = (root, c) => {
   return (t, D, T) => {
     if (kick) anim(kick, t, 0.05, D, { y: 20 });
     playWords(box, t, 0.15, D, c.gap ?? 0.1);
-    box.style.transform = `scale(${1 + t * 0.012})`;
     playSub(root, t, D);
   };
 };
@@ -242,7 +241,7 @@ S.counter = (root, c) => {
   sub(root, c.sub);
   return (t, D, T) => {
     playWords(lab, t, 0.05, D, 0.07);
-    inn(num, t, 0.3, { y: 40 }); out(num, t, D - 0.3); draw(num, `scale(${1 + 0.03 * pulse(T)})`);
+    inn(num, t, 0.3, { y: 40 }); out(num, t, D - 0.3); draw(num);
     rollCounter(num, t, 0.3);
     if (note) playWords(note, t, 1.3, D, 0.06);
     playSub(root, t, D);
@@ -357,6 +356,30 @@ S.showcase = (root, c) => {
       if (k !== i) { cap.style.opacity = 0; return; }
       cap.style.opacity = 1; playWords(cap, local, 0.05, each + 9, 0.06);
     });
+    playSub(root, t, D);
+  };
+};
+
+// Two option cards side by side with a highlight that moves from one to the
+// other (a reference's "Take away / Delivery" choice). {caption, options:[a,b], picks:[0,1], note}
+S.pair = (root, c) => {
+  const cap = c.caption ? words(root, c.caption, { top: '220px', fontSize: (c.size || 80) + 'px' }) : null;
+  const cards = c.options.map((txt, i) => el(root, `<div style="font-size:${c.optSize || 54}px;font-weight:800;text-align:center;line-height:1.15">${txt}</div>`,
+    { left: 70 + i * 480 + 'px', width: '460px', top: (c.top || 760) + 'px', height: '420px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '44px', color: '#fff',
+      border: '4px solid rgba(255,255,255,.25)', background: 'rgba(255,255,255,.06)' }, 'abs'));
+  const note = c.note ? words(root, c.note, { top: (c.top || 760) + 520 + 'px', fontSize: '56px', fontWeight: 600 }) : null;
+  sub(root, c.sub);
+  return (t, D) => {
+    if (cap) playWords(cap, t, 0.05, D, 0.07);
+    const picks = c.picks || [0, 1], seg = (D - 1.2) / picks.length;
+    const cur = t < 1.0 ? -1 : picks[Math.min(picks.length - 1, Math.floor((t - 1.0) / seg))];
+    cards.forEach((n, i) => {
+      inn(n, t, 0.25 + i * 0.2, { x: i ? 300 : -300, y: 0, s: 1, blur: 14, dur: 0.55 }); draw(n);
+      const on = cur === i;
+      n.style.background = on ? 'linear-gradient(160deg,#17a35c,#0b6b3a)' : 'rgba(255,255,255,.06)';
+      n.style.borderColor = on ? '#14b866' : 'rgba(255,255,255,.25)';
+    });
+    if (note) playWords(note, t, 1.2, D, 0.06);
     playSub(root, t, D);
   };
 };

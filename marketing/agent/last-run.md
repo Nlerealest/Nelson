@@ -1,7 +1,8 @@
-# Last run: 2026-11-03
+# Last run: 2026-11-04
 
-- Command 23 (study the new TikTok reference link): opened the page and read its details (20 s, landscape spec ad). TikTok blocked the video download, so its editing could not be measured. Marked the reference "studied" with a note and asked the owner to upload the video file. Not set as a style in use. Result: done.
-- Check of video files: all 14 posts have their file. Nothing to remake.
-- Approved posts (p-groceries, p-paydaychecklist): the owner posts them by hand, nothing to do.
+- Command 24 (study reference): studied the new reference video (29.9 s, ~117 BPM, circle wipes, huge single words, option cards, phone and fanned screens), wrote its style spec and set it active as the reference in use (the earlier one is back to studied). Done.
+- Command 25 (remake "Ndalama in Chichewa"): rebuilt it as a 52 s story in the new reference's editing, with today's app screens and numbers (safe to spend K15,703 a day for 27 days). Added a `pair` scene to the template and removed the small title scale and counter pulse (no zoom). Attached and sent to Approvals. Done.
 
-Videos made this run: none (no video was requested). Reference followed: none. Voice: none. Song mode: none.
+Video: "Ndalama in Chichewa (52s)". Reference followed: r-69b1218d. Voice: none. Song mode: original music (remake keeps the earlier choice).
+
+Skipped: the approved posts need nothing from me.
