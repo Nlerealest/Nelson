@@ -1,21 +1,22 @@
-// "Payday, in motion": the owner's motion-design reference (ref-motion) rebuilt
-// for Ndalama, in the dark green look. Persona: corporate (numbers.txt, 4 Nov 2026):
-// K1,450,000 salary, K15,703 a day for 27 days, savings this month K234,018,
-// car goal K4,000,000 of K9,000,000. October balance from the persona's month.
+// "Payday, in motion", remade in the clean Apple-style (ref-apple): blur-in words, floating cards,
+// soft transitions. Persona: corporate (numbers.txt, 4 Nov 2026): income K1,730,000 a month,
+// safe to spend K15,703 a day for 27 days, set aside for goals K234,018, kept K370,000 (21%),
+// rent K650,000, K5,200,000 towards savings goals.
 window.SHORT = {
   bpm: 100, mood: 'warm',
+  style: { reveal: 'blur' },
   scenes: [
-    { type: 'chrome', beats: 8, word: 'NDALAMA', sub: 'Your money, in motion.' },
-    { type: 'bounce', beats: 10, transition: 'drop', captions: ['Payday. <em>K1,450,000.</em>', 'Rent. Fuel. Fees. <bad>Gone?</bad>'] },
-    { type: 'pullback', beats: 10, transition: 'pull', img: 'screen-home', focusY: 0.18, caption: 'Every kwacha,<br><em>in one place.</em>', label: 'Balance in October', value: 'K370,000 left',
-      curve: [1450000, 800000, 730000, 673000, 589000, 529000, 429000, 384000, 334000, 319000, 599000, 554000, 445000, 410000, 370000] },
-    { type: 'counter', beats: 7, transition: 'whip', label: 'Safe to spend today', value: 15703, note: 'a day for the next 27 days' },
-    { type: 'morph', beats: 9, transition: 'circle', caption: 'New car:<br><em>44% there.</em>', goal: 9000000, saved: 4000000, label: 'of K9,000,000' },
-    { type: 'bento', beats: 10, transition: 'fill', drop: true, word: 'Budget', cards: ['card-hero', 'card-goal'], caption: 'Budgets. Bills.<br>Goals. <em>Loans.</em>', curveLabel: 'Savings', bars: [60, 45, 72, 50, 84, 66, 90] },
-    { type: 'showcase', beats: 14, transition: 'slide', imgs: ['screen-budget', 'screen-goals', 'screen-bills', 'screen-loans'], dir: 'alternate',
-      captions: ['A budget from<br><em>what you earn</em>', 'Goals with<br><em>early warnings</em>', 'Bills reminded<br><em>before they’re due</em>', 'Every loan<br><em>tracked</em>'] },
-    { type: 'counter', beats: 7, transition: 'whip', label: 'Set aside for goals', value: 234018, note: 'before you spend a kwacha' },
-    { type: 'namereveal', beats: 8, transition: 'fill', name: 'Ndalama', sub: 'Know where your kwacha goes.' },
-    { type: 'end', beats: 10, transition: 'drop' },
+    { id: 'hook', type: 'title', beats: 8, kicker: 'Payday', lines: ['K1,730,000', '<em>lands today.</em>'], size: 120 },
+    { id: 'gone', type: 'title', beats: 8, transition: 'slide', lines: ['Rent. Fuel. Fees.', '<bad>Where did it go?</bad>'], size: 104 },
+    { id: 'rent', type: 'counter', beats: 8, transition: 'circle', label: 'Rent alone', value: 650000, note: 'before the month has even started' },
+    { id: 'one', type: 'phone', beats: 10, transition: 'push-left', img: 'screen-home', caption: 'Every kwacha,<br><em>in one place.</em>', size: 72, top: 440 },
+    { id: 'safe', type: 'counter', beats: 10, drop: true, label: 'Safe to spend today', value: 15703, note: 'a day for 27 days, after bills,<br>debts and savings' },
+    { id: 'budget', type: 'cards', beats: 8, transition: 'slide', cards: ['card-budget'], heights: [780], caption: 'A budget from<br><em>what you really earn</em>', top: 560 },
+    { id: 'goal', type: 'cards', beats: 8, transition: 'circle', cards: ['card-goal2'], heights: [780], caption: 'Goals with<br><em>early warnings</em>', top: 560 },
+    { id: 'bills', type: 'cards', beats: 8, transition: 'push-left', cards: ['card-bills'], heights: [796], caption: 'Bills reminded<br><em>before they are due</em>', top: 560 },
+    { id: 'aside', type: 'counter', beats: 9, transition: 'slide', label: 'Set aside for goals', value: 234018, note: 'before you spend a kwacha' },
+    { id: 'kept', type: 'counter', beats: 9, transition: 'circle', label: 'Kept this month', value: 370000, note: '21% of the income' },
+    { id: 'calm', type: 'title', beats: 8, transition: 'drop', lines: ['Payday, <em>under control.</em>'], size: 112 },
+    { id: 'end', type: 'end', beats: 10, bg: 'green' },
   ],
 };
