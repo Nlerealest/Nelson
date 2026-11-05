@@ -136,11 +136,18 @@ function words(parent, html, style) {
     box.appendChild(s); box.appendChild(document.createTextNode(' '));
   });
   box._words = [...box.querySelectorAll('.w')];
+  box._words.forEach((w) => { w._html = w.innerHTML; w._text = w.textContent; });
+  // House style (no reference in use): each text block gets its own reveal, in turn.
+  if (!STYLE.reveal) box._mode = HOUSE_REVEALS[WORD_N++ % HOUSE_REVEALS.length];
   return box;
 }
-// How words appear: 'blur' (blur-in, default), 'fade', or 'type' (typed letter
-// by letter with a caret). Set for the whole video in SHORT.style.reveal, or per
-// scene with reveal: '…'.
+const HOUSE_REVEALS = ['rise', 'flip', 'scramble', 'blur'];
+let WORD_N = 0;
+const SCRAMBLE = 'ABCDEFGHJKLMNPRSTUVWXYZ0123456789K#%';
+// How words appear: 'rise' (out of an invisible line), 'flip' (3D flip up),
+// 'scramble' (code shuffle that locks in), 'blur', 'fade', or 'type' (typed with a
+// caret). Set for the whole video in SHORT.style.reveal, or per scene with
+// reveal: '…'. With neither, the house style takes them in turn.
 function playWords(box, t, at, D, gap = 0.09, mode = box._mode || STYLE.reveal || 'blur') {
   if (mode === 'type') {
     const cps = 26; // letters per second
@@ -162,6 +169,30 @@ function playWords(box, t, at, D, gap = 0.09, mode = box._mode || STYLE.reveal |
   }
   box._words.forEach((w, i) => {
     if (mode === 'fade') { w.style.opacity = easeOut(prog(t, at + i * gap, 0.35)); return; }
+    if (mode === 'rise') {
+      // each word rises out of an invisible line (masked slide-up)
+      const p = easeOut(prog(t, at + i * gap, 0.55)), d = (1 - p) * 105;
+      w.style.opacity = p > 0 ? 1 : 0; w.style.filter = 'none';
+      w.style.transform = `translateY(${d.toFixed(1)}%)`;
+      w.style.clipPath = `inset(-30% -10% ${d.toFixed(1)}% -10%)`;
+      return;
+    }
+    if (mode === 'flip') {
+      // each word flips up in 3D from its baseline
+      const p = backOut(prog(t, at + i * gap, 0.6));
+      w.style.opacity = clamp(p * 1.6); w.style.filter = 'none'; w.style.transformOrigin = '50% 100%';
+      w.style.transform = `perspective(900px) rotateX(${((1 - p) * 95).toFixed(1)}deg)`;
+      return;
+    }
+    if (mode === 'scramble') {
+      // letters shuffle like a code, then lock in from left to right
+      const p = prog(t, at + i * gap * 0.6, 0.7);
+      w.style.opacity = p > 0 ? 1 : 0; w.style.filter = 'none'; w.style.transform = 'none';
+      if (p >= 1) { if (w.innerHTML !== w._html) w.innerHTML = w._html; return; }
+      const f = Math.floor(t * 24), locked = Math.floor(p * w._text.length);
+      w.textContent = [...w._text].map((ch, k) => (k < locked || ch === ' ' || ch === ',' || ch === '.' ? ch : SCRAMBLE[Math.floor(rnd(f * 31 + k * 7 + i) * SCRAMBLE.length)])).join('');
+      return;
+    }
     inn(w, t, at + i * gap, { y: 40, blur: 18 }); out(w, t, D - 0.3); draw(w);
   });
 }
@@ -605,7 +636,12 @@ let t0 = SONG ? SONG.offset || 0 : SHORT.offset || 0;
 // (addFx below is kept switched off; window.BACKGROUND_FX turns it on.)
 const ENERGY = window.ENERGY || null;            // loudness per beat, 0..1 (from make_short.sh)
 // No zoom or spin (the owner's rule: no zoom effects).
-const TRANSITIONS = ['whip', 'slide', 'drop', 'flash', 'circle', 'glitch'];
+// The house style's cuts (used when no reference is in use and a scene sets none):
+// motion graphics, not plain slides. A reference in use sets its own on each scene.
+const TRANSITIONS = ['cube', 'band', 'flip3d', 'blinds', 'fill', 'doors', 'circle', 'pull'];
+// 'cube': the screen turns like a 3D cube. 'flip3d': the scene flips over like a card.
+// 'band': a green diagonal band sweeps across and hides the cut. 'blinds': the next
+// scene opens through stripes. 'doors': it opens from the middle like barn doors.
 // 'fill': the hero coin grows to fill the screen in Ndalama green, then the next scene appears (the reference's ball wipe).
 // 'pull': the next scene starts close up and the camera pulls back (the reference's reveal).
 const beatIndex = (T) => { let i = -1; for (let k = 0; k < BEATS.length && BEATS[k] <= T + 1e-6; k++) i = k; return i; };
@@ -617,7 +653,7 @@ const energy = (T) => {
   if (ENERGY && BEATS.length) { const i = Math.max(0, beatIndex(T)); return ENERGY[Math.min(i, ENERGY.length - 1)] ?? 0.7; }
   return T < DROP ? 0.45 : 1;
 };
-const rnd = (n) => { const x = Math.sin(n * 12.9898) * 43758.5453; return x - Math.floor(x); };
+function rnd(n) { const x = Math.sin(n * 12.9898) * 43758.5453; return x - Math.floor(x); }
 
 function addFx(root) {
   const fx = el(root, '', {}, 'fx');
@@ -663,6 +699,7 @@ const scenes = SHORT.scenes.map((c, i) => {
 });
 const flash = el(stage, '', {}, ''); flash.id = 'flash';
 const fillc = el(stage, '', {}, ''); fillc.id = 'fillc';
+const band = el(stage, '', { position: 'absolute', top: '-30%', height: '160%', width: '900px', left: '0', background: 'linear-gradient(90deg, #0b6b3a, #14b866 45%, #3ee08a 55%, #0b6b3a)', transform: 'skewX(-18deg)', zIndex: 41, opacity: 0, boxShadow: '0 0 80px rgba(20,184,102,.6)' });
 window.TOTAL = t0;
 window.SCENES = scenes.map(({ id, start, dur, transition, drop }) => ({ id, start, dur, transition, drop }));
 const H = Math.min(0.24, beatLen * 0.45); // half-length of a transition
@@ -676,6 +713,8 @@ function transit(kind, side, p, T) {
     case 'whip': return { tf: `translateX(${(side === 'out' ? -1 : 1) * q * 1180}px) skewX(${(side === 'out' ? 1 : -1) * q * 8}deg)`, filter: `blur(${mb}px)` };
     case 'slide': case 'lift': return { tf: `translateY(${(side === 'out' ? -1 : 1) * q * 2000}px)`, filter: `blur(${mb * 0.8}px)` };
     case 'drop': return { tf: `translateY(${(side === 'out' ? 1 : -1) * q * 2000}px)`, filter: `blur(${mb * 0.8}px)` };
+    // 'whip-right': the reference's whip back (camera swings the other way): out to the right, in from the left, heavy blur, skew.
+    case 'whip-right': return { tf: `translateX(${(side === 'out' ? 1 : -1) * q * 1180}px) skewX(${(side === 'out' ? -1 : 1) * q * 8}deg)`, filter: `blur(${mb * 1.15}px)` };
     case 'push-left': return { tf: `translateX(${(side === 'out' ? -1 : 1) * q * 1180}px)` };
     case 'push-right': return { tf: `translateX(${(side === 'out' ? 1 : -1) * q * 1180}px)` };
     case 'zoom': return side === 'out' ? { tf: `scale(${1 + q * 2.2})`, filter: `blur(${mb}px)`, op: 1 - q } : { tf: `scale(${1 - q * 0.45})`, filter: `blur(${mb}px)`, op: 1 - q };
@@ -686,6 +725,17 @@ function transit(kind, side, p, T) {
       return { tf: '',
         filter: `drop-shadow(${14 * j}px 0 0 rgba(255,0,90,.75)) drop-shadow(${-14 * j}px 0 0 rgba(0,220,255,.75)) contrast(${1 + j * 0.4})`, cut: true };
     }
+    case 'cube': return side === 'out'
+      ? { tf: `perspective(2600px) rotateY(${(-p * 90).toFixed(2)}deg)`, origin: '50% 50% -540px', filter: `brightness(${(1 - p * 0.5).toFixed(2)})` }
+      : { tf: `perspective(2600px) rotateY(${((1 - p) * 90).toFixed(2)}deg)`, origin: '50% 50% -540px', filter: `brightness(${(0.5 + p * 0.5).toFixed(2)})` };
+    case 'flip3d': {
+      const a = side === 'out' ? Math.min(1, p * 2) * 90 : -(1 - Math.max(0, (p - 0.5) * 2)) * 90;
+      const vis = side === 'out' ? p < 0.5 : p >= 0.5;
+      return { tf: `perspective(2200px) rotateY(${a.toFixed(2)}deg)`, op: vis ? 1 : 0, filter: `brightness(${(1 - Math.abs(a) / 180).toFixed(2)})` };
+    }
+    case 'blinds': return side === 'in' ? { mask: `repeating-linear-gradient(100deg, #000 0 ${(easeInOut(p) * 140).toFixed(1)}px, transparent ${(easeInOut(p) * 140).toFixed(1)}px 140px)`, top: true } : {};
+    case 'doors': return side === 'in' ? { clip: `inset(0 ${((1 - easeInOut(p)) * 50).toFixed(2)}% 0 ${((1 - easeInOut(p)) * 50).toFixed(2)}%)` } : {};
+    case 'band': return { cut: true };
     case 'pull': return side === 'in' ? { tf: `scale(${1 + q * 1.6})`, filter: `blur(${(q * 14).toFixed(1)}px)` } : { tf: `scale(${1 - q * 0.35})`, filter: `blur(${(q * 10).toFixed(1)}px)`, op: 1 - q };
     case 'fill': return { cut: true };
     default: return { cut: true }; // flash: a hard cut under a white flash
@@ -712,10 +762,17 @@ window.renderAt = (T) => {
     s.root.style.filter = look.filter || 'none';
     s.root.style.opacity = look.op ?? 1;
     s.root.style.clipPath = look.clip || 'none';
-    s.root.style.zIndex = look.clip ? 3 : T >= s.start ? 2 : 1;
+    s.root.style.transformOrigin = look.origin || '50% 50%';
+    s.root.style.webkitMaskImage = look.mask || 'none';
+    s.root.style.zIndex = look.clip || look.top ? 3 : T >= s.start ? 2 : 1;
     // The background stays still (the owner's rule): no pulsing glow, streaks, rings or particles.
     s.update(T - s.start, s.dur, T);
   });
+  // 'band': a green diagonal band sweeps across the screen and covers the cut
+  let bandX = null;
+  scenes.forEach((s) => { if (s.transition === 'band') { const d = T - s.start; if (Math.abs(d) < H * 1.6) bandX = easeInOut(clamp((d + H * 1.6) / (H * 3.2))); } });
+  band.style.opacity = bandX === null ? 0 : 1;
+  if (bandX !== null) band.style.left = `${(-1100 + bandX * 2300).toFixed(1)}px`;
   // 'fill': a green disc grows from the centre to cover the cut
   let fillR = 0;
   scenes.forEach((s) => { if (s.transition === 'fill') { const d = T - s.start; if (Math.abs(d) < H * 1.8) fillR = Math.max(fillR, d < 0 ? easeIn(clamp(1 + d / (H * 1.8))) : 1 - easeOut(clamp(d / (H * 1.8)))); } });
