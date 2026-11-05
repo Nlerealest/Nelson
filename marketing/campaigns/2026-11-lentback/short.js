@@ -2,7 +2,7 @@
 // Numbers: corporate persona, assets/app/numbers.txt + screens of 5 Nov 2026: Chikondi (cousin) lent K400,000 since 10 Oct,
 // K100,000 repaid, K300,000 still owed, due 15 Dec. 86 bpm = half of the reference's 172, so one beat = two of its beats.
 window.SHORT = {
-  bpm: 86, mood: 'tense',
+  bpm: 92, mood: 'warm',
   style: { reveal: 'blur' },
   scenes: [
     { id: 'b1', type: 'prompt', beats: 4, caption: 'A cousin borrowed<br><em>K400,000</em>', text: 'I will pay you back Friday.', placeholder: 'Friday…', size: 76 },
