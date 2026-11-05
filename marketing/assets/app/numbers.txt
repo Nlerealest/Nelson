@@ -1,7 +1,7 @@
-# What the app shows on 2026-11-04 for this persona (sample-data.mjs). Use these numbers in videos.
+# What the app shows on 2026-11-05 for this persona (sample-data.mjs). Use these numbers in videos.
 persona corporate - Senior manager in Lilongwe, sells broilers on the side - income a month 1730000
-safe 15703 leftToday 15703 days 27 available 423982.40469208214
-surplus 728667 needed 234018
+safe 18615 leftToday 18615 days 26 available 483982.40469208214
+surplus 788667 needed 234018
  goal New car 161290
  goal Emergency fund 72727
 [

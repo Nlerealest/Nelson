@@ -676,6 +676,8 @@ function transit(kind, side, p, T) {
     case 'whip': return { tf: `translateX(${(side === 'out' ? -1 : 1) * q * 1180}px) skewX(${(side === 'out' ? 1 : -1) * q * 8}deg)`, filter: `blur(${mb}px)` };
     case 'slide': case 'lift': return { tf: `translateY(${(side === 'out' ? -1 : 1) * q * 2000}px)`, filter: `blur(${mb * 0.8}px)` };
     case 'drop': return { tf: `translateY(${(side === 'out' ? 1 : -1) * q * 2000}px)`, filter: `blur(${mb * 0.8}px)` };
+    // 'whip-right': the reference's whip back (camera swings the other way): out to the right, in from the left, heavy blur, skew.
+    case 'whip-right': return { tf: `translateX(${(side === 'out' ? 1 : -1) * q * 1180}px) skewX(${(side === 'out' ? -1 : 1) * q * 8}deg)`, filter: `blur(${mb * 1.15}px)` };
     case 'push-left': return { tf: `translateX(${(side === 'out' ? -1 : 1) * q * 1180}px)` };
     case 'push-right': return { tf: `translateX(${(side === 'out' ? 1 : -1) * q * 1180}px)` };
     case 'zoom': return side === 'out' ? { tf: `scale(${1 + q * 2.2})`, filter: `blur(${mb}px)`, op: 1 - q } : { tf: `scale(${1 - q * 0.45})`, filter: `blur(${mb}px)`, op: 1 - q };

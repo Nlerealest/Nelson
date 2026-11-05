@@ -1,7 +1,7 @@
-# What the app shows on 2026-11-04 for this persona (sample-data.mjs). Use these numbers in videos.
+# What the app shows on 2026-11-05 for this persona (sample-data.mjs). Use these numbers in videos.
 persona family - Parent of three, two salaries and a tailoring business - income a month 1750000
-safe 28199 leftToday 28199 days 27 available 761367.3469387755
-surplus 797000 needed 181633
+safe 31976 leftToday 31976 days 26 available 831367.3469387755
+surplus 867000 needed 181633
  goal Children's school fees 100000
  goal Family car 81633
 [
