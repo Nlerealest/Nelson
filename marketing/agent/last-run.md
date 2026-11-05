@@ -1,5 +1,9 @@
 # Twizzy last run: 2026-11-05
 
-- Command 32 (make_idea "He said he will pay back Friday"): Settings music is "ask", so no video was rendered yet. Created post p-lentback with status needs_song and a question about voice and song (with suggestions). Result: done, waiting for the owner's answer.
-- Other waiting items: approved concept c-christmasplan has no command; left for the next run. Approved posts are posted by the owner; nothing to do.
-- Videos made: none. Reference followed: none in use. Voice: not chosen yet. Song mode: not chosen yet.
+- Command 33 (study reference r-b111f257): studied the 24 s kinetic-text reel, spec in marketing/references/r-b111f257.md, status studied. Done.
+- Command 34 (study reference r-f22e8347): studied the 30 s colour-fill launch explainer, spec in marketing/references/r-f22e8347.md, status studied. Done.
+- Command 35 (study reference r-d3ece952): studied the 49 s transforming-motion film, spec in marketing/references/r-d3ece952.md, status studied. Done.
+- Approved ideas: "He said he will pay back Friday" already has a needs_song post with the voice and song question waiting for the owner, so I left it. "Christmas budget: 7 weeks to go" already has a finished video awaiting approval, so I left it too. Nothing new rendered.
+- Missing-video check: all 16 posts have their files.
+
+Videos made: none this run (no reference in use, waiting on the owner's voice and song answers; the new references only apply once the owner taps Use in next videos).
