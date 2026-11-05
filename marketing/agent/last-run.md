@@ -1,5 +1,5 @@
 # Twizzy last run: 2026-11-05
 
-- Queued commands: none waiting.
-- Job: study job (no new videos). Re-downloaded reference r-43dfc391, studied it (contact sheets at 4 fps and 15 fps, per-frame edge-energy blur measurement, beat detection) and wrote marketing/references/r-43dfc391.md: measured camera moves, beat-by-beat table with the Ndalama scene/transition for each beat. Result: spec saved. The whip-right transition already exists in the template, so no template change was needed. Video and frames not committed.
-- Videos made: none (study job only). Reference followed: n/a. Voice: n/a. Song mode: n/a.
+- Command 32 (make_idea "He said he will pay back Friday"): Settings music is "ask", so no video was rendered yet. Created post p-lentback with status needs_song and a question about voice and song (with suggestions). Result: done, waiting for the owner's answer.
+- Other waiting items: approved concept c-christmasplan has no command; left for the next run. Approved posts are posted by the owner; nothing to do.
+- Videos made: none. Reference followed: none in use. Voice: not chosen yet. Song mode: not chosen yet.
