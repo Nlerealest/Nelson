@@ -126,6 +126,9 @@ jobs:
 
             Every video you make must be 45 seconds to 1:45 long and tell a full story (TWIZZY.md section 4.0).
             Deliver every finished video with `node marketing/agent/tw.mjs attach <post-id> <file.mp4>` (section 4.6), never by hand.
+            With a reference in use, the video must be that reference re-made for Ndalama: same beats in the same order,
+            same motions, transitions, timing proportions and text animation; only the content and the Ndalama theme change.
+            Run the fidelity check in TWIZZY.md 4.1 (score at least 90%) before the final render.
             References: follow ONLY the reference currently in use (style_refs_in_use in tw.mjs state, the one the owner
             switched on; if several show, the newest). Read marketing/references/<its id>.md and follow it beat by beat.
             If it has no spec file yet, study it first (TWIZZY.md 4.1) and write the spec, then make the video.
