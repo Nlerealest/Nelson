@@ -1,0 +1,28 @@
+// "January school fees: start the goal now" (about 75 s). Reference r-f22e8347 (marketing/references/r-f22e8347.md), beat by beat,
+// pattern played through twice: problem half, then the Ndalama half. Family persona numbers (assets/app/personas/family/numbers.txt,
+// screens of 5 Nov 2026): school fees goal K3,000,000 by 28 Feb 2027, K2,600,000 saved (87%), K100,000 a month for 4 months.
+window.SHORT = {
+  bpm: 100, mood: 'warm',
+  style: { reveal: 'blur' },
+  scenes: [
+    { id: 'r1', type: 'title', beats: 2, kicker: 'January', lines: ['<em>Fees.</em>'], size: 220 },
+    { id: 'r2', type: 'title', beats: 2, transition: 'flash', lines: ['Uniforms.'], size: 190 },
+    { id: 'r3', type: 'title', beats: 2, transition: 'flash', lines: ['<em>Books.</em>'], size: 220 },
+    { id: 'r4', type: 'title', beats: 4, transition: 'blinds', kicker: 'Three children', lines: ['All due', 'at <em>once?</em>'], size: 130 },
+    { id: 'r5', type: 'phone', beats: 6, transition: 'slide', img: 'screen-goals', caption: 'Start the goal<br><em>now.</em>', size: 84, top: 470 },
+    { id: 'r6', type: 'cards', beats: 6, transition: 'whip', cards: ['card-goal', 'card-goal2'], heights: [430, 430], caption: 'Fees <em>or</em> the car?<br>See both.', top: 520 },
+    { id: 'r7', type: 'title', beats: 4, transition: 'fill', kicker: 'Children’s school fees', lines: ['<em>K2,600,000</em>', 'saved of K3,000,000'], size: 112 },
+    { id: 'r8', type: 'showcase', beats: 10, transition: 'circle', dir: 'up', imgs: ['screen-goals', 'screen-home', 'screen-budget'], captions: ['A goal for <em>fees</em>', 'Safe to spend <em>today</em>', 'A budget that fits'], size: 72, top: 450 },
+    { id: 'r9', type: 'steps', beats: 8, transition: 'fill', title: 'Three <em>taps</em>', size: 110, top: 520, gap: 230,
+      items: [{ k: '1', text: 'Name the goal' }, { k: '2', text: 'Set the amount' }, { k: '3', text: 'Pick the date' }] },
+    { id: 'r10', type: 'namereveal', beats: 4, drop: true, transition: 'flash', name: 'Ndalama', sub: 'Plan it early.' },
+    { id: 'r11', type: 'counter', beats: 6, transition: 'band', label: 'Save each month', value: 100000, note: 'for 4 months<br>about K3,333 a day' },
+    { id: 'r12', type: 'morph', beats: 6, transition: 'blinds', caption: '87% there.<br><em>K400,000 to go.</em>', size: 64, label: 'saved', saved: 2600000, goal: 3000000 },
+    { id: 'r13', type: 'title', beats: 4, transition: 'glitch', kicker: 'Spending too fast?', lines: ['It warns you', '<em>early.</em>'], size: 130 },
+    { id: 'r14', type: 'cards', beats: 6, transition: 'whip-right', cards: ['card-budget'], heights: [620], caption: 'Budgets that<br><em>match your income</em>', top: 560 },
+    { id: 'r15', type: 'steps', beats: 8, transition: 'fill', title: 'Tap. <em>Save.</em> Done.', size: 100, top: 520, gap: 230,
+      items: [{ k: 'Tap', text: 'Add savings' }, { k: 'Save', text: 'Month by month' }, { k: 'Done', text: 'Fees ready for term' }] },
+    { id: 'r16', type: 'title', beats: 6, transition: 'circle', kicker: 'January', lines: ['Fees <em>ready.</em>', 'No panic.'], size: 130 },
+    { id: 'end', type: 'end', beats: 8, transition: 'fill', bg: 'green' },
+  ],
+};
