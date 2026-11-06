@@ -1,7 +1,7 @@
-# What the app shows on 2026-11-05 for this persona (sample-data.mjs). Use these numbers in videos.
+# What the app shows on 2026-11-06 for this persona (sample-data.mjs). Use these numbers in videos.
 persona young - Young professional, single, sells phone accessories on the side - income a month 740000
-safe 11033 leftToday 11033 days 26 available 286857.14285714284
-surplus 374667 needed 101143
+safe 10274 leftToday 10274 days 25 available 256857.14285714284
+surplus 344667 needed 101143
  goal New phone 57143
  goal Rainy-day fund 44000
 [
