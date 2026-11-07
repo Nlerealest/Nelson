@@ -1,7 +1,7 @@
-# What the app shows on 2026-11-06 for this persona (sample-data.mjs). Use these numbers in videos.
+# What the app shows on 2026-11-07 for this persona (sample-data.mjs). Use these numbers in videos.
 persona business - Owns two shops in Blantyre, runs a minibus on the side - income a month 3000000
-safe 30000 leftToday 30000 days 25 available 750000
-surplus 1320667 needed 480000
+safe 20833 leftToday 20833 days 24 available 500000
+surplus 1070667 needed 480000
  goal Second shop 360000
  goal Land in Area 47 120000
 [
