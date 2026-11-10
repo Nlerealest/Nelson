@@ -1,11 +1,15 @@
-# What the app shows on 2026-11-09 for this persona (sample-data.mjs). Use these numbers in videos.
+# What the app shows on 2026-11-10 for this persona (sample-data.mjs). Use these numbers in videos.
 persona family - Parent of three, two salaries and a tailoring business - income a month 1750000
-safe 16835 leftToday 16835 days 22 available 370367.3469387755
-surplus 224111 needed 181633
+safe 13351 leftToday 13351 days 21 available 280367.3469387755
+surplus 108667 needed 181633
+ - warning "Children's school fees" is off track: it needs K100,000 a month but you are on course to save about K59,828. At this rate it takes 7 months instead of 4.
+ - warning "Family car" is off track: it needs K81,633 a month but you are on course to save about K48,839. At this rate it takes 82 months instead of 49.
+ - tip Tip: Groceries is your biggest everyday cost this month (K200,000). Cutting about K72,966 from spending this month would put your goals back on track.
  goal Children's school fees 100000
  goal Family car 81633
- budget Transport pace 480000
- budget Airtime & Data pace 190000
+ budget Groceries pace 600000
+ budget Transport pace 432000
+ budget Airtime & Data pace 171000
 [
   'You kept 18% of your income (K315,000).',
   'Most money went to Rent: K500,000 (35% of spending).',
