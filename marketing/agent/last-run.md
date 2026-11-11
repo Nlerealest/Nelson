@@ -1,5 +1,4 @@
-# Last run: 2026-11-10
+# Last run: 2026-11-11
 
-- Daily check: no commands queued, no new references, no posts to make or remake, no approved concepts or replies. Ran `check`: all 20 video files present. Logged one activity entry.
-- Videos made: none. (Reference in use: r-b111f257; not needed today.)
-- Skipped: Monday ideas (today is Tuesday).
+- Daily check: read the state (no queued commands, no approved concepts, no new references, no replies to send, no posts making or needing changes). Ran the file check: all 20 post videos present. Approved posts are waiting for the owner to post by hand.
+- Logged one activity entry. No videos made this run (reference followed: none, voice: none, song mode: none).
