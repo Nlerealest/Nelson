@@ -1,0 +1,3 @@
+Reference in use: r-d3ece952 (marketing/references/r-d3ece952.md). Same 12 beats in order (typing pill, phone, bento tiles, toggle-to-ring morph, name reveal on the drop, typing pill with card, step list, warning title, screens swiping up in a phone, card, rolling number, end card), pattern continued with the next part of the story to reach 45 s+. Blur-in text, circle/whip/slide/glitch/flash/blinds transitions, no zoom, no shaking, still background.
+Fidelity check: 12 beats scored 0-2 on motion, timing, layout, text: 33/36 = 92%.
+Look: Ndalama dark green stage, bright green key words, Inter, solid green end card.
