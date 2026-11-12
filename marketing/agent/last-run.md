@@ -1,6 +1,6 @@
 # Last run: 2026-11-12
 
-- Daily check: no queued commands, no new references, no approved concepts or replies, no posts needing changes.
-- `check`: all 22 video files present, nothing to re-render.
-- Approved posts are waiting for the owner to post by hand (section 5).
-- Logged one activity entry. No videos made this run.
+- Command 50 (make "December is loud, January is quiet"): settings ask for the song first, so I created post p-januarygap as needs_song with a voice and song question. No video rendered yet. Done.
+- Command 51 (make "Prices up again: re-check your budget"): same, post p-pricesup as needs_song. Done.
+
+No videos made this run (voice and song not chosen yet), so no reference, voice or song mode to report. Reference in use for the next renders: r-d3ece952.
