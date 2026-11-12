@@ -1,12 +1,16 @@
-# What the app shows on 2026-11-11 for this persona (sample-data.mjs). Use these numbers in videos.
+# What the app shows on 2026-11-12 for this persona (sample-data.mjs). Use these numbers in videos.
 persona corporate - Senior manager in Lilongwe, sells broilers on the side - income a month 1730000
-safe 3399 leftToday 3399 days 20 available 67982.40469208214
-surplus 288606 needed 234018
+safe 946 leftToday 946 days 19 available 17982.404692082142
+surplus 233000 needed 234018
+ - warning "New car" is off track: it needs K161,290 a month but you are on course to save about K160,589. At this rate it takes 32 months instead of 31.
+ - warning "Emergency fund" is off track: it needs K72,727 a month but you are on course to save about K72,411. At this rate it takes 12 months instead of 11.
+ - tip Tip: Groceries is your biggest everyday cost this month (K115,000). Cutting about K1,018 from spending this month would put your goals back on track.
  goal New car 161290
  goal Emergency fund 72727
- budget Groceries pace 313636
- budget Transport pace 229091
- budget Airtime & Data pace 155455
+ budget Groceries pace 287500
+ budget Transport pace 210000
+ budget Airtime & Data pace 142500
+ budget Church & Giving pace 125000
 [
   'You kept 21% of your income (K370,000).',
   'Most money went to Rent: K650,000 (48% of spending).',
