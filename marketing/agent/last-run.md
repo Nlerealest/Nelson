@@ -1,6 +1,7 @@
 # Last run: 2026-11-12
 
-- Command 50 (make "December is loud, January is quiet"): settings ask for the song first, so I created post p-januarygap as needs_song with a voice and song question. No video rendered yet. Done.
-- Command 51 (make "Prices up again: re-check your budget"): same, post p-pricesup as needs_song. Done.
-
-No videos made this run (voice and song not chosen yet), so no reference, voice or song mode to report. Reference in use for the next renders: r-d3ece952.
+- Commands: none queued.
+- Approved idea "Prices up again: re-check your budget in 5 minutes" (c-pricesup): post p-pricesup is already waiting in the app with the voice and song question (music setting is "ask"). Not rendered; waiting for the owner's answer.
+- Approved idea "December is loud, January is quiet: plan the gap" (c-januarygap): post p-januarygap is already waiting in the app with the voice and song question. Not rendered; waiting for the owner's answer.
+- Videos made this run: none (no video can be rendered before the owner picks voice and song). Reference in use: r-d3ece952 (will be followed when the videos are made).
+- Other posts are approved and waiting for the owner to post them by hand.
