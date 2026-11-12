@@ -1,7 +1,8 @@
-# Twizzy last run: 2026-11-12
-- Command 48 (song, "Fuel at K5,660 a litre"): made the video with original music (TikTok sound to be added by the owner), no voiceover. Done, in Approvals.
-- Command 49 (song, "Land, a car or a second shop"): made the video with original music under voice Grace (af_heart). Done, in Approvals.
+# Last run: 2026-11-12
 
-Videos:
-- "Fuel at K5,660 a litre: what does your month look like?" (51 s): reference r-b111f257 (fidelity 90%), no voice, song mode tiktok (original music).
-- "Land, a car or a second shop: name the goal" (56 s): reference r-b111f257 (fidelity 90%), voice af_heart, song mode tiktok (original music).
+- Queued commands: none were waiting, so nothing to handle.
+- Posts waiting: none in making, changes_requested or needs_song; the approved posts are for the owner to post by hand.
+- Video files check: 22 checked, none missing, so nothing to re-render.
+- New references to study: none. Reference in use: r-b111f257 (no video was made this run).
+- Concepts approved but not produced: none.
+- Videos made: none (no voice, no song mode used).
