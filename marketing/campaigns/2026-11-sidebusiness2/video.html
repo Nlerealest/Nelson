@@ -1,0 +1,787 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<!-- Vertical (1080x1920) short for TikTok / Reels. The story lives in short.js
+     (window.SHORT); beats.js comes from music_short.py; timeline.js (optional)
+     overrides scene lengths from a voiceover. -->
+<script src="short.js"></script>
+<script src="beats.js"></script>
+<script src="timeline.js"></script>
+<!-- song.js (optional): window.SONG = {bpm, offset} when the owner chose a song -->
+<script src="song.js"></script>
+<style>
+  :root { --g: #14b866; --g2: #0b6b3a; --ink: #121513; --muted: #6b746f; --bad: #ff7a66; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #0f1a14; }
+  body { font-family: 'Inter Display', 'Inter', sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+  .scene { position: absolute; inset: 0; display: none; overflow: hidden; }
+  .dark { background: radial-gradient(1300px 1500px at 50% 10%, #2a3b31 0%, #15211a 50%, #0b120e 100%); }
+  .green { background: radial-gradient(1300px 1500px at 50% 20%, #17a35c 0%, #0b6b3a 55%, #063d21 100%); }
+  .light { background: radial-gradient(1300px 1500px at 50% 25%, #fbfcfa, #e4e9e3); color: var(--ink); }
+  .glow { position: absolute; left: 50%; bottom: -520px; width: 1600px; height: 1000px; margin-left: -800px; border-radius: 50%;
+          background: radial-gradient(closest-side, rgba(30, 210, 115, .75), rgba(20, 150, 80, .3) 55%, transparent 100%); filter: blur(30px); }
+  .abs { position: absolute; will-change: transform, opacity, filter; }
+  .center { left: 70px; right: 70px; text-align: center; }
+  .big { font-weight: 800; letter-spacing: -0.035em; line-height: 1.02; }
+  .w { display: inline-block; will-change: transform, opacity, filter; }
+  .kicker { font-size: 40px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; opacity: .7; }
+  .sub { position: absolute; left: 80px; right: 80px; bottom: 210px; text-align: center; font-size: 44px; font-weight: 600; line-height: 1.25;
+         color: #fff; text-shadow: 0 3px 18px rgba(0,0,0,.6); }
+  .light .sub { color: var(--ink); text-shadow: none; }
+  .phone { width: 600px; height: 1298px; border-radius: 86px; background: #0d0f0e; padding: 18px;
+           box-shadow: 0 80px 140px -40px rgba(0, 0, 0, 0.6), 0 0 0 3px #2b302d inset; }
+  .phone .scr { width: 100%; height: 100%; border-radius: 70px; overflow: hidden; position: relative; background: #fff; }
+  .phone img { position: absolute; left: 0; top: 0; width: 100%; display: block; }
+  .phone::after { content: ''; position: absolute; top: 34px; left: 50%; width: 150px; height: 40px; margin-left: -75px; border-radius: 24px; background: #0d0f0e; }
+  .card { border-radius: 40px; overflow: hidden; background: #fff; box-shadow: 0 50px 100px -40px rgba(0, 0, 0, .55); }
+  .card img { display: block; width: 100%; }
+  .panel { position: absolute; left: 60px; right: 60px; border-radius: 48px; padding: 56px; overflow: hidden; }
+  .row { display: flex; justify-content: space-between; align-items: baseline; font-size: 52px; font-weight: 700; padding: 24px 0;
+         border-bottom: 2px solid rgba(255,255,255,.12); }
+  .light .row { border-color: rgba(0,0,0,.08); }
+  .bar { height: 14px; border-radius: 7px; background: var(--g); margin-top: 10px; transform-origin: left; }
+  .num { line-height: 1; white-space: nowrap; }
+  .num > span { display: inline-block; height: 1em; line-height: 1; vertical-align: top; }
+  .digit { clip-path: inset(0 -30% 0 -30%); }
+  .digit > span { display: block; }
+  .digit > span > span { display: block; height: 1em; line-height: 1; }
+  .tick { display: inline-flex; width: 74px; height: 74px; border-radius: 50%; align-items: center; justify-content: center; background: var(--g); color: #fff; font-size: 44px; font-weight: 800; flex: none; }
+  .fx { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .streak { position: absolute; top: -40%; width: 260px; height: 180%; transform: rotate(18deg);
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,.16), transparent); filter: blur(8px); }
+  .ring { position: absolute; left: 50%; top: 46%; border-radius: 50%; border: 6px solid rgba(20,184,102,.55); }
+  .dot { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,.35); }
+  .light .dot { background: rgba(11,107,58,.25); } .light .streak { background: linear-gradient(90deg, transparent, rgba(20,184,102,.18), transparent); }
+  .caret { display: inline-block; width: .08em; height: .9em; margin-left: .06em; vertical-align: -0.08em; background: var(--g); border-radius: 2px; }
+  .w { white-space: nowrap; }
+  .promptbar { position: absolute; left: 70px; right: 70px; height: 150px; border-radius: 75px; background: #fff; display: flex; align-items: center; gap: 22px; padding: 0 22px 0 44px;
+               box-shadow: 0 30px 80px -30px rgba(0,0,0,.35), 0 0 0 2px rgba(0,0,0,.06) inset; color: var(--ink); font-size: 46px; font-weight: 600; }
+  .promptbar .ptext { flex: 1; white-space: nowrap; overflow: hidden; }
+  .promptbar .ptext.placeholder { color: #9aa39e; }
+  .promptbar .send { width: 106px; height: 106px; border-radius: 50%; background: var(--g); display: flex; align-items: center; justify-content: center; flex: none; }
+  .wave { position: absolute; left: 140px; right: 140px; height: 260px; display: flex; align-items: center; justify-content: space-between; }
+  .wave i { display: block; width: 18px; border-radius: 9px; background: var(--g); }
+  .mic { position: absolute; left: 50%; width: 220px; height: 220px; margin-left: -110px; border-radius: 50%; background: var(--g); display: flex; align-items: center; justify-content: center;
+         box-shadow: 0 30px 70px -20px rgba(11,107,58,.6); }
+  /* Motion kit (from the owner's motion-design reference), in Ndalama green */
+  .chrome-wrap { position: absolute; left: 0; right: 0; text-align: center; font-weight: 800; letter-spacing: 0.02em; perspective: 1400px; white-space: nowrap; }
+  .chrome-letter { display: inline-block; position: relative; transform-style: preserve-3d; }
+  .chrome-letter .back { position: absolute; left: 0; top: 0; color: #2f4a3b;
+    text-shadow: 0 2px 0 #2b4436, 0 4px 0 #273e31, 0 6px 0 #22382c, 0 9px 0 #1d3127, 0 13px 0 #182a21, 0 40px 60px rgba(0,0,0,.6); }
+  .chrome-letter .front { position: relative; background: linear-gradient(180deg, #ffffff 0%, #d9e6de 33%, #7f9a8a 50%, #e6f0ea 58%, #a9c2b3 80%, #f3f8f5 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .coin { width: 170px; height: 170px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 92px; font-weight: 800; color: #063d21;
+    background: radial-gradient(circle at 35% 30%, #c9ffe0, #3ee08a 35%, #14b866 62%, #0b6b3a); box-shadow: 0 24px 50px -12px rgba(0,0,0,.6), inset 0 -10px 18px rgba(0,0,0,.25); }
+  .trail path { fill: none; stroke: rgba(255,255,255,.7); stroke-width: 5; stroke-dasharray: 2 14; stroke-linecap: round; }
+  .tilebox { position: absolute; border-radius: 34px; background: #16231c; border: 2px solid #23362b; overflow: hidden; box-shadow: 0 30px 70px -30px rgba(0,0,0,.7); }
+  .tilebox .tl { position: absolute; left: 24px; top: 18px; font-size: 26px; font-weight: 600; color: #8fb3a0; }
+  .cube { position: absolute; width: 150px; height: 150px; transform-style: preserve-3d; }
+  .cube i { position: absolute; inset: 0; border-radius: 18px; border: 3px solid rgba(255,255,255,.85); background: rgba(20,184,102,.18); display: flex; align-items: center; justify-content: center; font-style: normal; font-weight: 800; font-size: 70px; color: #fff; }
+  #fillc { position: absolute; left: 50%; top: 50%; border-radius: 50%; background: var(--g); pointer-events: none; z-index: 40; opacity: 0; }
+  #flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 50; }
+  .pill { display: inline-block; padding: 18px 34px; border-radius: 999px; font-size: 40px; font-weight: 700; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<script>
+window.VIDEO_SIZE = { width: 1080, height: 1920 };
+const SHORT = window.SHORT, BEATS = window.BEATS || [];
+// The look of the whole video, usually taken from a reference the owner chose:
+// SHORT.style = { theme: 'light'|'dark'|'green', accent: '#hex', font: 'Inter',
+//                 weight: 800, reveal: 'blur'|'type'|'fade', caret: true }
+const STYLE = SHORT.style || {};
+// The owner's rule: every video keeps Ndalama's green look (dark green stage,
+// green glow and highlights, white text, Inter), whatever the reference. A
+// reference only changes the movement: pace, transitions, text reveal and how
+// the app is shown. So the look is fixed: the dark green stage for every scene,
+// solid green only for the end card, Ndalama's colours and font.
+STYLE.theme = 'dark'; // the dark green stage of the launch videos, always
+// ---------- helpers ----------
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const easeOut = (x) => 1 - Math.pow(1 - clamp(x), 3);
+const easeIn = (x) => Math.pow(clamp(x), 3);
+const easeInOut = (x) => { x = clamp(x); return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+const backOut = (x) => { x = clamp(x); const c = 1.7; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+const prog = (t, a, d) => clamp((t - a) / d);
+const lerp = (a, b, p) => a + (b - a) * p;
+const pulse = (T) => { let last = -9; for (const b of BEATS) if (b <= T) last = b; return Math.exp(-(T - last) * 5); };
+const K = (n) => 'K' + Math.round(n).toLocaleString('en-US');
+function el(parent, html, style = {}, cls = 'abs') {
+  const d = document.createElement('div'); d.className = cls; d.innerHTML = html; Object.assign(d.style, style); parent.appendChild(d); return d;
+}
+function inn(n, t, at, { dur = 0.45, x = 0, y = 50, s = 0.92, blur = 22, rot = 0 } = {}) {
+  const p = easeOut(prog(t, at, dur));
+  n._o = p; n._b = (1 - p) * blur; n._tx = (1 - p) * x; n._ty = (1 - p) * y; n._s = s + (1 - s) * p; n._r = (1 - p) * rot; return p;
+}
+function out(n, t, at, { dur = 0.3, x = 0, y = -40, s = 1.05, blur = 22 } = {}) {
+  if (window.EDIT !== false) return 0; // the cut's transition takes everything away (see the edit below)
+  const p = easeIn(prog(t, at, dur)); if (p <= 0) return 0;
+  n._o *= 1 - p; n._b += p * blur; n._tx += p * x; n._ty += p * y; n._s *= 1 + (s - 1) * p; return p;
+}
+function draw(n, extra = '') {
+  n.style.opacity = n._o ?? 1;
+  n.style.filter = (n._b || 0) > 0.05 ? `blur(${n._b.toFixed(2)}px)` : 'none';
+  n.style.transform = `translate(${(n._tx || 0).toFixed(1)}px, ${(n._ty || 0).toFixed(1)}px) scale(${(n._s ?? 1).toFixed(4)}) rotate(${(n._r || 0).toFixed(2)}deg) ${extra}`;
+}
+const anim = (n, t, a, D, oi = {}, oo = {}) => { inn(n, t, a, oi); out(n, t, D - 0.3, oo); draw(n, oi.extra || ''); };
+const float = (t, sp = 1, amp = 8, ph = 0) => `translateY(${(Math.sin(t * sp + ph) * amp).toFixed(1)}px)`;
+// Words that blur in one by one. `html` may contain <em> for the brand green.
+function words(parent, html, style) {
+  const box = el(parent, '', style, 'abs center big');
+  html.split(/(<br>|<[^>]+>[^<]*<\/[^>]+>|\s+)/).filter((s) => s && s.trim()).forEach((w) => {
+    if (w === '<br>') { box.appendChild(document.createElement('br')); return; }
+    const s = document.createElement('span'); s.className = 'w'; s.innerHTML = w.replace(/<em>/g, '<span style="color:var(--g)">').replace(/<\/em>/g, '</span>').replace(/<bad>/g, '<span style="color:var(--bad)">').replace(/<\/bad>/g, '</span>');
+    box.appendChild(s); box.appendChild(document.createTextNode(' '));
+  });
+  box._words = [...box.querySelectorAll('.w')];
+  box._words.forEach((w) => { w._html = w.innerHTML; w._text = w.textContent; });
+  // House style (no reference in use): each text block gets its own reveal, in turn.
+  if (!STYLE.reveal) box._mode = HOUSE_REVEALS[WORD_N++ % HOUSE_REVEALS.length];
+  return box;
+}
+const HOUSE_REVEALS = ['rise', 'flip', 'scramble', 'blur'];
+let WORD_N = 0;
+const SCRAMBLE = 'ABCDEFGHJKLMNPRSTUVWXYZ0123456789K#%';
+// How words appear: 'rise' (out of an invisible line), 'flip' (3D flip up),
+// 'scramble' (code shuffle that locks in), 'blur', 'fade', or 'type' (typed with a
+// caret). Set for the whole video in SHORT.style.reveal, or per scene with
+// reveal: '…'. With neither, the house style takes them in turn.
+function playWords(box, t, at, D, gap = 0.09, mode = box._mode || STYLE.reveal || 'blur') {
+  if (mode === 'type') {
+    const cps = 26; // letters per second
+    let typed = Math.max(0, (t - at) * cps), current = null;
+    box._words.forEach((w) => {
+      const n = w.textContent.length, shown = clamp(typed / n);
+      typed -= n + 1;
+      w.style.opacity = shown > 0 ? 1 : 0; w.style.filter = 'none'; w.style.transform = 'none';
+      w.style.clipPath = `inset(0 ${((1 - shown) * 100).toFixed(1)}% 0 0)`;
+      if (shown > 0) current = w;
+    });
+    if (STYLE.caret !== false) {
+      if (!box._caret) { box._caret = document.createElement('span'); box._caret.className = 'caret'; }
+      const done = typed > 0;
+      if (current) current.after(box._caret);
+      box._caret.style.opacity = done ? (Math.floor(t * 2) % 2 ? 0 : 1) : 1;
+    }
+    return;
+  }
+  box._words.forEach((w, i) => {
+    if (mode === 'fade') { w.style.opacity = easeOut(prog(t, at + i * gap, 0.35)); return; }
+    if (mode === 'rise') {
+      // each word rises out of an invisible line (masked slide-up)
+      const p = easeOut(prog(t, at + i * gap, 0.55)), d = (1 - p) * 105;
+      w.style.opacity = p > 0 ? 1 : 0; w.style.filter = 'none';
+      w.style.transform = `translateY(${d.toFixed(1)}%)`;
+      w.style.clipPath = `inset(-30% -10% ${d.toFixed(1)}% -10%)`;
+      return;
+    }
+    if (mode === 'flip') {
+      // each word flips up in 3D from its baseline
+      const p = backOut(prog(t, at + i * gap, 0.6));
+      w.style.opacity = clamp(p * 1.6); w.style.filter = 'none'; w.style.transformOrigin = '50% 100%';
+      w.style.transform = `perspective(900px) rotateX(${((1 - p) * 95).toFixed(1)}deg)`;
+      return;
+    }
+    if (mode === 'scramble') {
+      // letters shuffle like a code, then lock in from left to right
+      const p = prog(t, at + i * gap * 0.6, 0.7);
+      w.style.opacity = p > 0 ? 1 : 0; w.style.filter = 'none'; w.style.transform = 'none';
+      if (p >= 1) { if (w.innerHTML !== w._html) w.innerHTML = w._html; return; }
+      const f = Math.floor(t * 24), locked = Math.floor(p * w._text.length);
+      w.textContent = [...w._text].map((ch, k) => (k < locked || ch === ' ' || ch === ',' || ch === '.' ? ch : SCRAMBLE[Math.floor(rnd(f * 31 + k * 7 + i) * SCRAMBLE.length)])).join('');
+      return;
+    }
+    inn(w, t, at + i * gap, { y: 40, blur: 18 }); out(w, t, D - 0.3); draw(w);
+  });
+}
+// Rolling kwacha number.
+function counter(parent, value, style) {
+  const box = el(parent, '', style, 'abs center big num');
+  const str = K(value);
+  box._d = [...str].map((ch) => {
+    if (!/\d/.test(ch)) { const s = document.createElement('span'); s.textContent = ch; box.appendChild(s); return null; }
+    const d = document.createElement('span'); d.className = 'digit';
+    const col = document.createElement('span'); col.innerHTML = Array.from({ length: 20 }, (_, i) => `<span>${i % 10}</span>`).join('');
+    d.appendChild(col); box.appendChild(d); return { col, v: Number(ch) };
+  }).filter(Boolean);
+  return box;
+}
+function rollCounter(box, t, at, dur = 1.1) {
+  box._d.forEach((d, i) => {
+    const p = easeOut(prog(t, at + i * 0.05, dur));
+    const pos = lerp(0, 10 + d.v, p);
+    d.col.style.transform = `translateY(${-pos}em)`;
+    // motion blur while the digits roll, as in the reference
+    const speed = 1 - p;
+    d.col.style.filter = speed > 0.02 ? `blur(${(speed * 9).toFixed(1)}px)` : 'none';
+  });
+}
+function sub(root, text) { if (text) root._sub = el(root, text, {}, 'sub'); }
+function playSub(root, t, D) { if (root._sub) anim(root._sub, t, 0.15, D, { y: 20, blur: 10 }); }
+
+// ---------- scene types ----------
+const S = {};
+// Big statement. {lines:[html...], kicker, size}
+S.title = (root, c) => {
+  const kick = c.kicker ? el(root, c.kicker, { top: (c.top || 640) - 110 + 'px' }, 'abs center kicker') : null;
+  const box = words(root, c.lines.join('<br>'), { top: (c.top || 640) + 'px', fontSize: (c.size || 128) + 'px' });
+  if (c.reveal) box._mode = c.reveal;
+  sub(root, c.sub);
+  return (t, D, T) => {
+    if (kick) anim(kick, t, 0.05, D, { y: 20 });
+    playWords(box, t, 0.15, D, c.gap ?? 0.1);
+    playSub(root, t, D);
+  };
+};
+// Two stacked panels compared. {top:{label,text,tone}, bottom:{...}}
+S.split = (root, c) => {
+  const mk = (p, y, h, i) => {
+    const bad = p.tone === 'bad';
+    const n = el(root, `<div class="kicker" style="opacity:.75">${p.label}</div><div class="big" style="font-size:${p.size || 104}px;margin-top:26px">${p.text}</div>${p.note ? `<div style="font-size:42px;font-weight:600;margin-top:26px;opacity:.8">${p.note}</div>` : ''}`,
+      { top: y + 'px', height: h + 'px', background: bad ? 'linear-gradient(160deg,#3a1d18,#24120f)' : 'linear-gradient(160deg,#17a35c,#0b6b3a)', boxShadow: '0 40px 90px -40px rgba(0,0,0,.7)' }, 'abs panel');
+    return n;
+  };
+  const a = mk(c.top, 230, 680, 0), b = mk(c.bottom, 960, 680, 1);
+  sub(root, c.sub);
+  return (t, D) => {
+    anim(a, t, 0.05, D, { y: -80 });
+    anim(b, t, c.bottomAt ?? 0.6, D, { y: 80 });
+    playSub(root, t, D);
+  };
+};
+// Phone with a real app screen. {img, caption, scrollTo (px of the 1170-wide screen), top}
+S.phone = (root, c) => {
+  const cap = c.caption ? words(root, c.caption, { top: '150px', fontSize: (c.size || 84) + 'px' }) : null;
+  const ph = el(root, `<div class="scr"><img src="img/${c.img}.png"></div>`, { left: '240px', top: (c.top || 470) + 'px', transformOrigin: '50% 0' }, 'abs phone');
+  const img = ph.querySelector('img');
+  sub(root, c.sub);
+  return (t, D) => {
+    if (cap) playWords(cap, t, 0.05, D, 0.07);
+    inn(ph, t, 0.2, { y: 300, s: 0.9, blur: 18, dur: 0.6 }); out(ph, t, D - 0.3, { y: 200 }); draw(ph, float(t, 1.4, 10) + (c.sub ? ' scale(0.86)' : ''));
+    const scroll = (c.scrollTo || 0) * (564 / 1170);
+    img.style.transform = `translateY(${-scroll * easeInOut(prog(t, 0.9, Math.max(0.6, D - 1.6)))}px)`;
+    playSub(root, t, D);
+  };
+};
+// One or more real app cards. {cards:[name], caption}
+S.cards = (root, c) => {
+  const cap = c.caption ? words(root, c.caption, { top: (c.capTop || 200) + 'px', fontSize: (c.size || 84) + 'px' }) : null;
+  let y = c.top || 560;
+  const cards = c.cards.map((name, i) => {
+    const w = c.width || 900;
+    const n = el(root, `<img src="img/${name}.png">`, { left: (1080 - w) / 2 + 'px', top: y + 'px', width: w + 'px' }, 'abs card');
+    y += (c.heights?.[i] || 420) + 40;
+    return n;
+  });
+  sub(root, c.sub);
+  return (t, D) => {
+    if (cap) playWords(cap, t, 0.05, D, 0.07);
+    cards.forEach((n, i) => { inn(n, t, (c.at || 0.35) + i * (c.stagger || 0.35), { y: 160, s: 0.9, rot: i % 2 ? 2 : -2, dur: 0.55 }); out(n, t, D - 0.3); draw(n, float(t, 1.2, 6, i)); });
+    playSub(root, t, D);
+  };
+};
+// Big number. {label, value, note}
+S.counter = (root, c) => {
+  const lab = words(root, c.label, { top: '620px', fontSize: '72px' });
+  const num = counter(root, c.value, { top: '820px', fontSize: (c.size || (K(c.value).length > 7 ? 180 : 220)) + 'px', color: c.color || 'var(--g)' });
+  const note = c.note ? words(root, c.note, { top: '1140px', fontSize: '56px', fontWeight: 600 }) : null;
+  sub(root, c.sub);
+  return (t, D, T) => {
+    playWords(lab, t, 0.05, D, 0.07);
+    inn(num, t, 0.3, { y: 40 }); out(num, t, D - 0.3); draw(num);
+    rollCounter(num, t, 0.3);
+    if (note) playWords(note, t, 1.3, D, 0.06);
+    playSub(root, t, D);
+  };
+};
+// Items with amounts and share bars, one per beat-ish. {title, items:[{label, amount, share, hot}]}
+S.list = (root, c) => {
+  const head = words(root, c.title, { top: '170px', fontSize: '84px' });
+  const box = el(root, '', { left: '80px', right: '80px', top: (c.top || 470) + 'px' });
+  const max = c.max || Math.max(...c.items.map((i) => i.amount));
+  const rows = c.items.map((it) => {
+    const r = el(box, `<div style="display:flex;justify-content:space-between;align-items:baseline"><span>${it.label}</span><span style="color:${it.hot ? 'var(--bad)' : 'var(--g)'}">${K(it.amount)}</span></div>
+      <div class="bar" style="width:${(it.amount / max) * 100}%;background:${it.hot ? 'var(--bad)' : 'var(--g)'}"></div>${it.note ? `<div style="font-size:36px;font-weight:600;opacity:.75;margin-top:10px">${it.note}</div>` : ''}`, { position: 'relative', display: 'block' }, 'row');
+    return r;
+  });
+  sub(root, c.sub);
+  return (t, D) => {
+    playWords(head, t, 0.05, D, 0.07);
+    rows.forEach((r, i) => {
+      const at = 0.5 + i * (c.step || 0.45);
+      inn(r, t, at, { x: 120, y: 0, s: 1, blur: 16 }); out(r, t, D - 0.3); draw(r);
+      r.querySelector('.bar').style.transform = `scaleX(${easeOut(prog(t, at + 0.15, 0.6))})`;
+    });
+    playSub(root, t, D);
+  };
+};
+// Checklist / steps. {title, items:[{k, text}]}
+S.steps = (root, c) => {
+  const head = words(root, c.title, { top: '170px', fontSize: (c.size || 92) + 'px' });
+  const rows = c.items.map((it, i) => el(root, `<span class="tick">${it.k}</span><span style="font-size:56px;font-weight:700;line-height:1.15">${it.text}</span>`,
+    { left: '90px', right: '90px', top: (c.top || 560) + i * (c.gap || 250) + 'px', display: 'flex', gap: '36px', alignItems: 'center' }));
+  sub(root, c.sub);
+  return (t, D) => {
+    playWords(head, t, 0.05, D, 0.07);
+    rows.forEach((r, i) => { inn(r, t, 0.5 + i * (c.step || 0.5), { x: 0, y: 70, blur: 16 }); out(r, t, D - 0.3); draw(r); });
+    playSub(root, t, D);
+  };
+};
+// A prompt / search bar that types a question, then presses send; optional
+// cards or lines appear below as the answer. {caption, text, placeholder, cards:[name], answer:[html]}
+S.prompt = (root, c) => {
+  const cap = c.caption ? words(root, c.caption, { top: '220px', fontSize: (c.size || 80) + 'px' }) : null;
+  const bar = el(root, `<svg width="52" height="52" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2l2.2 6.3L20.5 10l-6.3 2.2L12 18.5l-2.2-6.3L3.5 10l6.3-1.7z" opacity=".55"/></svg>
+    <span class="ptext"></span><span class="send"><svg width="54" height="54" viewBox="0 0 24 24"><path fill="#fff" d="M4 12l16-8-6 16-2-6z"/></svg></span>`, { top: (c.top || 640) + 'px' }, 'abs promptbar');
+  const ptext = bar.querySelector('.ptext'), send = bar.querySelector('.send');
+  const text = c.text || '', typeAt = 0.6, cps = 22, doneAt = typeAt + text.length / cps;
+  const below = (c.cards || []).map((name, i) => el(root, `<img src="img/${name}.png">`, { left: '110px', right: '110px', top: (c.top || 640) + 210 + i * 40 + 'px' }, 'abs card'));
+  const answer = c.answer ? words(root, c.answer.join('<br>'), { top: (c.top || 640) + 230 + 'px', fontSize: (c.answerSize || 64) + 'px', fontWeight: 600 }) : null;
+  sub(root, c.sub);
+  return (t, D) => {
+    if (cap) playWords(cap, t, 0.05, D, 0.07);
+    inn(bar, t, 0.1, { y: 60, blur: 10 }); draw(bar);
+    const n = Math.floor(clamp((t - typeAt) * cps, 0, text.length));
+    ptext.classList.toggle('placeholder', n === 0);
+    ptext.innerHTML = n === 0 ? (c.placeholder || 'Ask Ndalama…') : text.slice(0, n) + `<span class="caret" style="opacity:${t > doneAt && Math.floor(t * 2) % 2 ? 0 : 1}"></span>`;
+    ptext.scrollLeft = ptext.scrollWidth; // long questions scroll like a real input
+    const press = Math.exp(-Math.max(0, t - doneAt - 0.15) * 10) * (t > doneAt + 0.15 ? 1 : 0);
+    send.style.transform = `scale(${1 - 0.18 * press})`;
+    below.forEach((b, i) => { inn(b, t, doneAt + 0.45 + i * 0.3, { y: 120, blur: 14, dur: 0.5 }); draw(b); });
+    if (answer) playWords(answer, t, doneAt + 0.45, D, 0.06);
+    playSub(root, t, D);
+  };
+};
+
+// A voice note: a mic with a live sound wave, and the words typed below as
+// they are "heard". {caption, text}
+S.voice = (root, c) => {
+  const cap = c.caption ? words(root, c.caption, { top: '220px', fontSize: (c.size || 80) + 'px' }) : null;
+  const mic = el(root, `<svg width="110" height="110" viewBox="0 0 24 24"><path fill="#fff" d="M12 14a3 3 0 003-3V5a3 3 0 10-6 0v6a3 3 0 003 3zm5-3a5 5 0 01-10 0H5a7 7 0 006 6.9V21h2v-3.1A7 7 0 0019 11z"/></svg>`, { top: '560px' }, 'abs mic');
+  const wave = el(root, Array.from({ length: 28 }, () => '<i></i>').join(''), { top: '860px' }, 'abs wave');
+  const bars = [...wave.querySelectorAll('i')];
+  const said = words(root, c.text || '', { top: '1220px', fontSize: (c.textSize || 66) + 'px', fontWeight: 600 });
+  said._mode = 'type';
+  sub(root, c.sub);
+  return (t, D, T) => {
+    if (cap) playWords(cap, t, 0.05, D, 0.07);
+    inn(mic, t, 0.1, { y: 0, s: 0.7, blur: 10 }); draw(mic);
+    const talking = t > 0.5 && t < 0.5 + (c.text || '').length / 26 + 0.3;
+    bars.forEach((b, i) => {
+      const h = talking ? 30 + Math.abs(Math.sin(T * 9 + i * 0.7) * Math.sin(T * 3.3 + i)) * 200 : 18;
+      b.style.height = `${h.toFixed(0)}px`; b.style.opacity = easeOut(prog(t, 0.2, 0.4));
+    });
+    playWords(said, t, 0.5, D);
+    playSub(root, t, D);
+  };
+};
+
+// App showcase: one phone, several real screens swapping inside it on the beat,
+// sliding up or down (or sideways) like someone swiping through the app, with a
+// caption for each. {imgs:[name], captions:[html], dir:'up'|'down'|'alternate'|'left'}
+S.showcase = (root, c) => {
+  const n = c.imgs.length;
+  const caps = (c.captions || []).map((h) => words(root, h, { top: '170px', fontSize: (c.size || 76) + 'px' }));
+  const ph = el(root, `<div class="scr">${c.imgs.map((img) => `<img src="img/${img}.png" style="will-change:transform">`).join('')}</div>`, { left: '240px', top: (c.top || 450) + 'px', transformOrigin: '50% 0' }, 'abs phone');
+  const shots = [...ph.querySelectorAll('img')];
+  sub(root, c.sub);
+  return (t, D) => {
+    const each = D / n, i = Math.min(n - 1, Math.floor(t / each)), local = t - i * each;
+    inn(ph, t, 0.15, { y: 300, s: 1, blur: 14, dur: 0.55 }); draw(ph);
+    shots.forEach((img, k) => {
+      const dirOf = (j) => (c.dir === 'down' ? -1 : c.dir === 'alternate' ? (j % 2 ? -1 : 1) : 1);
+      const horiz = c.dir === 'left';
+      let off = k < i ? -1 : k > i ? 1 : 0;
+      // the swipe into screen i takes the first 0.35 s of its slot
+      const p = easeInOut(clamp(local / 0.35));
+      if (i > 0 && (k === i || k === i - 1)) off = k === i ? 1 - p : -p;
+      const d = dirOf(i) * off * 100;
+      img.style.transform = horiz ? `translateX(${d}%)` : `translateY(${d}%)`;
+      img.style.opacity = Math.abs(off) >= 1 ? 0 : 1;
+    });
+    caps.forEach((cap, k) => {
+      if (k !== i) { cap.style.opacity = 0; return; }
+      cap.style.opacity = 1; playWords(cap, local, 0.05, each + 9, 0.06);
+    });
+    playSub(root, t, D);
+  };
+};
+
+// Two option cards side by side with a highlight that moves from one to the
+// other (a reference's "Take away / Delivery" choice). {caption, options:[a,b], picks:[0,1], note}
+S.pair = (root, c) => {
+  const cap = c.caption ? words(root, c.caption, { top: '220px', fontSize: (c.size || 80) + 'px' }) : null;
+  const cards = c.options.map((txt, i) => el(root, `<div style="font-size:${c.optSize || 54}px;font-weight:800;text-align:center;line-height:1.15">${txt}</div>`,
+    { left: 70 + i * 480 + 'px', width: '460px', top: (c.top || 760) + 'px', height: '420px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '44px', color: '#fff',
+      border: '4px solid rgba(255,255,255,.25)', background: 'rgba(255,255,255,.06)' }, 'abs'));
+  const note = c.note ? words(root, c.note, { top: (c.top || 760) + 520 + 'px', fontSize: '56px', fontWeight: 600 }) : null;
+  sub(root, c.sub);
+  return (t, D) => {
+    if (cap) playWords(cap, t, 0.05, D, 0.07);
+    const picks = c.picks || [0, 1], seg = (D - 1.2) / picks.length;
+    const cur = t < 1.0 ? -1 : picks[Math.min(picks.length - 1, Math.floor((t - 1.0) / seg))];
+    cards.forEach((n, i) => {
+      inn(n, t, 0.25 + i * 0.2, { x: i ? 300 : -300, y: 0, s: 1, blur: 14, dur: 0.55 }); draw(n);
+      const on = cur === i;
+      n.style.background = on ? 'linear-gradient(160deg,#17a35c,#0b6b3a)' : 'rgba(255,255,255,.06)';
+      n.style.borderColor = on ? '#14b866' : 'rgba(255,255,255,.25)';
+    });
+    if (note) playWords(note, t, 1.2, D, 0.06);
+    playSub(root, t, D);
+  };
+};
+
+
+// ---------- motion kit: the owner's motion-design reference, rebuilt for Ndalama ----------
+// One hero object carries the video from scene to scene, as in the reference:
+// chrome letters -> one becomes the K-coin -> it bounces -> the camera pulls
+// back to reveal the app -> the coin morphs into a goal ring -> it grows to
+// fill the screen ('fill' transition) -> a bento grid flies in -> numbers roll
+// with motion blur -> the name reveals letter by letter.
+
+// Chrome 3D letters tumble in one by one, hold, then scatter; the last-picked
+// letter shrinks into the coin. {word, sub, coinLetter (index), top, size}
+S.chrome = (root, c) => {
+  const word = c.word || 'NDALAMA', size = c.size || (word.length > 7 ? 170 : 200);
+  const wrap = el(root, '', { top: (c.top || 720) + 'px', fontSize: size + 'px' }, 'chrome-wrap');
+  const letters = [...word].map((ch, i) => {
+    const l = document.createElement('span'); l.className = 'chrome-letter';
+    l.innerHTML = `<span class="back">${ch}</span><span class="front">${ch}</span>`;
+    l._r = [rnd(i + 1) * 160 - 80, rnd(i + 9) * 260 - 130, rnd(i + 4) * 60 - 30];
+    wrap.appendChild(l); return l;
+  });
+  const sub = c.sub ? el(root, c.sub, { top: (c.top || 720) + size + 60 + 'px', fontSize: '46px', fontWeight: 500, color: 'rgba(255,255,255,.75)' }, 'abs center') : null;
+  const ci = c.coinLetter ?? Math.floor(word.length / 2);
+  const coin = el(root, 'K', { left: '455px', top: (c.top || 720) + 20 + 'px', opacity: 0 }, 'abs coin');
+  return (t, D) => {
+    const scatterAt = c.scatter === false ? 99 : D - 1.0;
+    letters.forEach((l, i) => {
+      const a = 0.1 + i * 0.14, p = easeOut(prog(t, a, 0.75));
+      const [rx, ry, rz] = l._r;
+      const s2 = easeIn(prog(t, scatterAt + (i === ci ? 0.25 : 0), 0.55));
+      const fly = i === ci ? 0 : s2;
+      const dx = (i - (word.length - 1) / 2) * 260 * fly, dy = (rnd(i + 20) - 0.5) * 900 * fly;
+      const shrink = i === ci ? 1 - easeInOut(prog(t, scatterAt + 0.1, 0.5)) : 1;
+      l.style.opacity = p * (1 - fly) * (i === ci ? (shrink > 0.25 ? 1 : shrink * 4) : 1);
+      l.style.filter = (1 - p) * 16 + fly * 22 > 0.3 ? `blur(${((1 - p) * 16 + fly * 22).toFixed(1)}px)` : 'none';
+      l.style.transform = `translate3d(${dx}px, ${(1 - p) * -220 + dy}px, ${(1 - p) * -900 + fly * 600}px) rotateX(${(1 - p) * rx + fly * 120}deg) rotateY(${(1 - p) * ry - fly * 90}deg) rotateZ(${(1 - p) * rz}deg) scale(${shrink})`;
+    });
+    if (sub) { inn(sub, t, 0.9 + word.length * 0.1, { y: 20 }); draw(sub); sub.style.opacity *= 1 - easeIn(prog(t, scatterAt, 0.3)); }
+    const cp = easeOut(prog(t, scatterAt + 0.45, 0.35));
+    coin.style.opacity = cp; coin.style.transform = `scale(${0.4 + 0.6 * cp})`;
+  };
+};
+
+// The coin drops and bounces with squash & stretch on the beat, leaving a
+// dotted trail over a floor line; captions reveal one after another.
+// {captions:[html], top (floor y)}
+S.bounce = (root, c) => {
+  const floorY = c.top || 1180;
+  const floor = el(root, '', { left: '140px', right: '140px', top: floorY + 'px', height: '4px', background: 'rgba(255,255,255,.55)', borderRadius: '2px' });
+  const trail = el(root, '<svg width="1080" height="1920" class="trail" style="position:absolute;inset:0"><path/></svg>', { inset: 0 });
+  const coin = el(root, 'K', { left: 0, top: 0 }, 'abs coin');
+  const caps = (c.captions || []).map((h) => words(root, h, { top: floorY + 110 + 'px', fontSize: (c.size || 64) + 'px', fontWeight: 700 }));
+  return (t, D) => {
+    const hitsT = BEATS.filter((b) => b > (c._start || 0) + 0.5 && b < (c._start || 0) + D - 0.3).map((b) => b - (c._start || 0)).slice(0, 6);
+    const hits = hitsT.length >= 3 ? hitsT : [0.8, 1.5, 2.15, 2.75, 3.3];
+    const X = (u) => lerp(150, 760, clamp(u / Math.max(1, D - 0.4)));
+    const Y = (u) => {
+      if (u < hits[0]) return lerp(560, floorY - 170, easeIn(u / hits[0]));
+      for (let i = 0; i < hits.length - 1; i++) if (u < hits[i + 1]) { const q = (u - hits[i]) / (hits[i + 1] - hits[i]); return floorY - 170 - 520 * Math.pow(0.7, i) * 4 * q * (1 - q); }
+      return floorY - 170;
+    };
+    const pts = []; for (let u = 0; u <= t; u += 0.035) pts.push(`${(X(u) + 85).toFixed(1)},${(Y(u) + 85).toFixed(1)}`);
+    trail.querySelector('path').setAttribute('d', pts.length ? 'M' + pts.join(' L') : '');
+    let sq = 0; for (const h of hits) sq = Math.max(sq, Math.exp(-Math.abs(t - h) * 16));
+    coin.style.transformOrigin = '85px 170px';
+    coin.style.transform = `translate(${X(t)}px, ${Y(t)}px) scale(${1 + sq * 0.3}, ${1 - sq * 0.32})`;
+    floor.style.opacity = clamp(t / 0.4);
+    const each = D / Math.max(1, caps.length);
+    caps.forEach((cap, i) => { const local = t - i * each; cap.style.opacity = local >= 0 && local < each ? 1 : 0; if (local >= 0 && local < each) playWords(cap, local, 0.15, each + 9, 0.08); });
+  };
+};
+
+// The camera pulls back: the phone starts filling the screen (focused on the
+// hero card) and settles to full view, then a curve draws in a panel below,
+// like the reference's editor reveal. {img, caption, focusY (0..1), curve:[values], label, value}
+S.pullback = (root, c) => {
+  const cap = c.caption ? words(root, c.caption, { top: '130px', fontSize: (c.size || 72) + 'px' }) : null;
+  const ph = el(root, `<div class="scr"><img src="img/${c.img || 'screen-home'}.png"></div>`, { left: '240px', top: '330px', transformOrigin: `50% ${((c.focusY ?? 0.2) * 100).toFixed(0)}%` }, 'abs phone');
+  const vals = c.curve || [100, 92, 80, 74, 66, 61, 52, 46];
+  const max = Math.max(...vals), min = Math.min(...vals);
+  const panel = el(root, `<div class="tl">${c.label || 'This month'}</div><div style="position:absolute;right:24px;top:14px;font-size:34px;font-weight:800;color:#fff" class="pv">${c.value || ''}</div>
+    <svg width="880" height="190" style="position:absolute;left:30px;top:70px"><path class="cv" fill="none" stroke="var(--g)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><circle class="cd" r="13" fill="#fff"/></svg>`,
+    { left: '70px', right: '70px', top: '1480px', height: '290px' }, 'tilebox');
+  return (t, D) => {
+    if (cap) playWords(cap, t, 0.9, D, 0.07);
+    const pb = easeInOut(prog(t, 0.05, 1.1));
+    ph.style.transform = `scale(${lerp(3.1, 1, pb)})`;
+    ph.style.filter = pb < 1 ? `blur(${((1 - pb) * 6).toFixed(1)}px)` : 'none';
+    inn(panel, t, 1.0, { y: 160, blur: 14, dur: 0.5 }); draw(panel);
+    const q = easeInOut(prog(t, 1.3, Math.max(0.8, D - 2)));
+    const pts = []; const n = vals.length - 1;
+    for (let s2 = 0; s2 <= q * n + 1e-6; s2 += 0.05) { const i = Math.min(n - 1, Math.floor(s2)), f = s2 - i, v = lerp(vals[i], vals[i + 1], easeInOut(f)); pts.push([s2 / n * 860, 170 - ((v - min) / (max - min || 1)) * 150]); }
+    if (pts.length) { panel.querySelector('.cv').setAttribute('d', 'M' + pts.map((p2) => p2.map((x) => x.toFixed(1)).join(',')).join(' L')); const last = pts[pts.length - 1]; panel.querySelector('.cd').setAttribute('cx', last[0]); panel.querySelector('.cd').setAttribute('cy', last[1]); }
+  };
+};
+
+// The coin morphs: it slides into a toggle switch (switching ON), then the
+// toggle closes into a progress ring that fills to the goal. {caption, goal, saved, label}
+S.morph = (root, c) => {
+  const cap = c.caption ? words(root, c.caption, { top: '1330px', fontSize: (c.size || 76) + 'px' }) : null;
+  const pill = el(root, '', { left: '290px', top: '720px', width: '500px', height: '250px', borderRadius: '125px', background: 'rgba(255,255,255,.12)', border: '3px solid rgba(255,255,255,.25)' });
+  const knob = el(root, 'K', { left: '330px', top: '760px', width: '170px', height: '170px' }, 'abs coin');
+  const ring = el(root, `<svg width="520" height="520" viewBox="0 0 520 520"><circle cx="260" cy="260" r="220" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="34"/>
+    <circle class="arc" cx="260" cy="260" r="220" fill="none" stroke="var(--g)" stroke-width="34" stroke-linecap="round" transform="rotate(-90 260 260)" stroke-dasharray="1382.3" stroke-dashoffset="1382.3"/></svg>
+    <div class="rv" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff"><div class="pc" style="font-size:120px;font-weight:800;letter-spacing:-.04em">0%</div><div style="font-size:36px;font-weight:600;opacity:.8">${c.label || ''}</div></div>`,
+    { left: '280px', top: '590px', width: '520px', height: '520px', opacity: 0 });
+  const pct = clamp((c.saved || 0) / (c.goal || 1));
+  return (t, D) => {
+    const slide = easeInOut(prog(t, 0.3, 0.6));
+    pill.style.opacity = 1 - easeIn(prog(t, 1.5, 0.4));
+    pill.style.background = slide > 0.5 ? 'rgba(20,184,102,.55)' : 'rgba(255,255,255,.12)';
+    const toRing = easeInOut(prog(t, 1.4, 0.6));
+    knob.style.transform = `translate(${slide * 240 - toRing * 120}px, ${-toRing * 0}px) scale(${1 + toRing * 2.2})`;
+    knob.style.opacity = 1 - easeIn(prog(t, 1.75, 0.25));
+    const rp = easeOut(prog(t, 1.8, 0.4)); ring.style.opacity = rp; ring.style.transform = `scale(${0.85 + 0.15 * rp})`;
+    const fill = easeInOut(prog(t, 2.1, Math.max(0.8, D - 3))) * pct;
+    ring.querySelector('.arc').setAttribute('stroke-dashoffset', (1382.3 * (1 - fill)).toFixed(1));
+    ring.querySelector('.pc').textContent = Math.round(fill * 100) + '%';
+    if (cap) playWords(cap, t, 2.0, D, 0.07);
+  };
+};
+
+// Bento grid: tiles fly in from different sides with motion blur and settle
+// with a spring, then keep a gentle drift: a kinetic word, real app cards, a
+// bar chart that grows, a curve that draws, and a spinning 3D cube.
+// {word, cards:[name,name], bars:[values], caption}
+S.bento = (root, c) => {
+  const cap = c.caption ? words(root, c.caption, { top: '120px', fontSize: (c.size || 72) + 'px' }) : null;
+  const T0 = 330;
+  const tiles = [
+    { x: 60, y: T0, w: 470, h: 330, from: [-700, 0], html: `<div class="tl">Kinetic</div><div class="kw" style="position:absolute;left:30px;bottom:30px;font-size:110px;font-weight:800;color:#fff;letter-spacing:-.04em">${c.word || 'Budget'}</div>` },
+    { x: 550, y: T0, w: 470, h: 330, from: [700, -200], html: `<img src="img/${(c.cards || ['card-hero'])[0]}.png" style="position:absolute;left:18px;top:18px;width:434px;border-radius:24px">` },
+    { x: 60, y: T0 + 350, w: 300, h: 330, from: [-500, 400], html: `<div class="tl">3D</div><div class="cube" style="left:75px;top:110px"><i style="transform:translateZ(75px)">K</i><i style="transform:rotateY(90deg) translateZ(75px)"></i><i style="transform:rotateY(180deg) translateZ(75px)"></i><i style="transform:rotateY(-90deg) translateZ(75px)"></i><i style="transform:rotateX(90deg) translateZ(75px)"></i><i style="transform:rotateX(-90deg) translateZ(75px)"></i></div>` },
+    { x: 380, y: T0 + 350, w: 640, h: 330, from: [0, 700], html: `<div class="tl">Spending</div><div class="bars" style="position:absolute;left:30px;right:30px;bottom:30px;height:220px;display:flex;align-items:flex-end;gap:14px">${(c.bars || [40, 65, 52, 80, 58, 90, 72]).map((v) => `<b style="flex:1;border-radius:8px;background:var(--g);height:${v}%;transform-origin:bottom"></b>`).join('')}</div>` },
+    { x: 60, y: T0 + 700, w: 960, h: 360, from: [0, 900], html: `<div class="tl">${c.curveLabel || 'Savings'}</div><svg width="900" height="270" style="position:absolute;left:30px;top:70px"><path class="bc" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/></svg>` },
+  ];
+  const nodes = tiles.map((tt, i) => { const n = el(root, tt.html, { left: tt.x + 'px', top: tt.y + 'px', width: tt.w + 'px', height: tt.h + 'px' }, 'tilebox'); n._t = tt; return n; });
+  if (c.cards?.[1]) nodes[4].insertAdjacentHTML('beforeend', `<img src="img/${c.cards[1]}.png" style="position:absolute;right:20px;bottom:20px;width:380px;border-radius:20px">`);
+  return (t, D) => {
+    if (cap) playWords(cap, t, 0.05, D, 0.07);
+    nodes.forEach((n, i) => {
+      const a = 0.15 + i * 0.16, p = clamp((t - a) / 0.55);
+      const sp = p >= 1 ? 1 : 1 - Math.exp(-6 * p) * Math.cos(9 * p); // spring settle
+      const [fx, fy] = n._t.from, mv = 1 - sp;
+      const drift = Math.sin(t * 0.8 + i) * 6;
+      n.style.opacity = p > 0 ? 1 : 0;
+      n.style.filter = Math.abs(mv) > 0.04 ? `blur(${Math.min(24, Math.abs(mv) * 30).toFixed(1)}px)` : 'none';
+      n.style.transform = `translate(${fx * mv}px, ${fy * mv + drift}px)`;
+    });
+    const k = nodes[0].querySelector('.kw'); k.style.letterSpacing = `${(-0.04 + 0.03 * Math.sin(t * 2)).toFixed(3)}em`;
+    nodes[2].querySelector('.cube').style.transform = `rotateX(${-20 + t * 40}deg) rotateY(${t * 70}deg)`;
+    nodes[3].querySelectorAll('b').forEach((b, i) => { b.style.transform = `scaleY(${easeOut(prog(t, 0.9 + i * 0.08, 0.5)).toFixed(3)})`; });
+    const q = easeInOut(prog(t, 1.1, Math.max(1, D - 1.8))); const pts = [];
+    for (let x = 0; x <= q * 860; x += 8) pts.push(`${x},${(220 - (x / 860) * 150 - Math.sin(x / 70) * 22).toFixed(1)}`);
+    nodes[4].querySelector('.bc').setAttribute('d', pts.length ? 'M' + pts.join(' L') : '');
+  };
+};
+
+// The name reveals letter by letter from a blur, first letter in Ndalama green,
+// while the stage darkens. {name, sub}
+S.namereveal = (root, c) => {
+  const name = c.name || 'Ndalama';
+  const box = el(root, [...name].map((ch, i) => `<span class="w" style="${i === 0 ? 'color:var(--g)' : ''}">${ch}</span>`).join(''), { top: '820px', fontSize: (c.size || 190) + 'px', letterSpacing: '-0.04em' }, 'abs center big');
+  const sub = c.sub ? el(root, c.sub, { top: '1080px', fontSize: '52px', fontWeight: 600, color: 'rgba(255,255,255,.8)' }, 'abs center') : null;
+  const shade = el(root, '', { inset: 0, background: '#000', opacity: 0 });
+  const ws = [...box.querySelectorAll('.w')];
+  return (t, D) => {
+    ws.forEach((w, i) => { const p = easeOut(prog(t, 0.1 + i * 0.07, 0.45)); w.style.opacity = p; w.style.filter = p < 1 ? `blur(${((1 - p) * 18).toFixed(1)}px)` : 'none'; w.style.transform = `translateX(${(1 - p) * -60}px)`; });
+    if (sub) { inn(sub, t, 0.9, { y: 20 }); draw(sub); }
+    shade.style.opacity = 0.45 * easeInOut(prog(t, 0.6, D));
+  };
+};
+
+// Brand end card.
+S.end = (root, c) => {
+  const icon = el(root, '<img src="img/icon.png" style="width:240px;height:240px;border-radius:56px;box-shadow:0 40px 80px -30px rgba(0,0,0,.6)">', { left: '420px', top: '430px' });
+  const name = words(root, c.name || 'Ndalama', { top: '740px', fontSize: '150px' });
+  const tag = words(root, c.tagline || 'Know where your kwacha goes.', { top: '930px', fontSize: '60px', fontWeight: 600 });
+  const free = el(root, 'Free on <b>APKPure</b> &amp; <b>Uptodown</b>', { top: '1150px', fontSize: '54px', fontWeight: 600 }, 'abs center');
+  const soon = el(root, c.soon || 'Google Play &amp; iPhone: coming soon', { top: '1250px', fontSize: '42px', fontWeight: 500, opacity: .7 }, 'abs center');
+  const pills = el(root, '<span class="pill" style="background:#fff;color:var(--g2)">Free</span> <span class="pill" style="background:rgba(255,255,255,.16)">No data needed</span> <span class="pill" style="background:rgba(255,255,255,.16)">Private</span>', { top: '1380px' }, 'abs center');
+  sub(root, c.sub);
+  return (t, D, T) => {
+    inn(icon, t, 0.05, { y: 0, s: 0.6, blur: 20, dur: 0.6 }); draw(icon, `scale(${1 + 0.04 * pulse(T)}) ${float(t, 1.3, 8)}`);
+    playWords(name, t, 0.35, D + 9, 0.06); playWords(tag, t, 0.8, D + 9, 0.06);
+    inn(free, t, 1.3, { y: 30 }); draw(free);
+    const so = inn(soon, t, 1.6, { y: 30 }); draw(soon); soon.style.opacity = 0.7 * so;
+    inn(pills, t, 1.9, { y: 30 }); draw(pills);
+    playSub(root, t, D + 9);
+  };
+};
+
+// ---------- timeline ----------
+const SONG = window.SONG || null;
+const beatLen = 60 / (SONG?.bpm || SHORT.bpm);
+const TL = window.TIMELINE ? Object.fromEntries(window.TIMELINE.map((s) => [s.id, s])) : null;
+const stage = document.getElementById('stage');
+let t0 = SONG ? SONG.offset || 0 : SHORT.offset || 0;
+
+// ---------- the edit: beat-synced camera, background and transitions ----------
+// Like an editor's timeline: every cut sits on a beat and gets a transition.
+// The owner's rules: no camera zoom, no shaking, and a still background.
+// (addFx below is kept switched off; window.BACKGROUND_FX turns it on.)
+const ENERGY = window.ENERGY || null;            // loudness per beat, 0..1 (from make_short.sh)
+// No zoom or spin (the owner's rule: no zoom effects).
+// The house style's cuts (used when no reference is in use and a scene sets none):
+// motion graphics, not plain slides. A reference in use sets its own on each scene.
+const TRANSITIONS = ['cube', 'band', 'flip3d', 'blinds', 'fill', 'doors', 'circle', 'pull'];
+// 'cube': the screen turns like a 3D cube. 'flip3d': the scene flips over like a card.
+// 'band': a green diagonal band sweeps across and hides the cut. 'blinds': the next
+// scene opens through stripes. 'doors': it opens from the middle like barn doors.
+// 'fill': the hero coin grows to fill the screen in Ndalama green, then the next scene appears (the reference's ball wipe).
+// 'pull': the next scene starts close up and the camera pulls back (the reference's reveal).
+const beatIndex = (T) => { let i = -1; for (let k = 0; k < BEATS.length && BEATS[k] <= T + 1e-6; k++) i = k; return i; };
+const sinceBeat = (T) => { const i = beatIndex(T); return i < 0 ? 9 : T - BEATS[i]; };
+const kick = (T) => Math.exp(-sinceBeat(T) * 10);
+const bar = (T) => { const i = beatIndex(T); return i >= 0 && i % 4 === 0 ? Math.exp(-(T - BEATS[i]) * 7) : 0; };
+let DROP = 0;
+const energy = (T) => {
+  if (ENERGY && BEATS.length) { const i = Math.max(0, beatIndex(T)); return ENERGY[Math.min(i, ENERGY.length - 1)] ?? 0.7; }
+  return T < DROP ? 0.45 : 1;
+};
+function rnd(n) { const x = Math.sin(n * 12.9898) * 43758.5453; return x - Math.floor(x); }
+
+function addFx(root) {
+  const fx = el(root, '', {}, 'fx');
+  fx.style.zIndex = 0;
+  const streaks = [0, 1].map(() => el(fx, '', {}, 'streak'));
+  const rings = [0, 1, 2].map(() => el(fx, '', {}, 'ring'));
+  const dots = Array.from({ length: 26 }, (_, i) => { const d = el(fx, '', {}, 'dot'); d._x = rnd(i + 1) * 1080; d._v = 40 + rnd(i + 7) * 120; d._s = 0.5 + rnd(i + 3) * 1.6; d._p = rnd(i + 11) * 1920; return d; });
+  root.insertBefore(fx, root.firstChild.nextSibling);
+  return (T) => {
+    const e = energy(T);
+    // streaks sweep across on each bar
+    const i = beatIndex(T), barStart = i >= 0 ? BEATS[i - (i % 4)] : 0, bp = clamp((T - barStart) / (beatLen * 1.2));
+    streaks.forEach((st, k) => { st.style.left = `${-500 + bp * 2100 + k * 380}px`; st.style.opacity = (1 - bp) * (0.4 + e); });
+    // a ring bursts out of the middle on every beat
+    rings.forEach((r, k) => {
+      const b = BEATS[i - k]; const age = b !== undefined ? T - b : 9; const size = 200 + age * 1900;
+      Object.assign(r.style, { width: `${size}px`, height: `${size}px`, marginLeft: `${-size / 2}px`, marginTop: `${-size / 2}px`, opacity: Math.max(0, 0.55 - age * 0.9) * e });
+    });
+    // particles drift up, faster when the music is louder
+    dots.forEach((d) => {
+      const y = ((d._p - T * d._v * (0.6 + e)) % 1920 + 1920) % 1920;
+      d.style.transform = `translate(${d._x + Math.sin(T + d._p) * 30}px, ${y}px) scale(${d._s * (1 + 0.6 * kick(T) * e)})`;
+    });
+  };
+}
+
+const scenes = SHORT.scenes.map((c, i) => {
+  const id = c.id || 's' + i;
+  const dur = TL?.[id] ? TL[id].dur : c.beats * beatLen;
+  // Every scene is the dark green stage; only the closing logo card is solid green.
+  const bg = c.type === 'end' ? 'green' : 'dark';
+  const root = el(stage, '', {}, 'scene ' + bg);
+  if (c.glow !== false && bg !== 'light') el(root, '', {}, 'glow');
+  else el(root, '', { display: 'none' }); // keeps the fx layer second
+  const fx = window.BACKGROUND_FX ? addFx(root) : () => {};
+  c._start = TL?.[id] ? TL[id].start : t0;
+  const sc = { id, start: c._start, dur, root, fx, update: S[c.type](root, c), drop: !!c.drop,
+    // the transition INTO this scene
+    transition: i === 0 ? null : c.transition || (c.drop ? 'flash' : TRANSITIONS[(i * 3) % TRANSITIONS.length]) };
+  if (c.drop && !DROP) DROP = sc.start;
+  t0 = sc.start + dur;
+  return sc;
+});
+const flash = el(stage, '', {}, ''); flash.id = 'flash';
+const fillc = el(stage, '', {}, ''); fillc.id = 'fillc';
+const band = el(stage, '', { position: 'absolute', top: '-30%', height: '160%', width: '900px', left: '0', background: 'linear-gradient(90deg, #0b6b3a, #14b866 45%, #3ee08a 55%, #0b6b3a)', transform: 'skewX(-18deg)', zIndex: 41, opacity: 0, boxShadow: '0 0 80px rgba(20,184,102,.6)' });
+window.TOTAL = t0;
+window.SCENES = scenes.map(({ id, start, dur, transition, drop }) => ({ id, start, dur, transition, drop }));
+const H = Math.min(0.24, beatLen * 0.45); // half-length of a transition
+
+// How a scene looks while the transition `kind` takes it out (side = 'out')
+// or brings it in (side = 'in'); p goes 0 → 1 across the transition.
+function transit(kind, side, p, T) {
+  const q = side === 'out' ? p : 1 - p; // 0 = fully on screen
+  const mb = Math.sin(Math.PI * p) * 26;  // motion blur peaks mid-transition
+  switch (kind) {
+    case 'whip': return { tf: `translateX(${(side === 'out' ? -1 : 1) * q * 1180}px) skewX(${(side === 'out' ? 1 : -1) * q * 8}deg)`, filter: `blur(${mb}px)` };
+    case 'slide': case 'lift': return { tf: `translateY(${(side === 'out' ? -1 : 1) * q * 2000}px)`, filter: `blur(${mb * 0.8}px)` };
+    case 'drop': return { tf: `translateY(${(side === 'out' ? 1 : -1) * q * 2000}px)`, filter: `blur(${mb * 0.8}px)` };
+    // 'whip-right': the reference's whip back (camera swings the other way): out to the right, in from the left, heavy blur, skew.
+    case 'whip-right': return { tf: `translateX(${(side === 'out' ? 1 : -1) * q * 1180}px) skewX(${(side === 'out' ? -1 : 1) * q * 8}deg)`, filter: `blur(${mb * 1.15}px)` };
+    case 'push-left': return { tf: `translateX(${(side === 'out' ? -1 : 1) * q * 1180}px)` };
+    case 'push-right': return { tf: `translateX(${(side === 'out' ? 1 : -1) * q * 1180}px)` };
+    case 'zoom': return side === 'out' ? { tf: `scale(${1 + q * 2.2})`, filter: `blur(${mb}px)`, op: 1 - q } : { tf: `scale(${1 - q * 0.45})`, filter: `blur(${mb}px)`, op: 1 - q };
+    case 'spin': return { tf: `rotate(${(side === 'out' ? 1 : -1) * q * 28}deg) scale(${side === 'out' ? 1 + q * 0.9 : 1 - q * 0.4})`, filter: `blur(${mb}px)`, op: 1 - q * 0.6 };
+    case 'circle': return side === 'in' ? { clip: `circle(${(1 - q) * 1250}px at 50% 50%)` } : {};
+    case 'glitch': {
+      const j = Math.sin(Math.PI * p);
+      return { tf: '',
+        filter: `drop-shadow(${14 * j}px 0 0 rgba(255,0,90,.75)) drop-shadow(${-14 * j}px 0 0 rgba(0,220,255,.75)) contrast(${1 + j * 0.4})`, cut: true };
+    }
+    case 'cube': return side === 'out'
+      ? { tf: `perspective(2600px) rotateY(${(-p * 90).toFixed(2)}deg)`, origin: '50% 50% -540px', filter: `brightness(${(1 - p * 0.5).toFixed(2)})` }
+      : { tf: `perspective(2600px) rotateY(${((1 - p) * 90).toFixed(2)}deg)`, origin: '50% 50% -540px', filter: `brightness(${(0.5 + p * 0.5).toFixed(2)})` };
+    case 'flip3d': {
+      const a = side === 'out' ? Math.min(1, p * 2) * 90 : -(1 - Math.max(0, (p - 0.5) * 2)) * 90;
+      const vis = side === 'out' ? p < 0.5 : p >= 0.5;
+      return { tf: `perspective(2200px) rotateY(${a.toFixed(2)}deg)`, op: vis ? 1 : 0, filter: `brightness(${(1 - Math.abs(a) / 180).toFixed(2)})` };
+    }
+    case 'blinds': return side === 'in' ? { mask: `repeating-linear-gradient(100deg, #000 0 ${(easeInOut(p) * 140).toFixed(1)}px, transparent ${(easeInOut(p) * 140).toFixed(1)}px 140px)`, top: true } : {};
+    case 'doors': return side === 'in' ? { clip: `inset(0 ${((1 - easeInOut(p)) * 50).toFixed(2)}% 0 ${((1 - easeInOut(p)) * 50).toFixed(2)}%)` } : {};
+    case 'band': return { cut: true };
+    case 'pull': return side === 'in' ? { tf: `scale(${1 + q * 1.6})`, filter: `blur(${(q * 14).toFixed(1)}px)` } : { tf: `scale(${1 - q * 0.35})`, filter: `blur(${(q * 10).toFixed(1)}px)`, op: 1 - q };
+    case 'fill': return { cut: true };
+    default: return { cut: true }; // flash: a hard cut under a white flash
+  }
+}
+
+window.renderAt = (T) => {
+  let flashOp = 0;
+  scenes.forEach((s, i) => {
+    const next = scenes[i + 1], last = !next;
+    const tin = s.transition, tout = next?.transition;
+    const from = s.start - (tin ? H : 0), to = s.start + s.dur + (last ? 1 : tout ? H : 0);
+    let on = T >= from && T < to;
+    let look = {};
+    if (on && tin && T < s.start + H) look = transit(tin, 'in', clamp((T - (s.start - H)) / (2 * H)), T);
+    if (on && tout && T >= s.start + s.dur - H) look = transit(tout, 'out', clamp((T - (s.start + s.dur - H)) / (2 * H)), T);
+    // hard-cut styles: only one side is on screen
+    if (on && look.cut && ((tin && T < s.start) || (tout && T >= s.start + s.dur))) on = false;
+    if (tin && (tin === 'flash' || tin === 'glitch')) flashOp = Math.max(flashOp, tin === 'flash' ? Math.max(0, 1 - Math.abs(T - s.start) / (H * 1.6)) * 0.95 : 0);
+    s.root.style.display = on ? 'block' : 'none';
+    if (!on) return;
+    // No camera zoom and no shaking (the owner's rule): the picture only moves in transitions.
+    s.root.style.transform = look.tf || 'none';
+    s.root.style.filter = look.filter || 'none';
+    s.root.style.opacity = look.op ?? 1;
+    s.root.style.clipPath = look.clip || 'none';
+    s.root.style.transformOrigin = look.origin || '50% 50%';
+    s.root.style.webkitMaskImage = look.mask || 'none';
+    s.root.style.zIndex = look.clip || look.top ? 3 : T >= s.start ? 2 : 1;
+    // The background stays still (the owner's rule): no pulsing glow, streaks, rings or particles.
+    s.update(T - s.start, s.dur, T);
+  });
+  // 'band': a green diagonal band sweeps across the screen and covers the cut
+  let bandX = null;
+  scenes.forEach((s) => { if (s.transition === 'band') { const d = T - s.start; if (Math.abs(d) < H * 1.6) bandX = easeInOut(clamp((d + H * 1.6) / (H * 3.2))); } });
+  band.style.opacity = bandX === null ? 0 : 1;
+  if (bandX !== null) band.style.left = `${(-1100 + bandX * 2300).toFixed(1)}px`;
+  // 'fill': a green disc grows from the centre to cover the cut
+  let fillR = 0;
+  scenes.forEach((s) => { if (s.transition === 'fill') { const d = T - s.start; if (Math.abs(d) < H * 1.8) fillR = Math.max(fillR, d < 0 ? easeIn(clamp(1 + d / (H * 1.8))) : 1 - easeOut(clamp(d / (H * 1.8)))); } });
+  const R = fillR * 1250; Object.assign(fillc.style, { width: `${2 * R}px`, height: `${2 * R}px`, marginLeft: `${-R}px`, marginTop: `${-R}px`, opacity: fillR > 0 ? 1 : 0 });
+  // the drop gets its own flash
+  if (DROP && !scenes.some((x) => x.start === DROP && x.transition === 'fill')) flashOp = Math.max(flashOp, Math.max(0, 1 - Math.abs(T - DROP) / 0.35));
+  flash.style.opacity = flashOp;
+};
+renderAt(0);
+</script>
+</body>
+</html>
