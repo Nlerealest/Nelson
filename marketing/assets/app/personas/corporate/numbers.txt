@@ -1,13 +1,12 @@
-# What the app shows on 2026-11-13 for this persona (sample-data.mjs). Use these numbers in videos.
+# What the app shows on 2026-11-14 for this persona (sample-data.mjs). Use these numbers in videos.
 persona corporate - Senior manager in Lilongwe, sells broilers on the side - income a month 1730000
-safe 999 leftToday 999 days 18 available 17982.404692082142
-surplus 252615 needed 234018
+safe 1058 leftToday 1058 days 17 available 17982.404692082142
+surplus 279429 needed 234018
  goal New car 161290
  goal Emergency fund 72727
- budget Groceries pace 265385
- budget Transport pace 193846
- budget Airtime & Data pace 131538
- budget Church & Giving pace 115385
+ budget Groceries pace 246429
+ budget Airtime & Data pace 122143
+ budget Church & Giving pace 107143
 [
   'You kept 21% of your income (K370,000).',
   'Most money went to Rent: K650,000 (48% of spending).',
