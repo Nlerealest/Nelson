@@ -1,13 +1,12 @@
-# What the app shows on 2026-11-15 for this persona (sample-data.mjs). Use these numbers in videos.
+# What the app shows on 2026-11-16 for this persona (sample-data.mjs). Use these numbers in videos.
 persona family - Parent of three, two salaries and a tailoring business - income a month 1750000
-safe 13773 leftToday 13773 days 16 available 220367.3469387755
-surplus 202333 needed 181633
+safe 24691 leftToday 24691 days 15 available 370367.3469387755
+surplus 244875 needed 181633
  goal Children's school fees 100000
  goal Family car 81633
- budget Groceries pace 400000
- budget Transport pace 288000
- budget Airtime & Data pace 154000
- budget Church & Giving pace 80000
+ budget Transport pace 270000
+ budget Airtime & Data pace 144375
+ budget Church & Giving pace 75000
 [
   'You kept 18% of your income (K315,000).',
   'Most money went to Rent: K500,000 (35% of spending).',
