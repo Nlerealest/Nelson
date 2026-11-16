@@ -1,0 +1,68 @@
+{
+  "expo": {
+    "name": "King Tonka",
+    "slug": "kingtonka",
+    "scheme": "kingtonka",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "description": "Turn long videos into viral short clips with Claude: AI-picked moments, viral scores, animated captions and face-tracking reframes.",
+    "ios": {
+      "bundleIdentifier": "mw.nelson.kingtonka",
+      "supportsTablet": true,
+      "config": {
+        "usesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "mw.nelson.kingtonka",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#4b1fb8",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "output": "single"
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "root": "./src/app"
+        }
+      ],
+      "expo-status-bar",
+      "expo-sharing",
+      "expo-video",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "King Tonka saves your clips to your gallery.",
+          "savePhotosPermission": "King Tonka saves your clips to your gallery.",
+          "isAccessMediaLocationEnabled": false,
+          "granularPermissions": [
+            "video"
+          ]
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 180,
+          "backgroundColor": "#4b1fb8"
+        }
+      ],
+      "expo-font",
+      "./plugins/withReleaseSigning"
+    ]
+  }
+}

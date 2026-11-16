@@ -1,0 +1,5 @@
+# King Tonka's video engine (GitHub Action). yt-dlp is installed separately, always the newest.
+faster-whisper==1.2.1
+opencv-python-headless>=4.10,<5
+numpy<3
+requests>=2.32

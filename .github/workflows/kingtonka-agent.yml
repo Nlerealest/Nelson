@@ -1,0 +1,129 @@
+# King Tonka, the AI video clipper: runs on GitHub's servers with Claude (your
+# Claude plan). It wakes up when the King Tonka app adds a command (Supabase calls
+# repository_dispatch) and once a day to pick up anything missed.
+#
+#   1. prepare.py   downloads each new video and transcribes it word by word
+#   2. Claude       reads the transcripts, picks and scores the best clips, makes edits
+#   3. render.py    cuts, reframes, captions and uploads every clip to the app
+#
+# Secrets (the same ones Twizzy uses): CLAUDE_CODE_OAUTH_TOKEN, SUPABASE_URL,
+# SUPABASE_SERVICE_ROLE_KEY. Optional: KT_YOUTUBE_COOKIES. See kingtonka/SETUP.md.
+name: King Tonka agent
+
+on:
+  repository_dispatch:
+    types: [kingtonka]
+  schedule:
+    - cron: '41 6 * * *'
+  workflow_dispatch:
+    inputs:
+      task:
+        description: 'Extra instruction for King Tonka (optional)'
+        required: false
+
+permissions:
+  contents: read
+
+# One run at a time; a run that starts later picks up everything still waiting.
+concurrency:
+  group: kingtonka-agent
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      KT_WORK: ${{ github.workspace }}/kt-work
+      KT: python kingtonka/agent/kt.py
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: kingtonka/agent/requirements.txt
+
+      # yt-dlp needs a JavaScript runtime for YouTube.
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Video tools
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
+          pip install -q -r kingtonka/agent/requirements.txt
+          pip install -q -U --pre "yt-dlp[default]"
+          mkdir -p ~/.local/share/fonts
+          curl -sSL -o /tmp/inter.zip https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip
+          unzip -q -o /tmp/inter.zip -d /tmp/inter && find /tmp/inter -name "*.otf" -exec cp {} ~/.local/share/fonts/ \; && fc-cache -f >/dev/null
+          $KT agent working "Getting the studio ready…"
+
+      - name: Cache the speech model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: kt-whisper-v1
+
+      - name: YouTube cookies (optional)
+        env:
+          COOKIES: ${{ secrets.KT_YOUTUBE_COOKIES }}
+        run: |
+          if [ -n "$COOKIES" ]; then
+            printf '%s\n' "$COOKIES" > "$RUNNER_TEMP/cookies.txt"
+            echo "KT_COOKIES_FILE=$RUNNER_TEMP/cookies.txt" >> "$GITHUB_ENV"
+          fi
+
+      - name: Download and transcribe
+        continue-on-error: true
+        run: python kingtonka/agent/prepare.py
+
+      - name: Anything for Claude?
+        id: need
+        run: |
+          python - <<'EOF' >> "$GITHUB_OUTPUT"
+          import json, subprocess
+          s = json.loads(subprocess.run(['python', 'kingtonka/agent/kt.py', 'state'], capture_output=True, text=True, check=True).stdout)
+          talk = [c for c in s['commands'] if c['kind'] in ('message', 'edit')]
+          print('claude=' + ('yes' if s['projects_to_clip'] or s['clips_to_edit'] or talk else 'no'))
+          EOF
+
+      - name: Claude finds the clips
+        if: steps.need.outputs.claude == 'yes' || (github.event_name == 'workflow_dispatch' && github.event.inputs.task)
+        continue-on-error: true
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          claude_args: >-
+            --max-turns 150
+            --allowedTools "Bash,Read,Write,Edit,Glob,Grep"
+          prompt: |
+            You are King Tonka, an AI video clipper, running in a GitHub Action.
+            Read kingtonka/agent/KING_TONKA.md completely first and follow it.
+            Start with `python kingtonka/agent/kt.py state`. The transcripts are in ${{ github.workspace }}/kt-work.
+            Plan clips for every project waiting, make every edit asked for, and answer messages.
+            You never render videos: a script renders everything you plan after you finish.
+            ${{ github.event.inputs.task && format('Also: {0}', github.event.inputs.task) || '' }}
+
+      - name: Render the clips
+        run: python kingtonka/agent/render.py
+
+      - name: Back to waiting
+        if: always()
+        run: |
+          python - <<'EOF'
+          import sys
+          sys.path.insert(0, 'kingtonka/agent')
+          import kt
+          stuck = kt.select('kt_projects', 'status=eq.finding&select=id,title')
+          for p in stuck:
+              kt.project_step(p['id'], step='Claude didn’t finish this one. It will try again at the next run.')
+          if stuck:
+              kt.agent('error', 'Claude couldn’t finish everything. It will try again at the next run, or tap Retry.')
+          else:
+              kt.agent('idle', 'Ready for your next video')
+          EOF
