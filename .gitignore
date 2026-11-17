@@ -33,3 +33,7 @@ marketing/campaigns/*/song.*
 
 # Voice samples for the Twizzy app's voice picker
 !marketing/voices/*.mp3
+
+# Python bytecode
+__pycache__/
+*.pyc
