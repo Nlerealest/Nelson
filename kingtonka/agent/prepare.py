@@ -93,11 +93,22 @@ def fmt(t):
     return f'{int(t // 60)}:{t % 60:04.1f}'
 
 
+def load_audio(src):
+    """The soundtrack as 16 kHz mono samples, decoded by ffmpeg. (faster-whisper's own
+    decoder breaks with newer PyAV versions, so it never touches the file.)"""
+    import numpy as np
+    pcm = subprocess.run(['ffmpeg', '-v', 'error', '-nostdin', '-i', src, '-vn', '-ac', '1', '-ar', '16000', '-f', 'f32le', '-'],
+                         check=True, capture_output=True).stdout
+    if not pcm:
+        raise RuntimeError('This video has no sound, so there are no words to clip.')
+    return np.frombuffer(pcm, np.float32)
+
+
 def transcribe(src, d, language=None, duration=0, on_progress=None):
     from faster_whisper import WhisperModel
     size = os.environ.get('KT_WHISPER') or ('small' if duration <= 50 * 60 else 'base')
     model = WhisperModel(size, device='cpu', compute_type='int8', cpu_threads=os.cpu_count() or 4)
-    segments, info = model.transcribe(src, language=None if language in (None, '', 'auto') else language,
+    segments, info = model.transcribe(load_audio(src), language=None if language in (None, '', 'auto') else language,
                                       word_timestamps=True, vad_filter=True, beam_size=1,
                                       condition_on_previous_text=False)
     words, lines, last = [], [], 0
