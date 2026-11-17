@@ -41,7 +41,7 @@ You can follow each run on GitHub: **Actions** → **King Tonka agent**.
 
 | Where | What |
 | --- | --- |
-| **Create** | Paste a link (YouTube, X, TikTok, Instagram, Twitch, Vimeo, Facebook, Google Drive, Dropbox…) or upload a video up to 50 MB. Pick how many clips, their length, shape (9:16, 1:1, 4:5, 16:9), caption style, framing, and what to look for ("the funniest moments"). You can also use only part of the video. |
+| **Create** | Paste a link (YouTube, X, TikTok, Instagram, Twitch, Vimeo, Facebook, Google Drive, Dropbox…) or upload a video of any length (up to 800 MB). Pick how many clips, their length, shape (9:16, 1:1, 4:5, 16:9), caption style, framing, and what to look for ("the funniest moments"). You can also use only part of the video. |
 | **A video** | Progress while it works, then all its clips by viral score or in order. **Find more clips**, **Try again**, **Delete**. |
 | **A clip → Post** | Ready-made caption and hashtags: edit them, **Copy caption**, **Save to phone**, **Share**, **Mark as posted**, ❤️ to like. |
 | **A clip → Edit** | Trim the start and end (±1 s, ±5 s), change the hook title, caption style, position and colour, framing, shape, watermark, then **Save and update clip**. Or **Ask Claude to change it** in your own words. |
@@ -57,20 +57,46 @@ You can follow each run on GitHub: **Actions** → **King Tonka agent**.
 ## Good to know
 
 - **Storage:** Supabase's free plan holds 1 GB. Each clip is about 5–40 MB, so delete old videos you've already posted. A video's clips are deleted with it.
-- **Uploads** from the phone are limited to 50 MB. For bigger files, put them on Google Drive or Dropbox, set sharing to "anyone with the link", and paste the link.
+- **Uploads** from the phone go up in 45 MB pieces, so any length works up to 800 MB. They count toward the 1 GB, so delete videos you're done with.
 - **Claude** usage counts against your Claude plan's limits. Only picking clips and making edits use Claude. Downloading, transcribing and rendering don't.
 - **GitHub Actions** is free for this public repository.
 
-## If YouTube blocks downloads
+## YouTube and Twitch links
 
-YouTube sometimes blocks downloads from GitHub's servers ("Sign in to confirm you're not a bot").
-The video then shows that message. Either upload the file, or give King Tonka your YouTube cookies:
+YouTube asks GitHub's servers to sign in before it allows a download ("Sign in to confirm
+you're not a bot"). Twitch does the same for subscriber-only videos. King Tonka can sign in
+with **your** account if you give it your browser's sign-in cookies once.
 
-1. On a computer, install the browser extension **Get cookies.txt LOCALLY**, open youtube.com while signed in, and export the cookies for youtube.com.
-   Use a spare Google account if you can.
-2. On GitHub: **Settings** → **Secrets and variables** → **Actions** → **New repository secret**.
-   Name it `KT_YOUTUBE_COOKIES` and paste the whole file as the value.
-3. Open the video in the app and tap **Try again**.
+You have two choices:
+
+- **No setup:** tap **Upload the file instead** on the video. Uploads work for any length
+  up to 800 MB.
+- **Sign in once (about 10 minutes, on a computer):** follow these steps.
+
+1. **Use a spare Google account if you can.** YouTube can limit an account that downloads a
+   lot. Sign in to youtube.com with it in **Chrome** or **Firefox** on your computer, and play
+   any video once. For Twitch, sign in to twitch.tv in the same browser.
+2. **Install the cookie exporter.** Add the extension **“Get cookies.txt LOCALLY”** from the
+   Chrome Web Store or Firefox Add-ons. (Use this one: it never sends your cookies anywhere.)
+3. **Export YouTube.** Open a youtube.com tab, click the extension icon, then **Export**.
+   It downloads a `youtube.com_cookies.txt` file.
+4. **Export Twitch (optional).** Open a twitch.tv tab, click the icon, then **Export**.
+5. **Make one file.** Open the YouTube file in Notepad, then paste the Twitch file's lines
+   (everything except its first `# Netscape HTTP Cookie File` line) at the end.
+6. **Save it on GitHub.** Open **github.com/Nlerealest/Nelson** → **Settings** → **Secrets and variables** →
+   **Actions** → **New repository secret**:
+   - **Name:** `KT_COOKIES`
+   - **Secret:** paste the whole file.
+   - Click **Add secret**. GitHub keeps it encrypted, and King Tonka never shows it.
+7. **Test it.** In the app, open the video that failed and tap **Try again**.
+
+Good to know:
+
+- **The sign-in lasts a few weeks to months.** If links start failing again, repeat steps 3–6.
+  Signing out of YouTube in that browser also ends it, so close the tab instead of signing out.
+- Only clip videos you made or have permission to use.
+- Public Twitch VODs and clips usually work with no sign-in.
+- X, TikTok, Instagram, Vimeo, Google Drive and Dropbox links usually need nothing.
 
 ## If something goes wrong
 

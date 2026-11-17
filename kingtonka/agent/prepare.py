@@ -16,7 +16,7 @@ import traceback
 
 import kt
 
-COOKIES = os.environ.get('KT_COOKIES_FILE')  # optional cookies.txt for YouTube
+COOKIES = os.environ.get('KT_COOKIES_FILE')  # optional cookies.txt: your YouTube / Twitch sign-in
 
 
 def run(cmd, **kw):
@@ -31,8 +31,8 @@ def probe_duration(path):
 def friendly_download_error(err):
     e = err.lower()
     if 'sign in to confirm' in e or 'not a bot' in e or 'cookies' in e:
-        return ('YouTube blocked the download from GitHub’s servers. Upload the video file instead, '
-                'or add your YouTube cookies (SETUP.md, “If YouTube blocks downloads”).')
+        return ('This site asked King Tonka to sign in before downloading. Tap “Upload the file instead”, '
+                'or connect your account once (SETUP.md, “YouTube and Twitch links”).')
     if 'private' in e or 'login' in e or 'members-only' in e:
         return 'This video is private or needs a login. Upload the file instead.'
     if 'unsupported url' in e:
@@ -69,10 +69,19 @@ def get_source(project, d):
     if os.path.exists(src):
         return project.get('title'), {}
     if project.get('source_path'):
-        kt.download(project['source_path'], os.path.join(d, 'upload.bin'))
+        # Big uploads come in parts (settings.parts): join them back into one file.
+        parts = int((project.get('settings') or {}).get('parts') or 0)
+        names = [f"{project['source_path']}{i}" for i in range(parts)] if parts else [project['source_path']]
+        with open(os.path.join(d, 'upload.bin'), 'wb') as out:
+            for i, name in enumerate(names):
+                kt.download(name, os.path.join(d, 'part.bin'))
+                with open(os.path.join(d, 'part.bin'), 'rb') as f:
+                    while chunk := f.read(1 << 22):
+                        out.write(chunk)
+                os.remove(os.path.join(d, 'part.bin'))
         run(['ffmpeg', '-v', 'error', '-y', '-i', os.path.join(d, 'upload.bin'), '-c', 'copy', '-movflags', '+faststart', src])
         os.remove(os.path.join(d, 'upload.bin'))
-        return project.get('title') or os.path.basename(project['source_path']).split('-', 1)[-1], {}
+        return project.get('title') or os.path.basename(project['source_path']).split('-', 1)[-1].split('.part')[0], {}
     try:
         info = download_link(project['source_url'], d)
     except subprocess.CalledProcessError as e:

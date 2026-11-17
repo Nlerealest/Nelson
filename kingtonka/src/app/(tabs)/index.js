@@ -1,19 +1,16 @@
 // Create: paste a link or upload a video, pick the options, get clips.
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 import { router } from 'expo-router';
-import * as DocumentPicker from 'expo-document-picker';
 import * as Clipboard from 'expo-clipboard';
-import { File } from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
-import { db } from '../../supabase';
-import { ago, BUCKET, newProject, parseClock, useConfig, useRows, useToast } from '../../data';
+import { ago, newProject, parseClock, useConfig, useRows, useToast } from '../../data';
 import { Body, Button, Card, Empty, Field, Label, Loading, Row, Screen, Section } from '../../components/ui';
 import { FALLBACK, label, ProjectForm } from '../../components/settings';
 import { ProjectCard } from '../../components/cards';
+import { pickVideo, uploadVideo } from '../../upload';
 import { GOLD, useTheme } from '../../theme';
 
-const MAX_UPLOAD_MB = 50;
 
 function AgentCard({ agent }) {
   const state = agent?.state || 'idle';
@@ -68,7 +65,8 @@ export default function Create() {
 
   const start = async (src) => {
     try {
-      const p = await newProject({ ...src, settings: settings() });
+      const { parts, ...rest } = src;
+      const p = await newProject({ ...rest, settings: { ...settings(), ...(parts ? { parts } : {}) } });
       setUrl(''); setPrompt(''); setFrom(''); setTo(''); setOpts(null);
       toast('Got it. King Tonka starts within a minute.');
       router.push(`/project/${p.id}`);
@@ -78,19 +76,12 @@ export default function Create() {
   };
 
   const pickFile = async () => {
-    const res = await DocumentPicker.getDocumentAsync({ type: ['video/*'], copyToCacheDirectory: true });
-    if (res.canceled) return;
-    const a = res.assets[0];
-    if (a.size && a.size > MAX_UPLOAD_MB * 1024 * 1024) {
-      return toast(`That file is over ${MAX_UPLOAD_MB} MB. Paste a link instead (YouTube, Google Drive, Dropbox…).`);
-    }
+    const a = await pickVideo();
+    if (!a) return;
     try {
       setUpload(`Uploading ${a.name || 'video'}…`);
-      const body = Platform.OS === 'web' ? a.file : await new File(a.uri).arrayBuffer();
-      const path = `uploads/${Date.now()}-${(a.name || 'video.mp4').replace(/[^\w.-]+/g, '_')}`;
-      const { error } = await db().storage.from(BUCKET).upload(path, body, { contentType: a.mimeType || 'video/mp4' });
-      if (error) throw error;
-      await start({ path, title: (a.name || 'Uploaded video').replace(/\.[a-z0-9]+$/i, '') });
+      const up = await uploadVideo(a, (pct) => setUpload(`Uploading ${a.name || 'video'}… ${pct}%`));
+      await start({ path: up.path, title: up.title, parts: up.parts });
     } catch (e) {
       toast('Upload failed: ' + (e.message || e));
     } finally {
@@ -109,7 +100,7 @@ export default function Create() {
 
       <Card>
         <Body bold style={{ fontSize: 18 }}>Turn a long video into viral clips</Body>
-        <Body small muted>Paste a link from YouTube, X, TikTok, Instagram, Twitch, Vimeo, Facebook, Google Drive or Dropbox. Or upload a video from your phone.</Body>
+        <Body small muted>Paste a link from YouTube, X, TikTok, Instagram, Twitch, Vimeo, Facebook, Google Drive or Dropbox. Or upload a video from your phone (any length, up to 800 MB).</Body>
         <Row wrap={false}>
           <View style={{ flex: 1 }}>
             <Field value={url} onChangeText={setUrl} placeholder="https://youtube.com/watch?v=…" autoCapitalize="none" autoCorrect={false} keyboardType="url" />

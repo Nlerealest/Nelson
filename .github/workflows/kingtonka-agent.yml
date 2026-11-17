@@ -7,7 +7,7 @@
 #   3. render.py    cuts, reframes, captions and uploads every clip to the app
 #
 # Secrets (the same ones Twizzy uses): CLAUDE_CODE_OAUTH_TOKEN, SUPABASE_URL,
-# SUPABASE_SERVICE_ROLE_KEY. Optional: KT_YOUTUBE_COOKIES. See kingtonka/SETUP.md.
+# SUPABASE_SERVICE_ROLE_KEY. Optional: KT_COOKIES (YouTube / Twitch sign-in). See kingtonka/SETUP.md.
 name: King Tonka agent
 
 on:
@@ -68,9 +68,9 @@ jobs:
           path: ~/.cache/huggingface
           key: kt-whisper-v1
 
-      - name: YouTube cookies (optional)
+      - name: Your YouTube / Twitch sign-in (optional)
         env:
-          COOKIES: ${{ secrets.KT_YOUTUBE_COOKIES }}
+          COOKIES: ${{ secrets.KT_COOKIES || secrets.KT_YOUTUBE_COOKIES }}
         run: |
           if [ -n "$COOKIES" ]; then
             printf '%s\n' "$COOKIES" > "$RUNNER_TEMP/cookies.txt"

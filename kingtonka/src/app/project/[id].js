@@ -1,6 +1,6 @@
 // One video: progress while King Tonka works, then its clips, best first.
 import { useMemo, useState } from 'react';
-import { Alert, Linking, Platform, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Platform, View } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ask, clock, logYou, remove, removeFiles, STATUS, update, useRow, useRows, useToast } from '../../data';
@@ -9,6 +9,7 @@ import { Thumb } from '../../components/media';
 import { ClipTile, Grid } from '../../components/cards';
 import { label } from '../../components/settings';
 import { useTheme } from '../../theme';
+import { pickVideo, sourceFiles, uploadVideo } from '../../upload';
 
 const STEPS = [['downloading', 'Download'], ['transcribing', 'Transcribe'], ['finding', 'Find moments'], ['rendering', 'Edit clips'], ['done', 'Ready']];
 
@@ -43,6 +44,7 @@ export default function Project() {
   const { row: p, error } = useRow('kt_projects', id);
   const clipRows = useRows('kt_clips', { filter: { project_id: id } }).rows;
   const [sort, setSort] = useState('score');
+  const [upload, setUpload] = useState(null);
 
   const clips = useMemo(() => {
     const list = [...(clipRows || [])];
@@ -59,13 +61,33 @@ export default function Project() {
     await ask('process', `Try again: ${p.title || p.source_url}`, { projectId: p.id });
     toast('Trying again. King Tonka starts within a minute.');
   };
+  // A link that couldn't be downloaded: send the file from the phone instead, same options.
+  const uploadInstead = async () => {
+    const a = await pickVideo();
+    if (!a) return;
+    try {
+      setUpload('Uploading… 0%');
+      const up = await uploadVideo(a, (pct) => setUpload(`Uploading… ${pct}%`));
+      await removeFiles(sourceFiles(p));
+      await update('kt_projects', p.id, {
+        source_path: up.path, settings: { ...(p.settings || {}), parts: up.parts }, title: p.title || up.title,
+        status: 'queued', step: 'Waiting for King Tonka to start…', percent: 0, error: null,
+      });
+      await ask('process', `Clip the uploaded file for ${p.title || p.source_url}`, { projectId: p.id });
+      toast('Uploaded. King Tonka starts within a minute.');
+    } catch (e) {
+      toast('Upload failed: ' + (e.message || e));
+    } finally {
+      setUpload(null);
+    }
+  };
   const more = async () => {
     await ask('more', `Find more clips in “${p.title}”, different from the ones already made.`, { projectId: p.id });
     await update('kt_projects', p.id, { status: 'finding', step: 'Waiting for King Tonka to look for more…', percent: 60 });
     toast('King Tonka will look for more moments.');
   };
   const del = () => confirm('Delete this video and its clips?', 'The clips are removed from the app. Clips you saved to your phone stay there.', 'Delete', async () => {
-    await removeFiles([p.source_path, p.thumb_path, `projects/${p.id}/transcript.txt`, `projects/${p.id}/words.json`,
+    await removeFiles([...sourceFiles(p), p.thumb_path, `projects/${p.id}/transcript.txt`, `projects/${p.id}/words.json`,
       ...(clipRows || []).flatMap((c) => [c.media_path, c.thumb_path])]);
     await remove('kt_projects', p.id);
     logYou(`You deleted “${p.title || p.source_url}”`);
@@ -102,7 +124,12 @@ export default function Project() {
         {p.status === 'failed' ? (
           <View style={{ gap: 8 }}>
             <Body small color={t.danger}>{p.error || 'Something went wrong.'}</Body>
-            <Row><Button small icon="refresh" title="Try again" onPress={retry} /></Row>
+            {upload ? <Row><ActivityIndicator color={t.primary} /><Body small muted>{upload}</Body></Row> : (
+              <Row>
+                {p.source_url ? <Button small icon="cloud-upload-outline" title="Upload the file instead" onPress={uploadInstead} /> : null}
+                <Button small kind={p.source_url ? 'plain' : 'primary'} icon="refresh" title="Try again" onPress={retry} />
+              </Row>
+            )}
           </View>
         ) : null}
         <Row>
