@@ -30,6 +30,11 @@ def probe_duration(path):
 
 def friendly_download_error(err):
     e = err.lower()
+    signed_in = bool(COOKIES and os.path.exists(COOKIES))
+    if 'no longer valid' in e or 'rotated' in e or (signed_in and ('sign in to confirm' in e or 'not a bot' in e)):
+        return ('Your YouTube sign-in has expired (YouTube replaces it when that browser keeps using it). '
+                'Export it again with the private-window steps in SETUP.md, “YouTube and Twitch links”, '
+                'or tap “Upload the file instead”.')
     if 'sign in to confirm' in e or 'not a bot' in e or 'cookies' in e:
         return ('This site asked King Tonka to sign in before downloading. Tap “Upload the file instead”, '
                 'or connect your account once (SETUP.md, “YouTube and Twitch links”).')
@@ -85,6 +90,8 @@ def get_source(project, d):
     try:
         info = download_link(project['source_url'], d)
     except subprocess.CalledProcessError as e:
+        # The site's own words, for the GitHub log (yt-dlp never prints cookie values).
+        print('yt-dlp said:\n' + '\n'.join((e.stderr or str(e)).strip().splitlines()[-8:]), file=sys.stderr)
         raise RuntimeError(friendly_download_error(e.stderr or str(e))) from None
     return info.get('title'), info
 

@@ -73,14 +73,18 @@ You have two choices:
   up to 800 MB.
 - **Sign in once (about 10 minutes, on a computer):** follow these steps.
 
-1. **Use a spare Google account if you can.** YouTube can limit an account that downloads a
-   lot. Sign in to youtube.com with it in **Chrome** or **Firefox** on your computer, and play
-   any video once. For Twitch, sign in to twitch.tv in the same browser.
-2. **Install the cookie exporter.** Add the extension **“Get cookies.txt LOCALLY”** from the
-   Chrome Web Store or Firefox Add-ons. (Use this one: it never sends your cookies anywhere.)
-3. **Export YouTube.** Open a youtube.com tab, click the extension icon, then **Export**.
-   It downloads a `youtube.com_cookies.txt` file.
-4. **Export Twitch (optional).** Open a twitch.tv tab, click the icon, then **Export**.
+1. **Install the cookie exporter.** On your computer, add the extension **“Get cookies.txt LOCALLY”**
+   from the Chrome Web Store or Firefox Add-ons. (Use this one: it never sends your cookies anywhere.)
+   Then allow it in private windows: in Chrome open the extension's **Details** and turn on **Allow in Incognito**.
+   In Firefox it's **Run in Private Windows**.
+2. **Open a private window** (Chrome: Ctrl+Shift+N, Firefox: Ctrl+Shift+P) and sign in to youtube.com.
+   Use a spare Google account if you can, because YouTube can limit an account that downloads a lot.
+3. **Export YouTube, then close the window.** In that same private window, go to
+   `youtube.com/robots.txt`, click the extension icon, then **Export**. It downloads a
+   `youtube.com_cookies.txt` file. **Close the private window straight away and don't sign in
+   there again.** This matters: if that window keeps using YouTube, YouTube replaces the sign-in
+   and the copy you gave King Tonka stops working within minutes.
+4. **Export Twitch (optional).** Open a new private window, sign in to twitch.tv, click the icon, **Export**, and close the window.
 5. **Make one file.** Open the YouTube file in Notepad, then paste the Twitch file's lines
    (everything except its first `# Netscape HTTP Cookie File` line) at the end.
 6. **Save it on GitHub.** Open **github.com/Nlerealest/Nelson** → **Settings** → **Secrets and variables** →
@@ -92,8 +96,9 @@ You have two choices:
 
 Good to know:
 
-- **The sign-in lasts a few weeks to months.** If links start failing again, repeat steps 3–6.
-  Signing out of YouTube in that browser also ends it, so close the tab instead of signing out.
+- **The sign-in lasts weeks to months** when you export it this way. When the app says
+  “Your YouTube sign-in has expired”, repeat steps 2–6 and replace the `KT_COOKIES` secret
+  (open it on GitHub and click **Update**).
 - Only clip videos you made or have permission to use.
 - Public Twitch VODs and clips usually work with no sign-in.
 - X, TikTok, Instagram, Vimeo, Google Drive and Dropbox links usually need nothing.
