@@ -1,6 +1,6 @@
-# Last run: 2026-11-17
+# Last run: 2026-11-18
 
-- Daily check: read state. No commands queued, no new references, no replies to send, no posts to make or change.
-- File check: all 25 post videos present, none missing.
-- Three posts are approved and wait for the owner to post by hand. No reference in use. No videos made this run.
-- Logged one activity entry.
+- Daily check: no commands, no approved concepts, no new references, no replies waiting, nothing paused.
+- `check`: all 25 post videos present in storage, nothing to re-render.
+- Three posts are approved and waiting for the owner to post by hand (p-lent, p-term3fees, p-doublesalary).
+- Logged one activity entry. No videos made (no title, reference, voice or song to report).
