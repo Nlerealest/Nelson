@@ -10,7 +10,11 @@ transcript back. Then the project moves to "finding" for Claude.
 """
 import json
 import os
+import shutil
+import signal
 import subprocess
+import tempfile
+import time
 import sys
 import traceback
 
@@ -47,7 +51,28 @@ def friendly_download_error(err):
     return 'Couldn’t download the video: ' + err.strip().splitlines()[-1][:220]
 
 
-def download_link(url, d):
+def run_watched(cmd, pid):
+    """Runs a long command (the download), checking every few seconds that the
+    owner still wants this video. Stops it at once if they cancelled or deleted it."""
+    with tempfile.TemporaryFile(mode='w+') as err:
+        proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=err, text=True, start_new_session=True)
+        try:
+            while proc.poll() is None:
+                time.sleep(2)
+                kt.check_wanted(pid)
+        except BaseException:
+            try:
+                os.killpg(proc.pid, signal.SIGTERM)  # yt-dlp and the ffmpeg it started
+                proc.wait(15)
+            except (ProcessLookupError, subprocess.TimeoutExpired):
+                os.killpg(proc.pid, signal.SIGKILL)
+            raise
+        if proc.returncode:
+            err.seek(0)
+            raise subprocess.CalledProcessError(proc.returncode, cmd, stderr=err.read())
+
+
+def download_link(url, d, pid):
     """Downloads up to 1080p into d/source.mp4 and returns yt-dlp's info."""
     base = ['yt-dlp', '--no-playlist', '--no-progress', '--restrict-filenames']
     if COOKIES and os.path.exists(COOKIES):
@@ -57,8 +82,9 @@ def download_link(url, d):
         raise RuntimeError('That is a playlist. Paste the link to one video.')
     if (info.get('duration') or 0) > 4 * 3600:
         raise RuntimeError('The video is longer than 4 hours. Use “Only part of the video”, or trim it first.')
-    run(base + ['-f', 'bv*[height<=1080][vcodec^=avc1]+ba[ext=m4a]/bv*[height<=1080]+ba/b[height<=1080]/b',
-                '--merge-output-format', 'mp4', '-o', os.path.join(d, 'source.%(ext)s'), url])
+    kt.check_wanted(pid, every=0)
+    run_watched(base + ['-f', 'bv*[height<=1080][vcodec^=avc1]+ba[ext=m4a]/bv*[height<=1080]+ba/b[height<=1080]/b',
+                        '--merge-output-format', 'mp4', '-o', os.path.join(d, 'source.%(ext)s'), url], pid)
     found = [f for f in os.listdir(d) if f.startswith('source.')]
     if not found:
         raise RuntimeError('The download finished but no video file was saved.')
@@ -79,6 +105,7 @@ def get_source(project, d):
         names = [f"{project['source_path']}{i}" for i in range(parts)] if parts else [project['source_path']]
         with open(os.path.join(d, 'upload.bin'), 'wb') as out:
             for i, name in enumerate(names):
+                kt.check_wanted(project['id'], every=0)
                 kt.download(name, os.path.join(d, 'part.bin'))
                 with open(os.path.join(d, 'part.bin'), 'rb') as f:
                     while chunk := f.read(1 << 22):
@@ -88,7 +115,7 @@ def get_source(project, d):
         os.remove(os.path.join(d, 'upload.bin'))
         return project.get('title') or os.path.basename(project['source_path']).split('-', 1)[-1].split('.part')[0], {}
     try:
-        info = download_link(project['source_url'], d)
+        info = download_link(project['source_url'], d, project['id'])
     except subprocess.CalledProcessError as e:
         # The site's own words, for the GitHub log (yt-dlp never prints cookie values).
         print('yt-dlp said:\n' + '\n'.join((e.stderr or str(e)).strip().splitlines()[-8:]), file=sys.stderr)
@@ -111,7 +138,7 @@ def load_audio(src):
     return np.frombuffer(pcm, np.float32)
 
 
-def transcribe(src, d, language=None, duration=0, on_progress=None):
+def transcribe(src, d, language=None, duration=0, on_progress=None, check=None):
     from faster_whisper import WhisperModel
     size = os.environ.get('KT_WHISPER') or ('small' if duration <= 50 * 60 else 'base')
     model = WhisperModel(size, device='cpu', compute_type='int8', cpu_threads=os.cpu_count() or 4)
@@ -120,6 +147,8 @@ def transcribe(src, d, language=None, duration=0, on_progress=None):
                                       condition_on_previous_text=False)
     words, lines, last = [], [], 0
     for seg in segments:
+        if check:
+            check()  # stops here if the owner cancelled the video
         for w in seg.words or []:
             text = w.word.strip()
             if text:
@@ -145,9 +174,11 @@ def prepare(project):
     pid = project['id']
     d = os.path.join(kt.WORK, pid)
     settings = project.get('settings') or {}
+    kt.check_wanted(pid, every=0)
     kt.agent('working', f'Downloading “{project.get("title") or project.get("source_url") or "your video"}”…')
     kt.project_step(pid, 'downloading', 'Downloading the video…', 5, error=None)
     title, info = get_source(project, d)
+    kt.check_wanted(pid, every=0)
     src = os.path.join(d, 'source.mp4')
     duration = probe_duration(src)
     thumb = kt.upload(thumbnail(src, d, min(5, duration / 3)), f'projects/{pid}/thumb.jpg', 'image/jpeg')
@@ -155,7 +186,9 @@ def prepare(project):
                     title=(project.get('title') or title or 'Untitled video')[:140], thumb_path=thumb)
     kt.agent('working', f'Transcribing “{(title or "your video")[:60]}” ({int(duration // 60)} min)…')
     lang, n = transcribe(src, d, settings.get('language'), duration,
-                         lambda p: kt.project_step(pid, step=f'Listening to every word… {p}%', percent=20 + p * 40 // 100))
+                         lambda p: kt.project_step(pid, step=f'Listening to every word… {p}%', percent=20 + p * 40 // 100),
+                         check=lambda: kt.check_wanted(pid, every=10))
+    kt.check_wanted(pid, every=0)
     if n < 20:
         raise RuntimeError('No speech found in this video. King Tonka clips videos where people talk.')
     kt.upload(os.path.join(d, 'transcript.txt'), f'projects/{pid}/transcript.txt', 'text/plain')
@@ -165,6 +198,20 @@ def prepare(project):
                    'uploader': info.get('uploader'), 'description': (info.get('description') or '')[:1500]}, f, indent=1)
     kt.project_step(pid, 'finding', 'Claude is watching for the best moments…', 60)
     kt.log(f'Transcribed “{(title or pid)[:60]}”: {int(duration // 60)} min, {n} words ({lang}).')
+
+
+def stopped(project):
+    """The owner cancelled or deleted this video mid-way: tidy up and move on."""
+    pid = project['id']
+    shutil.rmtree(os.path.join(kt.WORK, pid), ignore_errors=True)
+    still = kt.get('kt_projects', pid)
+    if not still:  # deleted in the app: also remove what was uploaded in the meantime
+        kt.remove([f'projects/{pid}/thumb.jpg', f'projects/{pid}/transcript.txt', f'projects/{pid}/words.json'])
+    for c in kt.select('kt_commands', f'project_id=eq.{pid}&status=in.(queued,working)'):
+        kt.update('kt_commands', c['id'], {'status': 'done', 'result': 'Stopped: you cancelled this video.'})
+    name = (project.get('title') or project.get('source_url') or pid)[:60]
+    kt.log(f'Stopped “{name}” because you {"deleted" if not still else "cancelled"} it.')
+    print(f'Stopped {pid}: the owner {"deleted" if not still else "cancelled"} it.')
 
 
 def restore_transcript(pid):
@@ -190,6 +237,8 @@ def main():
     for p in kt.select('kt_projects', 'status=in.(queued,downloading,transcribing)&order=created_at'):
         try:
             prepare(p)
+        except kt.Cancelled:
+            stopped(p)
         except Exception as e:  # one bad video must not stop the others
             traceback.print_exc()
             failures += 1
@@ -205,7 +254,7 @@ def main():
         try:
             restore_transcript(pid)
             p = kt.get('kt_projects', pid)
-            if p and any(c['kind'] == 'more' and c.get('project_id') == pid for c in commands):
+            if p and p['status'] != 'cancelled' and any(c['kind'] == 'more' and c.get('project_id') == pid for c in commands):
                 kt.project_step(pid, 'finding', 'Claude is looking for more moments…', 60)
         except Exception as e:
             traceback.print_exc()

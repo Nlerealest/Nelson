@@ -159,7 +159,16 @@ export function parseClock(text) {
 export const STATUS = {
   queued: ['Waiting', 'info'], downloading: ['Downloading', 'warn'], transcribing: ['Transcribing', 'warn'],
   finding: ['Finding clips', 'warn'], rendering: ['Rendering', 'warn'], done: ['Ready', 'ok'], failed: ['Problem', 'bad'],
+  cancelled: ['Cancelled', 'mute'],
 };
+export const WORKING = ['queued', 'downloading', 'transcribing', 'finding', 'rendering'];
+
+// Closes everything still waiting for one video (after you cancel it).
+export async function closeCommands(projectId, result) {
+  const { error } = await db().from('kt_commands').update({ status: 'done', result, updated_at: new Date().toISOString() })
+    .eq('project_id', projectId).in('status', ['queued', 'working']);
+  if (error) throw error;
+}
 export const CLIP_STATUS = {
   planned: ['Queued', 'info'], rendering: ['Rendering', 'warn'], rerender: ['Updating', 'warn'], editing: ['Claude is editing', 'warn'],
   ready: ['Ready', 'ok'], failed: ['Failed', 'bad'],

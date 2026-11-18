@@ -209,8 +209,8 @@ def render_waiting():
     total, n = len(clips), 0
     for pid, items in by_project.items():
         project = kt.get('kt_projects', pid)
-        if not project:
-            continue
+        if not project or project['status'] == 'cancelled':
+            continue  # the owner deleted or cancelled it: leave its clips alone
         d = os.path.join(kt.WORK, pid)
         try:
             kt.agent('working', f'Getting “{(project.get("title") or "the video")[:50]}” ready to cut…')
@@ -218,13 +218,22 @@ def render_waiting():
             prepare.restore_transcript(pid)
             with open(os.path.join(d, 'words.json')) as f:
                 all_words = json.load(f)['words']
+        except kt.Cancelled:
+            prepare.stopped(project)
+            continue
         except Exception as e:
             traceback.print_exc()
             for c in items:
                 kt.update('kt_clips', c['id'], {'status': 'failed', 'error': f'Couldn’t get the source video again: {e}'[:400]})
             continue
+        cancelled = False
         for c in items:
             n += 1
+            try:
+                kt.check_wanted(pid, every=0)
+            except kt.Cancelled:
+                cancelled = True
+                break
             kt.agent('working', f'Rendering clip {n} of {total}: “{(c.get("title") or "")[:50]}”')
             kt.update('kt_clips', c['id'], {'status': 'rendering'})
             if project['status'] == 'rendering':
@@ -235,6 +244,7 @@ def render_waiting():
                 s, e, words = render_clip(os.path.join(d, 'source.mp4'), all_words, c['start_s'], c['end_s'], out,
                                           c.get('style') or {}, c.get('hook') if (c.get('style') or {}).get('hook_title', True) else None,
                                           words=edited_words)
+                kt.check_wanted(pid, every=0)  # cancelled while this clip was rendering?
                 stamp = time.strftime('%Y%m%d%H%M%S')
                 path = kt.upload(out, f"clips/{c['id']}-{stamp}.mp4", 'video/mp4')
                 thumb = kt.upload(out.rsplit('.', 1)[0] + '.jpg', f"clips/{c['id']}-{stamp}.jpg", 'image/jpeg')
@@ -244,9 +254,16 @@ def render_waiting():
                 kt.remove([p for p in old if p and p not in (path, thumb)])
                 for f in (out, out.rsplit('.', 1)[0] + '.jpg'):
                     os.remove(f)
+            except kt.Cancelled:
+                cancelled = True
+                kt.update('kt_clips', c['id'], {'status': c['status']})  # back to waiting, not failed
+                break
             except Exception as e:
                 traceback.print_exc()
                 kt.update('kt_clips', c['id'], {'status': 'failed', 'error': str(e)[:400]})
+        if cancelled:
+            prepare.stopped(project)
+            continue
         done_projects.append(project)
 
     # Finish projects and the commands that asked for them.

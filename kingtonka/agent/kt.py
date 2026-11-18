@@ -64,10 +64,10 @@ def insert(table, rows):
     return r.json()
 
 
-def update(table, id_, patch):
+def update(table, id_, patch, where=''):
     if table in ('kt_projects', 'kt_clips', 'kt_commands'):
         patch = {**patch, 'updated_at': now()}
-    r = _check(requests.patch(f'{BASE}/rest/v1/{table}?id=eq.{urllib.parse.quote(str(id_))}',
+    r = _check(requests.patch(f'{BASE}/rest/v1/{table}?id=eq.{urllib.parse.quote(str(id_))}{where}',
                               headers={**H, 'Prefer': 'return=representation'}, json=patch, timeout=60))
     rows = r.json()
     return rows[0] if rows else None
@@ -87,9 +87,32 @@ def agent(state, message):
 
 
 def project_step(pid, status=None, step=None, percent=None, **extra):
+    """Progress for the app. Never touches a video the owner cancelled."""
     patch = {k: v for k, v in {'status': status, 'step': step, 'percent': percent}.items() if v is not None}
     patch.update(extra)
-    return update('kt_projects', pid, patch)
+    return update('kt_projects', pid, patch, where='&status=neq.cancelled')
+
+
+class Cancelled(Exception):
+    """The owner cancelled or deleted the video while King Tonka was working on it."""
+
+
+_last_check = {}
+
+
+def check_wanted(pid, every=5):
+    """Raises Cancelled if the video was cancelled or deleted in the app.
+    Asks the database at most once every `every` seconds."""
+    t = time.time()
+    if t - _last_check.get(pid, 0) < every:
+        return
+    _last_check[pid] = t
+    try:
+        p = get('kt_projects', pid)
+    except Exception:  # a network hiccup is not a cancel: keep going, ask again next time
+        return
+    if not p or p.get('status') == 'cancelled':
+        raise Cancelled(pid)
 
 
 # ---- storage ----
@@ -183,7 +206,10 @@ def main(argv):
     elif cmd == 'clips':
         out(select('kt_clips', f'project_id=eq.{a[0]}&select=id,title,hook,start_s,end_s,score,scores,status,why&order=score.desc'))
     elif cmd == 'add-clips':
-        project = get('kt_projects', a[0]) or sys.exit(f'No project {a[0]}')
+        project = get('kt_projects', a[0]) or sys.exit(f'No project {a[0]}: the owner deleted it. Skip it.')
+        if project['status'] != 'finding':
+            sys.exit(f'Not accepted: this video is "{project["status"]}" now (the owner cancelled it or it is no longer '
+                     'waiting for clips). Skip it.')
         with open(a[1]) as f:
             plan = json.load(f)
         try:

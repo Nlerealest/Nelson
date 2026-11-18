@@ -1,7 +1,7 @@
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { ago, clock, CLIP_STATUS, STATUS } from '../data';
+import { ago, clock, CLIP_STATUS, STATUS, WORKING } from '../data';
 import { Thumb } from './media';
 import { Body, Card, Pill, Progress, Row } from './ui';
 import { scoreColor, useTheme } from '../theme';
@@ -17,8 +17,6 @@ export function ScoreBadge({ score, big }) {
     </View>
   );
 }
-
-const WORKING = ['queued', 'downloading', 'transcribing', 'finding', 'rendering'];
 
 export function ProjectCard({ project, clipCount }) {
   const t = useTheme();

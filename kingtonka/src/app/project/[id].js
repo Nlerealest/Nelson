@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Platform, View } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { ask, clock, logYou, remove, removeFiles, STATUS, update, useRow, useRows, useToast } from '../../data';
+import { ask, clock, closeCommands, logYou, remove, removeFiles, STATUS, update, useRow, useRows, useToast, WORKING } from '../../data';
 import { Body, Button, Card, Chips, Empty, Loading, Pill, Progress, Row, Screen, Section } from '../../components/ui';
 import { Thumb } from '../../components/media';
 import { ClipTile, Grid } from '../../components/cards';
@@ -54,8 +54,28 @@ export default function Project() {
   if (p === undefined) return <Loading error={error} />;
   if (!p) return <Screen><Empty icon="trash-outline" title="This video was deleted" /></Screen>;
 
-  const busy = !['done', 'failed'].includes(p.status);
+  const busy = WORKING.includes(p.status);
   const s = p.settings || {};
+  const pending = (clipRows || []).filter((c) => ['planned', 'rendering', 'rerender', 'editing'].includes(c.status));
+  const ready = (clipRows || []).filter((c) => c.status === 'ready');
+  // Looking for more clips in a finished video: cancelling just goes back to the clips you have.
+  const findingMore = p.status === 'finding' && ready.length > 0 && !pending.length;
+  const cancel = () => confirm(findingMore ? 'Stop looking for more clips?' : 'Stop working on this video?',
+    findingMore ? 'Your clips stay.' : 'King Tonka stops downloading and clipping it within a few seconds. You can start it again later.',
+    'Stop', async () => {
+      await update('kt_projects', p.id, findingMore
+        ? { status: 'done', step: `${ready.length} clips ready`, percent: 100 }
+        : { status: 'cancelled', step: 'Cancelled', percent: 0 });
+      await closeCommands(p.id, 'Cancelled by you.');
+      logYou(`You cancelled “${p.title || p.source_url || 'a video'}”`);
+      toast('Stopped. King Tonka lets go of it within a few seconds.');
+    });
+  const resume = async () => {
+    if (!pending.length) return retry();
+    await update('kt_projects', p.id, { status: 'rendering', step: `Rendering ${pending.length} clips…`, percent: 70, error: null });
+    await ask('process', `Finish the clips of ${p.title || p.source_url}`, { projectId: p.id });
+    toast('Finishing the clips. King Tonka starts within a minute.');
+  };
   const retry = async () => {
     await update('kt_projects', p.id, { status: 'queued', step: 'Waiting for King Tonka to start…', percent: 0, error: null });
     await ask('process', `Try again: ${p.title || p.source_url}`, { projectId: p.id });
@@ -119,6 +139,13 @@ export default function Project() {
             <Steps status={p.status} />
             <Progress percent={p.percent || 2} />
             <Body small muted>{p.step || 'Waiting…'}</Body>
+            <Row><Button small kind="danger" icon="stop-circle-outline" title={findingMore ? 'Stop looking' : 'Cancel'} onPress={cancel} /></Row>
+          </View>
+        ) : null}
+        {p.status === 'cancelled' ? (
+          <View style={{ gap: 8 }}>
+            <Body small muted>You cancelled this video{pending.length ? ` before ${pending.length} clips were finished` : ''}.</Body>
+            <Row><Button small icon="play-outline" title={pending.length ? 'Finish the clips' : 'Start again'} onPress={resume} /></Row>
           </View>
         ) : null}
         {p.status === 'failed' ? (
