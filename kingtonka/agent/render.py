@@ -249,9 +249,11 @@ def render_waiting():
                 path = kt.upload(out, f"clips/{c['id']}-{stamp}.mp4", 'video/mp4')
                 thumb = kt.upload(out.rsplit('.', 1)[0] + '.jpg', f"clips/{c['id']}-{stamp}.jpg", 'image/jpeg')
                 old = [c.get('media_path'), c.get('thumb_path')]
-                kt.update('kt_clips', c['id'], {'status': 'ready', 'media_path': path, 'thumb_path': thumb, 'start_s': s, 'end_s': e,
-                                                'words': words, 'transcript': ' '.join(w[2] for w in words)[:4000], 'error': None})
-                kt.remove([p for p in old if p and p not in (path, thumb)])
+                saved = kt.update('kt_clips', c['id'], {'status': 'ready', 'media_path': path, 'thumb_path': thumb, 'start_s': s, 'end_s': e,
+                                                        'words': words, 'transcript': ' '.join(w[2] for w in words)[:4000], 'error': None})
+                if saved is None:  # the owner deleted this clip while it was rendering
+                    old += [path, thumb]
+                kt.remove([p for p in old if p and (saved is None or p not in (path, thumb))])
                 for f in (out, out.rsplit('.', 1)[0] + '.jpg'):
                     os.remove(f)
             except kt.Cancelled:
