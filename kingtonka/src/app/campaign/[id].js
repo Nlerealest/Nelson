@@ -1,6 +1,6 @@
 // Add or edit a paid clipping campaign, and see its clips.
 import { useMemo, useState } from 'react';
-import { Alert, Linking, Platform, Switch, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Platform, Switch, View } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { insert, logYou, needsDbUpdate, remove, submitMinutesLeft, update, useRow, useRows, useToast } from '../../data';
@@ -9,6 +9,7 @@ import { OPTIONS } from '../../components/settings';
 import { DbUpdateNeeded, MultiChips, useCampaignStats } from '../../components/campaigns';
 import { ClipTile, Grid } from '../../components/cards';
 import { findLink } from '../../links';
+import { pickScreenshots, readScreenshots, removeAllScreenshots, RulesScreenshots, uploadScreenshots } from '../../components/screenshots';
 import { useTheme } from '../../theme';
 
 const PLATFORMS = [['tiktok', 'TikTok'], ['youtube', 'YouTube Shorts'], ['instagram', 'Instagram Reels'], ['x', 'X']];
@@ -82,6 +83,36 @@ function Form({ campaign, onSaved }) {
   );
 }
 
+// "Add campaign" → From screenshots: makes the campaign, uploads the pictures, asks King Tonka to read them.
+function FromScreenshots({ toast }) {
+  const [busy, setBusy] = useState(null);
+  const start = async () => {
+    const picked = await pickScreenshots();
+    if (!picked.length) return;
+    try {
+      setBusy('Saving…');
+      const campaign = await insert('kt_campaigns', { name: 'New campaign', active: true });
+      await uploadScreenshots(campaign.id, picked, (n, of) => setBusy(`Uploading ${n} of ${of}…`));
+      await readScreenshots(campaign);
+      logYou('You added a campaign from screenshots');
+      toast('Uploaded. King Tonka reads them and fills in the campaign in a few minutes.');
+      router.replace(`/campaign/${campaign.id}`);
+    } catch (e) {
+      toast(needsDbUpdate(e) ? 'Run the one-time database update first (the Campaigns tab shows how).' : 'Couldn’t start: ' + (e.message || e));
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <Card hero>
+      <Body bold color="#fff" style={{ fontSize: 18 }}>Fastest: from screenshots</Body>
+      <Body color="rgba(255,255,255,.9)">Screenshot the campaign’s page (the rules, requirements and pay), then choose the screenshots here. King Tonka reads them and fills everything in for you.</Body>
+      {busy ? <Row><ActivityIndicator color="#fff" /><Body color="#fff">{busy}</Body></Row>
+        : <Row><Button kind="soft" icon="images-outline" title="Choose screenshots" onPress={start} /></Row>}
+    </Card>
+  );
+}
+
 export default function Campaign() {
   const t = useTheme();
   const toast = useToast();
@@ -103,6 +134,7 @@ export default function Campaign() {
 
   const del = () => {
     const go = async () => {
+      await removeAllScreenshots(campaign.id).catch(() => {});
       await remove('kt_campaigns', campaign.id);
       logYou(`You deleted the campaign “${campaign.name}”`);
       toast('Campaign deleted. Its clips stay in My clips.');
@@ -125,9 +157,15 @@ export default function Campaign() {
           </Row>
         </Card>
       ) : (
-        <Body small muted>Join the campaign on its website first. Then copy its details here, so King Tonka can follow them.</Body>
+        <>
+          <Body small muted>Join the campaign on its website first. Then add it here, so King Tonka can follow its rules.</Body>
+          <FromScreenshots toast={toast} />
+          <Body small muted style={{ textAlign: 'center' }}>or type it in yourself:</Body>
+        </>
       )}
-      <Form key={campaign?.id || 'new'} campaign={isNew ? null : campaign} onSaved={(saved) => router.replace(`/campaign/${saved.id}`)} />
+      {!isNew ? <RulesScreenshots campaign={campaign} toast={toast} /> : null}
+      {/* Remounts when the campaign changes (e.g. King Tonka filled it in from screenshots). */}
+      <Form key={campaign ? `${campaign.id}|${campaign.updated_at}` : 'new'} campaign={isNew ? null : campaign} onSaved={(saved) => router.replace(`/campaign/${saved.id}`)} />
       {!isNew && clips.length ? (
         <>
           <Section>Clips for this campaign</Section>

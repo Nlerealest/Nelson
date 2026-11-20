@@ -3,7 +3,7 @@
     "name": "King Tonka",
     "slug": "kingtonka",
     "scheme": "kingtonka",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -17,7 +17,7 @@
     },
     "android": {
       "package": "mw.nelson.kingtonka",
-      "versionCode": 7,
+      "versionCode": 8,
       "adaptiveIcon": {
         "backgroundColor": "#4b1fb8",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -79,6 +79,14 @@
           "icon": "./assets/notification-icon.png",
           "color": "#4b1fb8",
           "enableRemoteNotifications": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "King Tonka reads campaign rules from the screenshots you choose.",
+          "cameraPermission": false,
+          "microphonePermission": false
         }
       ]
     ]

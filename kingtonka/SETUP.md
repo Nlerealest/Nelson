@@ -62,10 +62,12 @@ what's new (campaigns, and post links on clips). Until then, the Campaigns tab s
 
 1. **Join the campaign** on its website (for example Content Rewards), and link your TikTok /
    YouTube / Instagram there.
-2. **Campaigns tab → Add campaign.** Paste the campaign's link, who you clip, the pay per
-   1,000 views, the views needed to get paid, where you post, the required hashtags and
-   @tags, and its rules (copy its *Content requirements* box). Turn on **The creator must be
-   on screen** if the campaign says so.
+2. **Campaigns tab → Add campaign → Choose screenshots.** Screenshot the campaign's page
+   (its rules, requirements and pay; several screenshots are fine) and pick them. King Tonka
+   reads them and fills in the campaign in a few minutes: who you clip, pay per 1,000 views,
+   views needed to get paid, where you post, required hashtags and @tags, length, and every
+   rule. Check what it filled in and fix anything. You can add more screenshots or tap
+   **Read them again** later. (Or type the details in yourself.)
 3. **Clip a video for it:** on the campaign tap **Clip a video for it**, or pick the campaign
    under **For a campaign?** on Create (also when you share from YouTube). Claude follows the
    campaign's rules when it picks the clips.

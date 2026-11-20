@@ -152,10 +152,44 @@ for the highlighted word), `watermark` (text in the corner, e.g. "@handle").
 This queues the clip for rendering again. Then mark the command done with a short
 result: `kt.py command <id> done "Starts 5 s earlier now, on the question."`
 
-## 3. Other commands
+## 3. Read a campaign's rule screenshots (`campaigns_to_read`)
+
+The owner screenshots a campaign's page (Content Rewards, Reach, Whop…) and uploads the
+pictures so you can fill in the campaign for them. For each entry:
+
+1. `python kingtonka/agent/kt.py campaign-shots <campaign-id>` downloads the screenshots and
+   prints their paths. Look at every one with the Read tool. They may overlap or be out of
+   order; put them together.
+2. Fill in what they show:
+   ```
+   python kingtonka/agent/kt.py fill-campaign <campaign-id> '{"name": "…", "creator": "…", "rate": 1.5, …}'
+   ```
+   - `name`: the campaign's title, if the current one is empty or a placeholder like "New campaign".
+   - `creator`: whose content gets clipped (e.g. "Lacy").
+   - `url`: the campaign's page, only if a full link is visible.
+   - `rate`: pay per 1,000 views in dollars (a number). `min_views`: views a clip needs before
+     it's paid (a number).
+   - `platforms`: from `tiktok`, `youtube`, `instagram`, `x`: the ones the campaign accepts.
+   - `hashtags`: every hashtag a post must include (e.g. `#lacy #reachclipping`).
+     `mentions`: every account a post must tag (e.g. `@lacy`).
+   - `length`: `short` (15–30 s), `medium` (30–60 s), `long` (60–90 s), `xl` (90 s–3 min) or `auto`,
+     whichever fits the campaign's required length best.
+   - `needs_face`: `true` if clips must show the creator's face, webcam or the creator themselves.
+   - `rules`: every requirement, written out completely and clearly as a short list: what to
+     clip, length, captions, what's banned, posting and submitting rules, the budget, the
+     maximum payout per clip, deadlines. Leave nothing out: clips that break a rule earn
+     nothing. If the campaign already had rules typed by the owner, keep anything of theirs the
+     screenshots don't cover, at the end under "Your notes:".
+   - Fields you can't read: leave them out (don't guess). Never invent numbers.
+3. Mark the command done with a short summary the owner reads, e.g.
+   `kt.py command <id> done "Filled in from 3 screenshots: $1.50 per 1K, paid from 1,000 views, TikTok + YouTube, must show Lacy."`
+   If the screenshots don't show campaign rules, mark it failed and say what you saw.
+
+## 4. Other commands
 
 - `message`: answer the owner's question or do what they ask, if it is about clipping.
   Mark it done with your answer as the result (it is shown in the app; keep it short).
+- `campaign`: see section 3.
 - `process`, `more`, `rerender`: the scripts handle these; only plan clips (section 1).
   Don't mark them done yourself.
 

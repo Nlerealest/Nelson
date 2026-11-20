@@ -4,12 +4,14 @@ Used by the scripts and by Claude in the "King Tonka agent" GitHub Action.
 Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in the environment.
 
   python kt.py state                          everything waiting, as JSON
-  python kt.py get <table> <id>               tables: projects clips commands activity config
+  python kt.py get <table> <id>               tables: projects clips commands activity config campaigns
   python kt.py list <table> [status]
   python kt.py update <table> <id> '<json>'
   python kt.py clips <project-id>             the project's clips (no words), best first
   python kt.py add-clips <project-id> <plan.json>   insert Claude's clip plan (see KING_TONKA.md)
   python kt.py edit-clip <clip-id> '<json>'   change a clip and queue it for rendering again
+  python kt.py campaign-shots <campaign-id>    download the campaign's rule screenshots; prints their paths
+  python kt.py fill-campaign <campaign-id> '<json>'   fill in a campaign from its screenshots (checked)
   python kt.py command <id> <working|done|failed> "<result>"
   python kt.py agent <working|idle|error> "<message>"
   python kt.py log "<text>"
@@ -23,7 +25,8 @@ import urllib.parse
 import requests
 
 BUCKET = 'kingtonka'
-TABLES = {'projects': 'kt_projects', 'clips': 'kt_clips', 'commands': 'kt_commands', 'activity': 'kt_activity', 'config': 'kt_config'}
+TABLES = {'projects': 'kt_projects', 'clips': 'kt_clips', 'commands': 'kt_commands', 'activity': 'kt_activity', 'config': 'kt_config',
+          'campaigns': 'kt_campaigns'}
 WORK = os.environ.get('KT_WORK', os.path.join(os.getcwd(), 'kt-work'))
 
 
@@ -65,7 +68,7 @@ def insert(table, rows):
 
 
 def update(table, id_, patch, where=''):
-    if table in ('kt_projects', 'kt_clips', 'kt_commands'):
+    if table in ('kt_projects', 'kt_clips', 'kt_commands', 'kt_campaigns'):
         patch = {**patch, 'updated_at': now()}
     r = _check(requests.patch(f'{BASE}/rest/v1/{table}?id=eq.{urllib.parse.quote(str(id_))}{where}',
                               headers={**H, 'Prefer': 'return=representation'}, json=patch, timeout=60))
@@ -139,6 +142,52 @@ def remove(paths):
         requests.delete(f'{BASE}/storage/v1/object/{BUCKET}', headers=H, json={'prefixes': paths}, timeout=60)
 
 
+def list_files(prefix):
+    """Files directly inside a storage folder, by name."""
+    r = _check(requests.post(f'{BASE}/storage/v1/object/list/{BUCKET}', headers=H, timeout=60,
+                             json={'prefix': prefix.rstrip('/'), 'limit': 100, 'offset': 0, 'sortBy': {'column': 'name', 'order': 'asc'}}))
+    return [f"{prefix.rstrip('/')}/{o['name']}" for o in r.json() if o.get('id')]  # folders have no id
+
+
+# ---- campaigns ----
+PLATFORMS = ('tiktok', 'youtube', 'instagram', 'x')
+LENGTHS = ('auto', 'short', 'medium', 'long', 'xl')
+
+
+def clean_campaign(patch):
+    """Checks the fields Claude read from a campaign's screenshots."""
+    out = {}
+    for k, v in patch.items():
+        if k in ('name', 'url', 'creator', 'hashtags', 'mentions', 'rules'):
+            if v is not None and not isinstance(v, str):
+                raise ValueError(f'{k} must be text')
+            out[k] = (v or '').strip() or None
+        elif k == 'rate':
+            out[k] = None if v in (None, '') else round(float(str(v).replace('$', '').replace(',', '')), 4)
+            if out[k] is not None and out[k] < 0:
+                raise ValueError('rate must be 0 or more')
+        elif k == 'min_views':
+            out[k] = None if v in (None, '') else int(float(str(v).replace(',', '')))
+        elif k == 'platforms':
+            bad = [p for p in v if p not in PLATFORMS]
+            if bad:
+                raise ValueError(f'platforms can only be {", ".join(PLATFORMS)} (not {", ".join(bad)})')
+            out[k] = list(dict.fromkeys(v))
+        elif k == 'length':
+            if v not in LENGTHS:
+                raise ValueError(f'length must be one of {", ".join(LENGTHS)}')
+            out[k] = v
+        elif k in ('needs_face', 'active'):
+            if not isinstance(v, bool):
+                raise ValueError(f'{k} must be true or false')
+            out[k] = v
+        else:
+            raise ValueError(f'{k} is not a campaign field')
+    if out.get('name') is None and 'name' in out:
+        del out['name']  # a campaign always keeps a name
+    return out
+
+
 def exists(path):
     r = requests.post(f'{BASE}/storage/v1/object/sign/{BUCKET}/{urllib.parse.quote(path)}', headers=H, json={'expiresIn': 60}, timeout=60)
     return r.status_code < 300
@@ -193,7 +242,16 @@ def main(argv):
             p['existing_clips'] = select('kt_clips', f"project_id=eq.{p['id']}&select=id,title,start_s,end_s,score&order=start_s")
         for c in editing:
             c['transcript_file'] = os.path.join(WORK, c['project_id'], 'transcript.txt')
-        out({'now': now(), 'work_dir': WORK, 'commands': commands, 'projects_to_clip': finding, 'clips_to_edit': editing})
+        # Campaigns whose rule screenshots the owner wants read ('campaign' commands; project_id holds the campaign id).
+        to_read = []
+        for c in commands:
+            if c['kind'] == 'campaign' and c.get('project_id'):
+                camp = get('kt_campaigns', c['project_id'])
+                if camp:
+                    to_read.append({'command_id': c['id'], 'campaign': camp,
+                                    'screenshots': len(list_files(f"campaigns/{camp['id']}"))})
+        out({'now': now(), 'work_dir': WORK, 'commands': commands, 'projects_to_clip': finding, 'clips_to_edit': editing,
+             'campaigns_to_read': to_read})
     elif cmd == 'get':
         out(get(T(a[0]), a[1]))
     elif cmd == 'list':
@@ -233,6 +291,23 @@ def main(argv):
         if 'start_s' in patch or 'end_s' in patch:
             patch.setdefault('words', None)  # the words come again from the new range
         out(update('kt_clips', a[0], {**patch, 'status': 'rerender', 'error': None}))
+    elif cmd == 'campaign-shots':
+        d = os.path.join(WORK, 'campaigns', a[0])
+        os.makedirs(d, exist_ok=True)
+        got = []
+        for path in list_files(f'campaigns/{a[0]}'):
+            local = os.path.join(d, os.path.basename(path))
+            download(path, local)
+            got.append(local)
+        out(got)
+    elif cmd == 'fill-campaign':
+        if not get('kt_campaigns', a[0]):
+            sys.exit(f'No campaign {a[0]}: the owner deleted it. Skip it.')
+        try:
+            patch = clean_campaign(json.loads(a[1]))
+        except (ValueError, TypeError) as e:
+            sys.exit(f'Not accepted: {e}')
+        out(update('kt_campaigns', a[0], patch))
     elif cmd == 'command':
         out(update('kt_commands', int(a[0]), {'status': a[1], 'result': ' '.join(a[2:])}))
     elif cmd == 'agent':
