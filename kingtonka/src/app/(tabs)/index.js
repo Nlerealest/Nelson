@@ -1,6 +1,6 @@
 // Create: paste a link or upload a video, pick the options, get clips.
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,7 +8,10 @@ import { ago, newProject, parseClock, useConfig, useRows, useToast } from '../..
 import { Body, Button, Card, Empty, Field, Label, Loading, Row, Screen, Section } from '../../components/ui';
 import { FALLBACK, label, ProjectForm } from '../../components/settings';
 import { ProjectCard } from '../../components/cards';
+import { confirmDelete, SelectionBar, useSelection } from '../../components/selection';
 import { pickVideo, uploadVideo } from '../../upload';
+import { deleteProjects } from '../../deleting';
+import { findLink, youtubeId } from '../../links';
 import { GOLD, useTheme } from '../../theme';
 
 
@@ -28,7 +31,6 @@ function AgentCard({ agent }) {
   );
 }
 
-const looksLikeLink = (s) => /^https?:\/\/\S+\.\S+/i.test(s.trim());
 
 export default function Create() {
   const t = useTheme();
@@ -45,10 +47,18 @@ export default function Create() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [upload, setUpload] = useState(null); // progress text while uploading
+  const sel = useSelection();
+  // The video link in whatever was typed or pasted (YouTube share links, a title with a link…).
+  const link = findLink(url);
+  const ytId = youtubeId(link);
 
   const counts = useMemo(() => {
     const c = {};
-    for (const clip of clips.rows || []) c[clip.project_id] = (c[clip.project_id] || 0) + 1;
+    for (const clip of clips.rows || []) {
+      const k = (c[clip.project_id] ||= { all: 0, posted: 0 });
+      k.all += 1;
+      if (clip.posted_at) k.posted += 1;
+    }
     return c;
   }, [clips.rows]);
 
@@ -89,12 +99,36 @@ export default function Create() {
     }
   };
 
+  const paste = async () => {
+    const text = await Clipboard.getStringAsync();
+    const found = findLink(text);
+    if (found) setUrl(found);
+    else toast(text.trim() ? 'What you copied has no video link in it. In YouTube, tap Share → Copy link.' : 'Nothing copied yet. In YouTube, tap Share → Copy link.');
+  };
+  const chosen = (projects.rows || []).filter((p) => sel.isSelected(p.id));
+  const removeVideos = () => {
+    const n = chosen.length;
+    const nClips = chosen.reduce((a, p) => a + (counts[p.id]?.all || 0), 0);
+    confirmDelete(`Delete ${n} video${n === 1 ? '' : 's'}?`,
+      `${nClips ? `Their ${nClips} clip${nClips === 1 ? '' : 's'} go too. ` : ''}This frees up space. Copies you saved to your phone or posted online stay.`,
+      async () => {
+        try {
+          await deleteProjects(chosen, clips.rows);
+          sel.stop();
+          toast(`Deleted ${n} video${n === 1 ? '' : 's'}.`);
+        } catch (e) {
+          toast('Couldn’t delete: ' + (e.message || e));
+        }
+      });
+  };
+
   if (!opts) return <Loading />;
   const summary = [
     opts.clips === 'auto' ? 'Auto clips' : `${opts.clips} clips`, label('length', opts.length), opts.aspect, `${label('captions', opts.captions)} captions`,
   ].join(' · ');
 
   return (
+    <View style={{ flex: 1 }}>
     <Screen onRefresh={projects.reload}>
       <AgentCard agent={config.agent} />
 
@@ -103,10 +137,18 @@ export default function Create() {
         <Body small muted>Paste a link from YouTube, X, TikTok, Instagram, Twitch, Vimeo, Facebook, Google Drive or Dropbox. Or upload a video from your phone (any length, up to 800 MB).</Body>
         <Row wrap={false}>
           <View style={{ flex: 1 }}>
-            <Field value={url} onChangeText={setUrl} placeholder="https://youtube.com/watch?v=…" autoCapitalize="none" autoCorrect={false} keyboardType="url" />
+            <Field value={url} onChangeText={setUrl} placeholder="Paste a video link here" autoCapitalize="none" autoCorrect={false} keyboardType="url" />
           </View>
-          <Button kind="plain" icon="clipboard-outline" title="Paste" onPress={async () => setUrl((await Clipboard.getStringAsync()).trim())} />
+          <Button kind="plain" icon="clipboard-outline" title="Paste" onPress={paste} />
         </Row>
+        {url.trim() && !link ? (
+          <Body small color={t.danger}>That isn’t a video link. In YouTube, tap Share → Copy link, then tap Paste.</Body>
+        ) : ytId ? (
+          <Row wrap={false} style={{ gap: 10 }}>
+            <Image source={{ uri: `https://i.ytimg.com/vi/${ytId}/mqdefault.jpg` }} style={{ width: 96, aspectRatio: 16 / 9, borderRadius: 8, backgroundColor: t.input }} />
+            <Body small muted style={{ flex: 1 }}>YouTube video ready. Tap Get clips.</Body>
+          </Row>
+        ) : link && link !== url.trim() ? <Body small muted numberOfLines={1}>Will clip: {link}</Body> : null}
 
         <Pressable onPress={() => setShowOpts(!showOpts)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 }}>
           <Ionicons name="options-outline" size={16} color={t.primary} />
@@ -134,17 +176,30 @@ export default function Create() {
 
         {upload ? <Row><ActivityIndicator color={t.primary} /><Body small muted>{upload}</Body></Row> : null}
         <Row>
-          <Button icon="flash" title="Get clips" disabled={!looksLikeLink(url) || rangeBad || !!upload} onPress={() => start({ url: url.trim() })} />
+          <Button icon="flash" title="Get clips" disabled={!link || rangeBad || !!upload} onPress={() => start({ url: link })} />
           <Button kind="plain" icon="cloud-upload-outline" title="Upload video" disabled={!!upload || rangeBad} onPress={pickFile} />
         </Row>
+        <Body small muted>Tip: in the YouTube app, tap Share → King Tonka to send a video here in one tap.</Body>
       </Card>
 
-      <Section>Your videos</Section>
+      <Section right={projects.rows?.length && !sel.selecting
+        ? <Button small kind="plain" icon="checkmark-circle-outline" title="Select" onPress={() => sel.start()} /> : null}>Your videos</Section>
       {projects.error ? <Loading error={projects.error} /> : !projects.rows ? <Loading /> : projects.rows.length ? (
-        projects.rows.map((p) => <ProjectCard key={p.id} project={p} clipCount={counts[p.id]} />)
+        projects.rows.map((p) => (
+          <ProjectCard key={p.id} project={p} clipCount={counts[p.id]?.all} postedCount={counts[p.id]?.posted}
+            selecting={sel.selecting} selected={sel.isSelected(p.id)} onToggle={sel.toggle}
+            onLongPress={sel.selecting ? undefined : (id) => sel.start([id])} />
+        ))
       ) : (
         <Empty icon="film-outline" title="No videos yet">Paste a link above. King Tonka downloads it, listens to every word, and Claude picks the moments most likely to go viral. Clips show up here in about 10–30 minutes.</Empty>
       )}
+      {sel.selecting ? <View style={{ height: 110 }} /> : null}
     </Screen>
+    {sel.selecting ? (
+      <SelectionBar count={chosen.length} noun="video" onDone={sel.stop} onDelete={removeVideos}
+        allLabel={chosen.length === (projects.rows || []).length ? 'Select none' : 'Select all'}
+        onAll={() => sel.set(chosen.length === (projects.rows || []).length ? [] : (projects.rows || []).map((p) => p.id))} />
+    ) : null}
+    </View>
   );
 }

@@ -3,7 +3,7 @@
     "name": "King Tonka",
     "slug": "kingtonka",
     "scheme": "kingtonka",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -17,7 +17,7 @@
     },
     "android": {
       "package": "mw.nelson.kingtonka",
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "backgroundColor": "#4b1fb8",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -40,7 +40,17 @@
         }
       ],
       "expo-status-bar",
-      "expo-sharing",
+      [
+        "expo-sharing",
+        {
+          "android": {
+            "enabled": true,
+            "singleShareMimeTypes": [
+              "text/plain"
+            ]
+          }
+        }
+      ],
       "expo-video",
       [
         "expo-media-library",
