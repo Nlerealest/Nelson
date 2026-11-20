@@ -115,8 +115,11 @@ python kingtonka/agent/kt.py edit-clip <clip-id> '{"start_s": 120.5, "end_s": 17
 Editable: `title`, `hook`, `start_s`, `end_s`, `score`, `scores`, `why`, `post_text`,
 `hashtags`, and `style` (merged): `aspect` (`9:16`, `1:1`, `4:5`, `16:9`), `captions`
 (`bold`, `pop`, `karaoke`, `clean`, `none`), `position` (`top`, `middle`, `bottom`),
-`framing` (`auto` follows the speaker's face, `left`, `center`, `right`, `fit` shows the
-whole picture on a blurred background), `hook_title` (true/false), `color` (`#RRGGBB`
+`framing` (`auto` follows the speaker's face, and for a gaming stream with a webcam puts
+the streamer on top and the game below; `stream` always uses that streamer-on-top layout;
+`left`, `center`, `right`; `fit` shows the whole picture on a blurred background), `cam`
+(where the streamer's webcam is, for `stream`: `auto`, `top-left`, `top-right`,
+`bottom-left`, `bottom-right`), `hook_title` (true/false), `color` (`#RRGGBB`
 for the highlighted word), `watermark` (text in the corner, e.g. "@handle").
 This queues the clip for rendering again. Then mark the command done with a short
 result: `kt.py command <id> done "Starts 5 s earlier now, on the question."`

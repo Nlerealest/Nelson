@@ -56,7 +56,11 @@ def build(words, duration, width, height, style=None, title=None):
     portrait = height > width
     base = round((width if portrait else height) * (0.085 if portrait else 0.06))
     y = {'top': 0.28, 'middle': 0.68 if portrait else 0.74, 'bottom': 0.82 if portrait else 0.86}[style.get('position', 'middle')]
+    # Streamer-on-top layout: 'middle' captions sit on the line between the camera and the game.
+    if style.get('_seam') and style.get('position', 'middle') == 'middle':
+        y = style['_seam']
     x, y = width // 2, round(height * y)
+    title_margin = round(height * (0.025 if style.get('_seam') else 0.09))
     margin = round(width * 0.07)
 
     head = f"""[Script Info]
@@ -72,7 +76,7 @@ Style: Bold,{FONT},{base},{white},{white},{black},&H64000000,-1,0,0,0,100,100,1,
 Style: Pop,{FONT},{round(base * 1.3)},{white},{white},{black},&H64000000,-1,0,0,0,100,100,1,0,1,{max(5, base // 12)},{max(2, base // 28)},5,{margin},{margin},0,1
 Style: Karaoke,{FONT},{round(base * 0.85)},{accent},{white},{black},&H64000000,-1,0,0,0,100,100,0,0,1,{max(4, base // 15)},0,5,{margin},{margin},0,1
 Style: Clean,{FONT},{round(base * 0.62)},{white},{white},&H99000000,&H99000000,0,0,0,0,100,100,0,0,3,{max(8, base // 6)},0,5,{margin},{margin},0,1
-Style: Title,{FONT},{round(base * 0.62)},{black},{black},{white},{white},-1,0,0,0,100,100,0,0,3,{max(14, base // 4)},0,8,{margin},{margin},{round(height * 0.09)},1
+Style: Title,{FONT},{round(base * 0.62)},{black},{black},{white},{white},-1,0,0,0,100,100,0,0,3,{max(14, base // 4)},0,8,{margin},{margin},{title_margin},1
 Style: Mark,{FONT},{round(base * 0.36)},&H40FFFFFF,&H40FFFFFF,&H80000000,&H00000000,-1,0,0,0,100,100,0,0,1,2,0,9,{margin},{margin},{round(height * 0.04)},1
 
 [Events]

@@ -14,7 +14,8 @@ export const OPTIONS = {
   aspect: [['9:16', '9:16 Vertical'], ['1:1', '1:1 Square'], ['4:5', '4:5 Portrait'], ['16:9', '16:9 Wide']],
   captions: [['bold', 'Bold'], ['pop', 'Pop'], ['karaoke', 'Karaoke'], ['clean', 'Clean'], ['none', 'None']],
   position: [['top', 'Top'], ['middle', 'Middle'], ['bottom', 'Bottom']],
-  framing: [['auto', 'Follow speaker'], ['fit', 'Fit (blur)'], ['left', 'Left'], ['center', 'Center'], ['right', 'Right']],
+  framing: [['auto', 'Auto'], ['stream', 'Streamer + game'], ['fit', 'Fit (blur)'], ['left', 'Left'], ['center', 'Center'], ['right', 'Right']],
+  cam: [['auto', 'Find it'], ['top-left', 'Top left'], ['top-right', 'Top right'], ['bottom-left', 'Bottom left'], ['bottom-right', 'Bottom right']],
   language: [['auto', 'Auto'], ['en', 'English'], ['es', 'Spanish'], ['fr', 'French'], ['pt', 'Portuguese'], ['ny', 'Chichewa'], ['sw', 'Swahili']],
 };
 const COLORS = ['#FFD400', '#00E676', '#FF3D71', '#3DA5FF', '#FFFFFF', '#FF8A00', '#B388FF'];
@@ -47,7 +48,18 @@ export function StyleForm({ value, onChange, hideAspect }) {
           <View style={{ gap: 6 }}><Label>Highlight colour</Label><Swatches value={value.color} onChange={set('color')} /></View>
         </>
       ) : null}
-      <View style={{ gap: 6 }}><Label>Framing</Label><Chips options={OPTIONS.framing} value={value.framing} onChange={set('framing')} /></View>
+      <View style={{ gap: 6 }}>
+        <Label>Framing</Label>
+        <Chips options={OPTIONS.framing} value={value.framing} onChange={set('framing')} />
+        {value.framing === 'auto' || !value.framing ? (
+          <Body small muted>Follows the speaker. In a gaming stream with a webcam, puts the streamer on top and the game below.</Body>
+        ) : value.framing === 'stream' ? (
+          <View style={{ gap: 6 }}>
+            <Body small muted>The streamer’s webcam on top, the game below. Where is the webcam in the video?</Body>
+            <Chips options={OPTIONS.cam} value={value.cam || 'auto'} onChange={set('cam')} />
+          </View>
+        ) : null}
+      </View>
       <Row style={{ justifyContent: 'space-between' }} wrap={false}>
         <View style={{ flex: 1 }}>
           <Body>Hook title</Body>

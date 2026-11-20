@@ -155,7 +155,7 @@ def clean_plan(project, plan):
         raise ValueError('The plan needs a non-empty "clips" list.')
     dur = float(project.get('duration_s') or 1e9)
     defaults = project.get('settings') or {}
-    style = {k: defaults[k] for k in ('aspect', 'captions', 'position', 'framing', 'hook_title', 'color', 'watermark') if k in defaults}
+    style = {k: defaults[k] for k in ('aspect', 'captions', 'position', 'framing', 'cam', 'hook_title', 'color', 'watermark') if k in defaults}
     rows = []
     for i, c in enumerate(clips):
         start, end = float(c['start']), float(c['end'])

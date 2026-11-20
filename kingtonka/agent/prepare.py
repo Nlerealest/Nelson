@@ -182,8 +182,11 @@ def prepare(project):
     src = os.path.join(d, 'source.mp4')
     duration = probe_duration(src)
     thumb = kt.upload(thumbnail(src, d, min(5, duration / 3)), f'projects/{pid}/thumb.jpg', 'image/jpeg')
+    # Gaming videos and streams get the streamer-on-top layout when there's a webcam.
+    gaming = 'Gaming' in (info.get('categories') or []) or (info.get('extractor_key') or '').lower().startswith(('twitch', 'kick'))
+    extra = {'settings': {**settings, 'gaming': True}} if gaming and not settings.get('gaming') else {}
     kt.project_step(pid, 'transcribing', 'Listening to every word…', 20, duration_s=round(duration, 1),
-                    title=(project.get('title') or title or 'Untitled video')[:140], thumb_path=thumb)
+                    title=(project.get('title') or title or 'Untitled video')[:140], thumb_path=thumb, **extra)
     kt.agent('working', f'Transcribing “{(title or "your video")[:60]}” ({int(duration // 60)} min)…')
     lang, n = transcribe(src, d, settings.get('language'), duration,
                          lambda p: kt.project_step(pid, step=f'Listening to every word… {p}%', percent=20 + p * 40 // 100),

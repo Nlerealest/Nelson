@@ -135,10 +135,134 @@ def camera_path(samples, duration, frac):
     return path
 
 
-def video_filter(src_info, out_size, framing, start, end, src, tmp):
+# ---------- streamer on top, game below ----------
+CORNERS = {'top-left': (0, 0), 'top-right': (1, 0), 'bottom-left': (0, 1), 'bottom-right': (1, 1)}
+
+
+def find_facecam(src, start, end, w, h):
+    """Looks for faces that stay in one place (a streamer's webcam stays put while the
+    game moves; faces in the game move around, so they don't add up in one spot).
+    Returns the steadiest spots first, each (share of frames with a face there,
+    centre x, centre y, face width), all 0–1 of the picture."""
+    import cv2
+    cap = cv2.VideoCapture(src)
+    dur = max(1.0, end - start)
+    n = int(min(40, max(10, dur)))  # about one look per second
+    scale = min(1.0, 960 / max(1, w))
+    front = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    found, looked = [], 0
+    for i in range(n):
+        cap.set(cv2.CAP_PROP_POS_MSEC, (start + dur * (i + 0.5) / n) * 1000)
+        ok, frame = cap.read()
+        if not ok:
+            continue
+        looked += 1
+        small = cv2.cvtColor(cv2.resize(frame, None, fx=scale, fy=scale), cv2.COLOR_BGR2GRAY)
+        H, W = small.shape
+        side = max(18, int(H * 0.035))
+        for (x, y, fw, fh) in front.detectMultiScale(small, 1.1, 6, minSize=(side, side)):
+            found.append(((x + fw / 2) / W, (y + fh / 2) / H, fw / W, i))
+    cap.release()
+    spots, left = [], found
+    while left and looked and len(spots) < 3:
+        best = None
+        for cx, cy, size, _ in left:
+            near = [f for f in left if abs(f[0] - cx) < 0.04 and abs(f[1] - cy) < 0.06 and 0.6 < f[2] / size < 1.6]
+            frames = len({f[3] for f in near})
+            if not best or frames > best[0]:
+                best = (frames, near)
+        frames, near = best
+        mid = lambda k, near=near: sorted(f[k] for f in near)[len(near) // 2]
+        spots.append((frames / looked, mid(0), mid(1), mid(2)))
+        left = [f for f in left if f not in near]
+    return spots
+
+
+def stream_boxes(src, start, end, w, h, style):
+    """Where the webcam and the game are, when this clip should be laid out
+    streamer-on-top. Returns (cam box, game box) as (x, y, width, height) in
+    pixels, or None to use the normal framing."""
+    framing = style.get('framing', 'auto')
+    if framing not in ('auto', 'stream') or w <= h:
+        return None
+    corner = CORNERS.get(style.get('cam'))
+    spots = find_facecam(src, start, end, w, h)
+    hit = spots[0] if spots else None
+    if hit:
+        share, cx, cy, size = hit
+        in_corner = (cx < 0.25 or cx > 0.75) and (cy < 0.3 or cy > 0.65)
+        # Another face that stays put far away: people talking (a podcast), not a webcam over a game.
+        others = any(o[0] >= 0.3 and (abs(o[1] - cx) > 0.2 or abs(o[2] - cy) > 0.25) for o in spots[1:])
+        if corner:  # the owner said where the camera is: only accept a face on that side
+            ok = size < 0.18 and share >= 0.2 and (cx < 0.5) == (corner[0] == 0) and (cy < 0.5) == (corner[1] == 0)
+        elif framing == 'stream':
+            ok = size < 0.18 and share >= 0.25
+        elif style.get('_gaming'):  # a gaming video or a Twitch/Kick stream
+            ok = size < 0.16 and share >= 0.35 and (cx < 0.4 or cx > 0.6) and not others
+        else:  # anything else needs strong signs, so podcasts never get split
+            ok = size < 0.14 and share >= 0.5 and in_corner and not others
+        if not ok:
+            hit = None
+    if not hit and not corner:
+        return None
+    if hit:
+        fw = size * w
+        bw = min(w * 0.5, max(fw * 3.4, w * 0.16))
+    else:  # no face found but the owner picked the corner: take a typical webcam-sized box there
+        bw = w * 0.3
+        cx = 0.02 + bw / w / 2 if corner[0] == 0 else 0.98 - bw / w / 2
+        cy = None
+    return bw, cx, cy, corner
+
+
+def even(v):
+    return max(2, int(v) // 2 * 2)
+
+
+def stream_filter(src_info, out_size, boxes):
     w, h, fps, _, _ = src_info
     ow, oh = out_size
     fps_f = ',fps=30' if fps > 31 else ''
+    bw, cx, cy, corner = boxes
+    top_h = even(oh / 3)
+    bot_h = oh - top_h
+    # Camera box: same shape as the top panel, the face a little above its middle.
+    bh = bw * top_h / ow
+    if bh > h * 0.6:
+        bh, bw = h * 0.6, h * 0.6 * ow / top_h
+    if cy is None:  # corner without a face: hug that corner
+        y = h * 0.02 if corner[1] == 0 else h * 0.98 - bh
+    else:
+        y = cy * h - bh * 0.45
+    x = min(w - bw, max(0, cx * w - bw / 2))
+    y = min(h - bh, max(0, y))
+    # Game: the middle of the picture, as tall as it is, in the bottom panel's shape.
+    gw = min(w, h * ow / bot_h)
+    gx = (w - gw) / 2
+    return (f'[0:v]split=2[cam][game];'
+            f'[cam]crop={even(bw)}:{even(bh)}:{int(x)}:{int(y)},scale={ow}:{top_h}:flags=lanczos,setsar=1[top];'
+            f'[game]crop={even(gw)}:{even(h)}:{int(gx)}:0,scale={ow}:{bot_h}:flags=lanczos,setsar=1[bottom];'
+            f'[top][bottom]vstack=inputs=2{fps_f}'), top_h / oh
+
+
+def video_filter(src_info, out_size, framing, start, end, src, tmp, style=None):
+    """The ffmpeg picture filter for this framing. Returns (filter, seam), where seam
+    is where the camera meets the game (0–1 of the height) in the streamer layout."""
+    w, h, fps, _, _ = src_info
+    ow, oh = out_size
+    fps_f = ',fps=30' if fps > 31 else ''
+    if ow < oh and framing in ('auto', 'stream'):
+        boxes = stream_boxes(src, start, end, w, h, {**(style or {}), 'framing': framing})
+        if boxes:
+            return stream_filter(src_info, out_size, boxes)
+        if framing == 'stream' or (style or {}).get('_gaming'):
+            framing = 'fit'  # gameplay without a webcam: show the whole game
+    return plain_filter(src_info, out_size, framing, start, end, src, tmp, fps_f), None
+
+
+def plain_filter(src_info, out_size, framing, start, end, src, tmp, fps_f):
+    w, h, fps, _, _ = src_info
+    ow, oh = out_size
     if framing == 'fit' or abs(w / h - ow / oh) < 0.03:
         if abs(w / h - ow / oh) < 0.03:
             return f'[0:v]scale={ow}:{oh}:flags=lanczos,setsar=1{fps_f}'
@@ -177,9 +301,9 @@ def render_clip(src, all_words, start, end, out, style=None, title=None, words=N
     size = SIZES.get(style.get('aspect', '9:16'), SIZES['9:16'])
     with tempfile.TemporaryDirectory() as tmp:
         ass = os.path.join(tmp, 'captions.ass')
+        vf, seam = video_filter(info, size, style.get('framing', 'auto'), start, end, src, tmp, style)
         with open(ass, 'w') as f:
-            f.write(captions.build(words, dur, size[0], size[1], style, title))
-        vf = video_filter(info, size, style.get('framing', 'auto'), start, end, src, tmp)
+            f.write(captions.build(words, dur, size[0], size[1], {**style, '_seam': seam}, title))
         vf += f",ass='{ass}'" + (f":fontsdir='{FONTS}'" if os.path.isdir(FONTS) else '') + '[v]'
         # Stay under 45 MB so the clip always fits the storage limit.
         kbps = int(min(6000, max(1200, 45 * 8 * 1000 / max(dur, 1) - 160)))
@@ -241,8 +365,9 @@ def render_waiting():
             try:
                 out = os.path.join(d, f"{c['id']}.mp4")
                 edited_words = c.get('words') if c['status'] == 'rerender' else None
+                style = {**(c.get('style') or {}), '_gaming': bool((project.get('settings') or {}).get('gaming'))}
                 s, e, words = render_clip(os.path.join(d, 'source.mp4'), all_words, c['start_s'], c['end_s'], out,
-                                          c.get('style') or {}, c.get('hook') if (c.get('style') or {}).get('hook_title', True) else None,
+                                          style, c.get('hook') if style.get('hook_title', True) else None,
                                           words=edited_words)
                 kt.check_wanted(pid, every=0)  # cancelled while this clip was rendering?
                 stamp = time.strftime('%Y%m%d%H%M%S')
