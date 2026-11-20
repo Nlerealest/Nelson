@@ -19,6 +19,7 @@ import traceback
 
 import captions
 
+SECTION_PAD = 4.0  # seconds of spare video around a clip cut from a long video
 SIZES = {'9:16': (1080, 1920), '1:1': (1080, 1080), '16:9': (1920, 1080), '4:5': (1080, 1350)}
 FONTS = os.environ.get('KT_FONTS', os.path.expanduser('~/.local/share/fonts'))
 
@@ -289,25 +290,29 @@ def plain_filter(src_info, out_size, framing, start, end, src, tmp, fps_f):
     return f'[0:v]crop={cw}:{ch}:0:{int((h - ch) * 0.35)},scale={ow}:{oh}:flags=lanczos,setsar=1{fps_f}'
 
 
-def render_clip(src, all_words, start, end, out, style=None, title=None, words=None):
-    """Renders one clip to out (MP4) and out.jpg. Returns (start, end, words used)."""
+def render_clip(src, all_words, start, end, out, style=None, title=None, words=None, offset=0.0):
+    """Renders one clip to out (MP4) and out.jpg. Returns (start, end, words used),
+    times in the original video. offset: where src begins in the original video
+    (for long videos, src is just the few minutes around the clip)."""
     style = style or {}
     info = probe(src)
-    start, end = max(0.0, float(start)), min(info[3], float(end))
+    start, end = max(0.0, float(start)), min(offset + info[3], float(end))
     if words is None:
         start, end = snap(all_words, start, end)
+        start, end = max(start, offset), min(end, offset + info[3])
         words = clip_words(all_words, start, end)
     dur = round(end - start, 2)
+    local = max(0.0, start - offset)  # where the clip starts inside src
     size = SIZES.get(style.get('aspect', '9:16'), SIZES['9:16'])
     with tempfile.TemporaryDirectory() as tmp:
         ass = os.path.join(tmp, 'captions.ass')
-        vf, seam = video_filter(info, size, style.get('framing', 'auto'), start, end, src, tmp, style)
+        vf, seam = video_filter(info, size, style.get('framing', 'auto'), local, local + dur, src, tmp, style)
         with open(ass, 'w') as f:
             f.write(captions.build(words, dur, size[0], size[1], {**style, '_seam': seam}, title))
         vf += f",ass='{ass}'" + (f":fontsdir='{FONTS}'" if os.path.isdir(FONTS) else '') + '[v]'
         # Stay under 45 MB so the clip always fits the storage limit.
         kbps = int(min(6000, max(1200, 45 * 8 * 1000 / max(dur, 1) - 160)))
-        cmd = ['ffmpeg', '-v', 'error', '-y', '-ss', f'{start:.3f}', '-i', src, '-t', f'{dur:.3f}',
+        cmd = ['ffmpeg', '-v', 'error', '-y', '-ss', f'{local:.3f}', '-i', src, '-t', f'{dur:.3f}',
                '-filter_complex', vf, '-map', '[v]', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21',
                '-maxrate', f'{kbps}k', '-bufsize', f'{kbps * 2}k', '-pix_fmt', 'yuv420p', '-movflags', '+faststart']
         if info[4]:
@@ -336,9 +341,13 @@ def render_waiting():
         if not project or project['status'] == 'cancelled':
             continue  # the owner deleted or cancelled it: leave its clips alone
         d = os.path.join(kt.WORK, pid)
+        # Long link videos (over 2 h) are never downloaded whole: each clip gets its own few minutes.
+        sections = bool((project.get('settings') or {}).get('sections')) and project.get('source_url') and not project.get('source_path')
         try:
             kt.agent('working', f'Getting “{(project.get("title") or "the video")[:50]}” ready to cut…')
-            prepare.get_source(project, d)
+            os.makedirs(d, exist_ok=True)
+            if not sections:
+                prepare.get_source(project, d)
             prepare.restore_transcript(pid)
             with open(os.path.join(d, 'words.json')) as f:
                 all_words = json.load(f)['words']
@@ -362,13 +371,20 @@ def render_waiting():
             kt.update('kt_clips', c['id'], {'status': 'rendering'})
             if project['status'] == 'rendering':
                 kt.project_step(pid, step=f'Rendering clip {n} of {total}…', percent=70 + 29 * n // max(total, 1))
+            part = None
             try:
                 out = os.path.join(d, f"{c['id']}.mp4")
                 edited_words = c.get('words') if c['status'] == 'rerender' else None
                 style = {**(c.get('style') or {}), '_gaming': bool((project.get('settings') or {}).get('gaming'))}
-                s, e, words = render_clip(os.path.join(d, 'source.mp4'), all_words, c['start_s'], c['end_s'], out,
+                src, offset = os.path.join(d, 'source.mp4'), 0.0
+                if sections:  # download just this clip's part of the long video (with a few seconds spare)
+                    offset = max(0.0, float(c['start_s']) - SECTION_PAD)
+                    kt.agent('working', f'Downloading clip {n} of {total} from the long video…')
+                    part = src = prepare.download_section(project['source_url'], d, pid, offset, float(c['end_s']) + SECTION_PAD,
+                                                          f"part-{c['id']}")
+                s, e, words = render_clip(src, all_words, c['start_s'], c['end_s'], out,
                                           style, c.get('hook') if style.get('hook_title', True) else None,
-                                          words=edited_words)
+                                          words=edited_words, offset=offset)
                 kt.check_wanted(pid, every=0)  # cancelled while this clip was rendering?
                 stamp = time.strftime('%Y%m%d%H%M%S')
                 path = kt.upload(out, f"clips/{c['id']}-{stamp}.mp4", 'video/mp4')
@@ -388,6 +404,9 @@ def render_waiting():
             except Exception as e:
                 traceback.print_exc()
                 kt.update('kt_clips', c['id'], {'status': 'failed', 'error': str(e)[:400]})
+            finally:
+                if part and os.path.exists(part):
+                    os.remove(part)
         if cancelled:
             prepare.stopped(project)
             continue

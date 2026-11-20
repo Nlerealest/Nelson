@@ -41,7 +41,7 @@ You can follow each run on GitHub: **Actions** → **King Tonka agent**.
 
 | Where | What |
 | --- | --- |
-| **Create** | Paste a link (YouTube, X, TikTok, Instagram, Twitch, Vimeo, Facebook, Google Drive, Dropbox…) or upload a video of any length (up to 800 MB). Pick how many clips, their length, shape (9:16, 1:1, 4:5, 16:9), caption style, framing, and what to look for ("the funniest moments"). You can also use only part of the video. |
+| **Create** | Paste a link (YouTube, X, TikTok, Instagram, Twitch, Vimeo, Facebook, Google Drive, Dropbox…), up to 10 hours long (whole streams work), or upload a video (up to 800 MB). You can also share a link from the YouTube app: **Share → King Tonka**. Pick how many clips, their length, shape (9:16, 1:1, 4:5, 16:9), caption style, framing, and what to look for ("the funniest moments"). You can also use only part of the video. |
 | **A video** | Progress while it works, then all its clips by viral score or in order. **Find more clips**, **Try again**, **Delete**. |
 | **A clip → Post** | Ready-made caption and hashtags: edit them, **Copy caption**, **Save to phone**, **Share**, **Mark as posted**, ❤️ to like. |
 | **A clip → Edit** | Trim the start and end (±1 s, ±5 s), change the hook title, caption style, position and colour, framing, shape, watermark, then **Save and update clip**. Or **Ask Claude to change it** in your own words. |

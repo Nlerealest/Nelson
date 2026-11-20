@@ -22,8 +22,15 @@ Keep the app informed: `kt.py agent working "<what you are doing>"`.
 
 ## 1. Find the clips (for each project in `projects_to_clip`)
 
-Read the whole transcript file (`[m:ss.s → m:ss.s] text` lines). Also read
-`kt-work/<id>/meta.json` (title, length, description). Then pick the clips.
+Read the whole transcript file (`[m:ss.s → m:ss.s] text` lines; `[h:mm:ss.s → …]` once the
+video passes an hour). Also read `kt-work/<id>/meta.json` (title, length, description). Then
+pick the clips.
+
+**Long videos (streams up to 10 hours):** the transcript can be thousands of lines. Read it
+in parts (about 1,500 lines at a time, with the Read tool's offset and limit), and after each
+part add the promising moments to `kt-work/<id>/shortlist.md` (times, one line on why). When
+you've read it all, pick the final clips from the shortlist, so nothing is lost while you read.
+Don't skip parts: the best moment of a stream is often hours in.
 
 ### What makes a great clip
 
@@ -46,7 +53,8 @@ Be honest: most clips score 60–85; save 90+ for truly standout moments.
 ### The settings (`settings` on the project)
 
 - `clips`: `"auto"` (find every strong moment: about 1 clip per 4–6 minutes of video,
-  at least 3 and at most 15) or a number (exactly that many, if the video has them).
+  at least 3 and at most 15; for videos over 2 hours, the 15 best) or a number (exactly that
+  many, if the video has them).
 - `length`: `"auto"` (30–90 s, the sweet spot), `"short"` (15–30 s), `"medium"` (30–60 s),
   `"long"` (60–90 s), or `"xl"` (90 s–3 min). Stay inside the range.
 - `prompt`: what the owner wants (e.g. "funny moments", "the parts about money",

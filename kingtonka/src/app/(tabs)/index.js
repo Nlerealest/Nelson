@@ -134,7 +134,7 @@ export default function Create() {
 
       <Card>
         <Body bold style={{ fontSize: 18 }}>Turn a long video into viral clips</Body>
-        <Body small muted>Paste a link from YouTube, X, TikTok, Instagram, Twitch, Vimeo, Facebook, Google Drive or Dropbox. Or upload a video from your phone (any length, up to 800 MB).</Body>
+        <Body small muted>Paste a link from YouTube, X, TikTok, Instagram, Twitch, Vimeo, Facebook, Google Drive or Dropbox. Videos up to 10 hours, like full streams. Or upload a video from your phone (up to 800 MB).</Body>
         <Row wrap={false}>
           <View style={{ flex: 1 }}>
             <Field value={url} onChangeText={setUrl} placeholder="Paste a video link here" autoCapitalize="none" autoCorrect={false} keyboardType="url" />
@@ -191,7 +191,7 @@ export default function Create() {
             onLongPress={sel.selecting ? undefined : (id) => sel.start([id])} />
         ))
       ) : (
-        <Empty icon="film-outline" title="No videos yet">Paste a link above. King Tonka downloads it, listens to every word, and Claude picks the moments most likely to go viral. Clips show up here in about 10–30 minutes.</Empty>
+        <Empty icon="film-outline" title="No videos yet">Paste a link above. King Tonka downloads it, listens to every word, and Claude picks the moments most likely to go viral. Clips show up in about 10–30 minutes, or 1½–3 hours for a 10-hour stream.</Empty>
       )}
       {sel.selecting ? <View style={{ height: 110 }} /> : null}
     </Screen>

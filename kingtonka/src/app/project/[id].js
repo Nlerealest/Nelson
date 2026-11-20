@@ -173,7 +173,7 @@ export default function Project() {
         </>
       ) : !busy ? null : (
         <Empty icon="hourglass-outline" title="Your clips are on the way">
-          Long videos take longer: about 10 minutes plus 1 minute for every 5 minutes of video. You can close the app; the clips appear here when they’re ready.
+          Long videos take longer: about 10 minutes, plus about 1 minute for every 8 minutes of video (a 10-hour stream takes 1½–3 hours). You can close the app; the clips appear here when they’re ready.
         </Empty>
       )}
     </Screen>
