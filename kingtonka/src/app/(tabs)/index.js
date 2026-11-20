@@ -1,10 +1,10 @@
 // Create: paste a link or upload a video, pick the options, get clips.
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
-import { ago, newProject, parseClock, useConfig, useRows, useToast } from '../../data';
+import { ago, newProject, parseClock, useConfig, useRows, useToast, withCampaign } from '../../data';
 import { Body, Button, Card, Empty, Field, Label, Loading, Row, Screen, Section } from '../../components/ui';
 import { FALLBACK, label, ProjectForm } from '../../components/settings';
 import { ProjectCard } from '../../components/cards';
@@ -12,6 +12,7 @@ import { confirmDelete, SelectionBar, useSelection } from '../../components/sele
 import { pickVideo, uploadVideo } from '../../upload';
 import { deleteProjects } from '../../deleting';
 import { findLink, youtubeId } from '../../links';
+import { CampaignPicker } from '../../components/campaigns';
 import { GOLD, useTheme } from '../../theme';
 
 
@@ -48,6 +49,12 @@ export default function Create() {
   const [to, setTo] = useState('');
   const [upload, setUpload] = useState(null); // progress text while uploading
   const sel = useSelection();
+  // The campaign this video is for: picked here, or passed in from a campaign's screen.
+  const params = useLocalSearchParams();
+  const [pick, setPick] = useState(undefined);
+  const campaigns = useRows('kt_campaigns').rows;
+  const campaignId = pick !== undefined ? pick : (params.campaign || null);
+  const campaign = (campaigns || []).find((c) => c.id === campaignId) || null;
   // The video link in whatever was typed or pasted (YouTube share links, a title with a link…).
   const link = findLink(url);
   const ytId = youtubeId(link);
@@ -69,7 +76,7 @@ export default function Create() {
     const b = parseClock(to);
     if (a != null && !Number.isNaN(a)) s.range_start = a;
     if (b != null && !Number.isNaN(b)) s.range_end = b;
-    return s;
+    return withCampaign(s, campaign);
   };
   const rangeBad = [from, to].some((v) => Number.isNaN(parseClock(v))) || (parseClock(from) != null && parseClock(to) != null && parseClock(to) <= parseClock(from));
 
@@ -78,7 +85,7 @@ export default function Create() {
       const { parts, ...rest } = src;
       const p = await newProject({ ...rest, settings: { ...settings(), ...(parts ? { parts } : {}) } });
       setUrl(''); setPrompt(''); setFrom(''); setTo(''); setOpts(null);
-      toast('Got it. King Tonka starts within a minute.');
+      toast(campaign ? `Got it. Clipping for ${campaign.name}.` : 'Got it. King Tonka starts within a minute.');
       router.push(`/project/${p.id}`);
     } catch (e) {
       toast('Couldn’t start: ' + e.message);
@@ -174,6 +181,13 @@ export default function Create() {
           <Field value={prompt} onChangeText={setPrompt} placeholder="What to look for (optional): funny moments, money tips…" />
         )}
 
+        <CampaignPicker value={campaignId} onChange={setPick} />
+        {campaign ? (
+          <Body small muted>
+            Follows {campaign.name}’s rules{campaign.needs_face ? `, keeps ${campaign.creator || 'the creator'} on screen` : ''}
+            {campaign.hashtags ? `, adds ${campaign.hashtags} to captions` : ''}.
+          </Body>
+        ) : null}
         {upload ? <Row><ActivityIndicator color={t.primary} /><Body small muted>{upload}</Body></Row> : null}
         <Row>
           <Button icon="flash" title="Get clips" disabled={!link || rangeBad || !!upload} onPress={() => start({ url: link })} />

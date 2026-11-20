@@ -2,13 +2,13 @@
 // pick several, for example everything you've already posted, and delete them.
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
-import { useRows, useToast } from '../../data';
+import { submitMinutesLeft, useRows, useToast } from '../../data';
 import { Button, Chips, Empty, Loading, Row, Screen } from '../../components/ui';
 import { ClipTile, Grid } from '../../components/cards';
 import { confirmDelete, SelectionBar, useSelection } from '../../components/selection';
 import { deleteClips } from '../../deleting';
 
-const FILTERS = [['all', 'All'], ['top', 'Score 80+'], ['liked', 'Liked'], ['todo', 'Not posted'], ['posted', 'Posted']];
+const FILTERS = [['all', 'All'], ['submit', 'To submit'], ['top', 'Score 80+'], ['liked', 'Liked'], ['todo', 'Not posted'], ['posted', 'Posted'], ['submitted', 'Submitted']];
 const BUSY = ['planned', 'rendering', 'rerender', 'editing'];
 
 export default function Library() {
@@ -19,8 +19,9 @@ export default function Library() {
   const sel = useSelection();
   const titles = useMemo(() => Object.fromEntries((projects.rows || []).map((p) => [p.id, p.title || 'Video'])), [projects.rows]);
   const list = useMemo(() => (clips.rows || [])
-    .filter((c) => ({ all: true, top: (c.score || 0) >= 80, liked: c.liked, todo: !c.posted_at && c.status === 'ready', posted: !!c.posted_at }[filter]))
-    .sort((a, b) => (b.score || 0) - (a.score || 0)), [clips.rows, filter]);
+    .filter((c) => ({ all: true, submit: submitMinutesLeft(c) !== null, top: (c.score || 0) >= 80, liked: c.liked, todo: !c.posted_at && c.status === 'ready',
+      posted: !!c.posted_at, submitted: !!c.submitted_at }[filter]))
+    .sort((a, b) => (filter === 'submit' ? (submitMinutesLeft(a) ?? 0) - (submitMinutesLeft(b) ?? 0) : (b.score || 0) - (a.score || 0))), [clips.rows, filter]);
   const posted = useMemo(() => (clips.rows || []).filter((c) => c.posted_at), [clips.rows]);
 
   if (!clips.rows) return <Loading error={clips.error} />;
@@ -69,7 +70,9 @@ export default function Library() {
           ))}</Grid>
         ) : (
           <Empty icon="albums-outline" title={filter === 'all' ? 'No clips yet' : 'Nothing here'}>
-            {filter === 'all' ? 'Paste a video link on the Create tab. Your clips collect here.' : 'Try another filter.'}
+            {filter === 'all' ? 'Paste a video link on the Create tab. Your clips collect here.'
+            : filter === 'submit' ? 'Nothing waiting. After you post a campaign clip, save its link on the clip and it shows here until you submit it.'
+              : 'Try another filter.'}
           </Empty>
         )}
         {sel.selecting ? <View style={{ height: 110 }} /> : null}

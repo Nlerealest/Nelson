@@ -1,7 +1,7 @@
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { ago, clock, CLIP_STATUS, STATUS, WORKING } from '../data';
+import { ago, clock, CLIP_STATUS, STATUS, submitMinutesLeft, WORKING } from '../data';
 import { Thumb } from './media';
 import { Check } from './selection';
 import { Body, Card, Pill, Progress, Row } from './ui';
@@ -87,10 +87,19 @@ export function ClipTile({ clip, showProject, selecting, selected, onToggle, onL
           ) : null}
         </Thumb>
         <Body bold small numberOfLines={2}>{clip.title}</Body>
-        {clip.posted_at ? <Body small color={t.ok}>Posted</Body> : showProject ? <Body small muted numberOfLines={1}>{showProject}</Body> : null}
+        <ClipPostState clip={clip} showProject={showProject} />
       </View>
     </Pressable>
   );
+}
+
+function ClipPostState({ clip, showProject }) {
+  const t = useTheme();
+  const left = submitMinutesLeft(clip);
+  if (clip.submitted_at) return <Body small color={t.ok}>Posted · submitted ✓</Body>;
+  if (left !== null) return <Body small bold color={left >= 0 ? t.warn : t.danger}>{left >= 0 ? `⏰ Submit: ${left} min left` : 'Submit it (time passed)'}</Body>;
+  if (clip.posted_at) return <Body small color={t.ok}>Posted</Body>;
+  return showProject ? <Body small muted numberOfLines={1}>{showProject}</Body> : null;
 }
 
 // Lays tiles out two per row.

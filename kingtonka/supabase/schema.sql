@@ -1,6 +1,7 @@
 -- King Tonka database. Paste this whole file into Supabase → SQL Editor → Run.
 -- It lives in the same Supabase project as Twizzy (all tables start with kt_),
--- so the same login, keys and GitHub token work. Safe to run again.
+-- so the same login, keys and GitHub token work. Safe to run again: run it again
+-- whenever King Tonka gets new features (it only adds what's missing).
 -- Run Twizzy's schema first: it creates the owners list and is_owner().
 
 create extension if not exists pg_net with schema extensions;
@@ -53,6 +54,30 @@ create table if not exists kt_clips (
 );
 create index if not exists kt_clips_project on kt_clips (project_id);
 
+-- Paid clipping campaigns you've joined (Content Rewards, Reach, Whop…). A video
+-- linked to one follows its rules, and its clips get its hashtags.
+create table if not exists kt_campaigns (
+  id text primary key default 'k-' || substr(md5(random()::text), 1, 8),
+  name text not null,
+  url text,                        -- the campaign page, where you submit clips
+  creator text,                    -- whose content you clip, e.g. Lacy
+  rate numeric,                    -- pay per 1,000 views
+  min_views int,                   -- views a clip needs before it's paid
+  platforms text[] default '{}',   -- tiktok, youtube, instagram, x
+  hashtags text,                   -- must be in every post
+  mentions text,                   -- accounts to tag, e.g. @lacy
+  rules text,                      -- the campaign's requirements, pasted in
+  length text default 'auto',      -- clip length for this campaign
+  needs_face boolean default false,-- the creator must be on screen
+  active boolean default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- Posting and submitting a clip to its campaign (added with campaigns).
+alter table kt_clips add column if not exists post_url text;
+alter table kt_clips add column if not exists submitted_at timestamptz;
+
 -- Everything you ask for. Each new row wakes the agent on GitHub.
 create table if not exists kt_commands (
   id bigint generated always as identity primary key,
@@ -87,7 +112,7 @@ on conflict (id) do nothing;
 
 -- Row-level security: the owner only.
 do $$ declare t text; begin
-  foreach t in array array['kt_projects','kt_clips','kt_commands','kt_activity','kt_config'] loop
+  foreach t in array array['kt_projects','kt_clips','kt_commands','kt_activity','kt_config','kt_campaigns'] loop
     execute format('alter table %I enable row level security', t);
     execute format('drop policy if exists owner_all on %I', t);
     execute format('create policy owner_all on %I for all to authenticated using (is_owner()) with check (is_owner())', t);
@@ -96,7 +121,7 @@ end $$;
 
 -- Live updates in the app.
 do $$ declare t text; begin
-  foreach t in array array['kt_projects','kt_clips','kt_commands','kt_activity','kt_config'] loop
+  foreach t in array array['kt_projects','kt_clips','kt_commands','kt_activity','kt_config','kt_campaigns'] loop
     begin execute format('alter publication supabase_realtime add table %I', t);
     exception when duplicate_object then null; end;
   end loop;

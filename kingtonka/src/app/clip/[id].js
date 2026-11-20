@@ -5,11 +5,12 @@ import { Alert, Platform, Pressable, View } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
-import { ask, clock, CLIP_STATUS, logYou, remove, removeFiles, update, useRow, useToast } from '../../data';
+import { ask, campaignOf, clock, CLIP_STATUS, logYou, postCaption, remove, removeFiles, update, useRow, useRows, useToast } from '../../data';
 import { Body, Button, Card, Chips, Empty, Field, Label, Loading, Pill, Progress, Row, Screen, Section } from '../../components/ui';
 import { ClipActions, ClipPlayer } from '../../components/media';
 import { ScoreBadge } from '../../components/cards';
 import { FALLBACK, StyleForm } from '../../components/settings';
+import { SubmitSteps } from '../../components/submit';
 import { scoreColor, useTheme } from '../../theme';
 
 const SCORE_NAMES = [['hook', 'Hook', 'Grabs attention in the first 3 seconds'], ['flow', 'Flow', 'A complete thought that makes sense alone'],
@@ -118,6 +119,7 @@ function ClipScreen({ clip, tab, setTab }) {
   const t = useTheme();
   const toast = useToast();
   const { row: project } = useRow('kt_projects', clip.project_id);
+  const campaign = campaignOf(project, useRows('kt_campaigns').rows);
   const [postText, setPostText] = useState(clip.post_text || '');
   const [tags, setTags] = useState(clip.hashtags || '');
   const [start, setStart] = useState(Number(clip.start_s));
@@ -186,23 +188,33 @@ function ClipScreen({ clip, tab, setTab }) {
       <Chips options={[['post', 'Post'], ['edit', 'Edit'], ['captions', 'Caption text'], ['score', 'Score']]} value={tab} onChange={setTab} />
 
       {tab === 'post' ? (
-        <Card>
-          <Field label="Caption for your post" value={postText} onChangeText={setPostText} multiline />
-          <Field label="Hashtags" value={tags} onChangeText={setTags} autoCapitalize="none" />
-          <Row>
-            <Button small icon="copy-outline" title="Copy caption" onPress={async () => {
-              await Clipboard.setStringAsync([postText.trim(), tags.trim()].filter(Boolean).join('\n\n'));
-              toast('Copied. Paste it when you post.');
-            }} />
-            {postText !== (clip.post_text || '') || tags !== (clip.hashtags || '') ? <Button small kind="soft" title="Save" onPress={savePost} /> : null}
-          </Row>
-          <Body small muted>Save to phone or Share, then post it on TikTok, Reels, Shorts or X and paste the caption.</Body>
-          <Row>
-            {clip.posted_at
-              ? <Button small kind="plain" icon="checkmark-done" title={`Posted · undo`} onPress={() => update('kt_clips', clip.id, { posted_at: null })} />
-              : <Button small kind="plain" icon="checkmark" title="Mark as posted" onPress={() => update('kt_clips', clip.id, { posted_at: new Date().toISOString() })} />}
-          </Row>
-        </Card>
+        <>
+          <Card>
+            <Field label="Caption for your post" value={postText} onChangeText={setPostText} multiline />
+            <Field label="Hashtags" value={tags} onChangeText={setTags} autoCapitalize="none" />
+            {campaign && (campaign.hashtags || campaign.mentions) ? (
+              <Body small muted>Copy caption also adds {[campaign.mentions, campaign.hashtags].filter(Boolean).join(' ')} for {campaign.name}.</Body>
+            ) : null}
+            <Row>
+              <Button small icon="copy-outline" title="Copy caption" onPress={async () => {
+                await Clipboard.setStringAsync(postCaption({ post_text: postText, hashtags: tags }, campaign));
+                toast('Copied. Paste it when you post.');
+              }} />
+              {postText !== (clip.post_text || '') || tags !== (clip.hashtags || '') ? <Button small kind="soft" title="Save" onPress={savePost} /> : null}
+            </Row>
+            {!campaign ? (
+              <>
+                <Body small muted>Save to phone or Share, then post it on TikTok, Reels, Shorts or X and paste the caption.</Body>
+                <Row>
+                  {clip.posted_at
+                    ? <Button small kind="plain" icon="checkmark-done" title={`Posted · undo`} onPress={() => update('kt_clips', clip.id, { posted_at: null })} />
+                    : <Button small kind="plain" icon="checkmark" title="Mark as posted" onPress={() => update('kt_clips', clip.id, { posted_at: new Date().toISOString() })} />}
+                </Row>
+              </>
+            ) : null}
+          </Card>
+          {campaign ? <SubmitSteps clip={clip} campaign={campaign} toast={toast} /> : null}
+        </>
       ) : null}
 
       {tab === 'edit' ? (

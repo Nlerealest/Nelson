@@ -96,6 +96,7 @@ export default function RootLayout() {
         <Stack.Screen name="project/[id]" options={{ title: 'Clips' }} />
         <Stack.Screen name="clip/[id]" options={{ title: 'Clip' }} />
         <Stack.Screen name="expo-sharing" options={{ title: 'Clip a video' }} />
+        <Stack.Screen name="campaign/[id]" options={{ title: 'Campaign' }} />
       </Stack>
     </DataProvider>
   );

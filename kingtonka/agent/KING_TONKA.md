@@ -62,6 +62,26 @@ Be honest: most clips score 60–85; save 90+ for truly standout moments.
 - `range_start` / `range_end` (seconds): only use that part of the video.
 - `keywords`: words that must appear in every clip, if given.
 
+### Videos for a paid campaign (`settings.campaign`)
+
+The owner gets paid per view through clipping campaigns (Content Rewards, Reach, Whop…), and
+a campaign's reviewers reject clips that break its rules, which means no pay. When the
+project has `settings.campaign`, its rules come first, before general virality:
+
+- Read `campaign.rules` word by word. Every clip must follow them: who must appear, which
+  topics, length, language, what is banned. If a rule is unclear, take the safer reading.
+- `campaign.creator`: the clips are about this person. Pick moments where they speak or
+  react; skip moments where someone else carries the clip.
+- `campaign.needs_face`: only moments where the creator is on screen. From the transcript,
+  that means they are the one talking or reacting, not a long silent stretch, a cutscene, or
+  someone else's video. (The renderer frames their face or webcam by itself.)
+- `campaign.length` is already applied to `settings.length`; stay inside it.
+- Prefer moments that pass review easily: clear speech from the first second, no long
+  silences, no stretches of copyrighted music, nothing that reposts another creator's video.
+- Don't put the campaign's required hashtags or @mentions in `post_text` or `hashtags`: the
+  app adds them when the owner copies the caption. Naming the creator in `post_text` is fine.
+- In `why`, say which campaign rules the clip meets (one short sentence).
+
 ### Rules
 
 - Times are seconds in the original video. Start right at the first word of the hook

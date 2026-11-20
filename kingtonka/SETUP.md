@@ -54,6 +54,31 @@ You can follow each run on GitHub: **Actions** → **King Tonka agent**.
 
 **Framing:** *Follow speaker* finds the face and cuts to whoever is on screen. *Fit* shows the whole picture on a blurred background. *Left / Center / Right* keep a fixed crop.
 
+## Paid clipping campaigns (Content Rewards, Reach, Whop…)
+
+**One-time update first:** in Supabase → SQL Editor → New query, paste
+[`kingtonka/supabase/schema.sql`](supabase/schema.sql) again and click **Run**. It only adds
+what's new (campaigns, and post links on clips). Until then, the Campaigns tab shows a reminder.
+
+1. **Join the campaign** on its website (for example Content Rewards), and link your TikTok /
+   YouTube / Instagram there.
+2. **Campaigns tab → Add campaign.** Paste the campaign's link, who you clip, the pay per
+   1,000 views, the views needed to get paid, where you post, the required hashtags and
+   @tags, and its rules (copy its *Content requirements* box). Turn on **The creator must be
+   on screen** if the campaign says so.
+3. **Clip a video for it:** on the campaign tap **Clip a video for it**, or pick the campaign
+   under **For a campaign?** on Create (also when you share from YouTube). Claude follows the
+   campaign's rules when it picks the clips.
+4. **Post a clip:** open it → **Post** → **Copy caption** (the campaign's hashtags and @tags
+   are added for you) → Save or Share → post it.
+5. **Right after posting:** copy your post's link in TikTok/YouTube, tap **Paste** on the clip,
+   then **I posted it**. A countdown starts, and your phone reminds you after 20 minutes.
+6. **Submit within 30 minutes:** tap **Copy link & open campaign**, tap *Submit clip* there,
+   paste, and come back to tap **I submitted it**.
+
+**My clips → To submit** lists every posted clip you haven't submitted yet, closest to the
+deadline first. Views only count from when you submit, so submit fast.
+
 ## Good to know
 
 - **Storage:** Supabase's free plan holds 1 GB. Each clip is about 5–40 MB, so delete old videos you've already posted. A video's clips are deleted with it.

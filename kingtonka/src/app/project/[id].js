@@ -131,6 +131,7 @@ export default function Project() {
         </Row>
         <Body small muted>
           {[s.clips === 'auto' || !s.clips ? 'Auto clips' : `${s.clips} clips`, label('length', s.length || 'auto'), s.aspect || '9:16', `${label('captions', s.captions || 'bold')} captions`].join(' · ')}
+          {s.campaign ? `\nFor the campaign: ${s.campaign.name}` : ''}
           {s.prompt ? `\nLooking for: ${s.prompt}` : ''}
           {s.range_start != null || s.range_end != null ? `\nOnly ${clock(s.range_start || 0)}–${s.range_end != null ? clock(s.range_end) : 'end'}` : ''}
         </Body>

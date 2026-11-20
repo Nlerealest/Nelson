@@ -10,7 +10,7 @@ export const ToastProvider = ToastContext.Provider;
 export const useToast = () => useContext(ToastContext);
 
 export const BUCKET = 'kingtonka';
-const TABLES = { kt_projects: 200, kt_clips: 1000, kt_commands: 40, kt_activity: 80, kt_config: 10 };
+const TABLES = { kt_projects: 200, kt_clips: 1000, kt_commands: 40, kt_activity: 80, kt_config: 10, kt_campaigns: 100 };
 const ORDER = { kt_activity: 'at', kt_config: 'id' };
 const DataContext = createContext(null);
 
@@ -173,3 +173,57 @@ export const CLIP_STATUS = {
   planned: ['Queued', 'info'], rendering: ['Rendering', 'warn'], rerender: ['Updating', 'warn'], editing: ['Claude is editing', 'warn'],
   ready: ['Ready', 'ok'], failed: ['Failed', 'bad'],
 };
+
+// ---------- campaigns ----------
+// Content Rewards and most campaigns want the post link within 30 minutes of posting.
+export const SUBMIT_WINDOW_MIN = 30;
+
+// Settings for a new video made for a campaign: its rules, its clip length, and its
+// creator kept on screen when the campaign needs that.
+export function withCampaign(settings, campaign) {
+  if (!campaign) return settings;
+  const s = { ...settings, campaign: campaignSnapshot(campaign) };
+  if (campaign.length && campaign.length !== 'auto') s.length = campaign.length;
+  if (campaign.needs_face && !['auto', 'stream'].includes(s.framing)) s.framing = 'auto';
+  return s;
+}
+
+// What a video keeps of its campaign (so Claude sees the rules even if the campaign changes later).
+export function campaignSnapshot(c) {
+  if (!c) return null;
+  const { id, name, url, creator, rate, min_views, platforms, hashtags, mentions, rules, length, needs_face } = c;
+  return { id, name, url, creator, rate, min_views, platforms, hashtags, mentions, rules, length, needs_face };
+}
+
+// The campaign a video belongs to: the live one if it still exists, else what the video kept.
+export function campaignOf(project, campaigns) {
+  const snap = project?.settings?.campaign;
+  if (!snap) return null;
+  return (campaigns || []).find((c) => c.id === snap.id) || snap;
+}
+
+const tagsIn = (text) => String(text || '').split(/[\s,]+/).map((t) => t.trim()).filter(Boolean);
+
+// The full caption to paste when posting: Claude's caption, the campaign's @tags,
+// then every hashtag once (the clip's and the campaign's required ones).
+export function postCaption(clip, campaign) {
+  const lines = [String(clip?.post_text || '').trim()];
+  const mentions = tagsIn(campaign?.mentions).map((m) => (m.startsWith('@') ? m : `@${m}`));
+  if (mentions.length) lines.push(mentions.join(' '));
+  const seen = new Set();
+  const tags = [...tagsIn(campaign?.hashtags), ...tagsIn(clip?.hashtags)]
+    .map((h) => (h.startsWith('#') ? h : `#${h}`))
+    .filter((h) => (seen.has(h.toLowerCase()) ? false : seen.add(h.toLowerCase())));
+  if (tags.length) lines.push(tags.join(' '));
+  return lines.filter(Boolean).join('\n\n');
+}
+
+// Minutes left to submit a posted campaign clip (negative once the window has passed), or null
+// when there's nothing to submit (no post link saved yet, or already submitted).
+export function submitMinutesLeft(clip, now = Date.now()) {
+  if (!clip?.post_url || !clip?.posted_at || clip?.submitted_at) return null;
+  return Math.floor(SUBMIT_WINDOW_MIN - (now - new Date(clip.posted_at).getTime()) / 60000);
+}
+
+// True when the database hasn't had the campaigns update yet (schema.sql not run again).
+export const needsDbUpdate = (error) => !!error && /kt_campaigns|post_url|submitted_at|schema cache|does not exist/i.test(error.message || error);

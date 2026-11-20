@@ -4,10 +4,11 @@ import { useState } from 'react';
 import { Image, View } from 'react-native';
 import { router, Stack } from 'expo-router';
 import { useIncomingShare } from 'expo-sharing';
-import { newProject, useConfig, useToast } from '../data';
+import { newProject, useConfig, useRows, useToast, withCampaign } from '../data';
 import { Body, Button, Card, Empty, Field, Loading, Row, Screen } from '../components/ui';
 import { FALLBACK, label, ProjectForm } from '../components/settings';
 import { findLink, youtubeId } from '../links';
+import { CampaignPicker } from '../components/campaigns';
 import { useTheme } from '../theme';
 
 export default function SharedLink() {
@@ -21,6 +22,8 @@ export default function SharedLink() {
   const opts = edited || (loaded ? { ...FALLBACK, ...(config.defaults || {}) } : null);
   const [showOpts, setShowOpts] = useState(false);
   const [prompt, setPrompt] = useState('');
+  const [campaignId, setCampaignId] = useState(null);
+  const campaign = (useRows('kt_campaigns').rows || []).find((c) => c.id === campaignId) || null;
 
   const leave = () => {
     clearSharedPayloads();
@@ -29,7 +32,7 @@ export default function SharedLink() {
   };
   const go = async () => {
     try {
-      const p = await newProject({ url: link, settings: { ...opts, ...(prompt.trim() ? { prompt: prompt.trim() } : {}) } });
+      const p = await newProject({ url: link, settings: withCampaign({ ...opts, ...(prompt.trim() ? { prompt: prompt.trim() } : {}) }, campaign) });
       clearSharedPayloads();
       toast('Got it. King Tonka starts within a minute.');
       router.replace(`/project/${p.id}`);
@@ -58,6 +61,7 @@ export default function SharedLink() {
           ) : null}
           <Body small muted numberOfLines={2}>{link}</Body>
           <Field value={prompt} onChangeText={setPrompt} placeholder="What to look for (optional): funny moments, money tips…" />
+          <CampaignPicker value={campaignId} onChange={setCampaignId} />
           <Button small kind="plain" icon="options-outline"
             title={showOpts ? 'Hide options' : [opts.clips === 'auto' ? 'Auto clips' : `${opts.clips} clips`, label('length', opts.length), opts.aspect, `${label('captions', opts.captions)} captions`].join(' · ')}
             onPress={() => setShowOpts(!showOpts)} />
