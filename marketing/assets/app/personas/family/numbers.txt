@@ -1,17 +1,17 @@
-# What the app shows on 2026-11-19 for this persona (sample-data.mjs). Use these numbers in videos.
+# What the app shows on 2026-11-20 for this persona (sample-data.mjs). Use these numbers in videos.
 persona family - Parent of three, two salaries and a tailoring business - income a month 1750000
-safe 11781 leftToday 11781 days 12 available 141367.3469387755
-surplus 132298 needed 181633
- - warning "Children's school fees" is off track: it needs K100,000 a month but you are on course to save about K72,838. At this rate it takes 6 months instead of 4.
- - warning "Family car" is off track: it needs K81,633 a month but you are on course to save about K59,460. At this rate it takes 68 months instead of 49.
- - tip Tip: Groceries is your biggest everyday cost this month (K280,000). Cutting about K49,334 from spending this month would put your goals back on track.
+safe 12852 leftToday 12852 days 11 available 141367.3469387755
+surplus 149667 needed 181633
+ - warning "Children's school fees" is off track: it needs K100,000 a month but you are on course to save about K82,401. At this rate it takes 5 months instead of 4.
+ - warning "Family car" is off track: it needs K81,633 a month but you are on course to save about K67,266. At this rate it takes 60 months instead of 49.
+ - tip Tip: Groceries is your biggest everyday cost this month (K280,000). Cutting about K31,966 from spending this month would put your goals back on track.
  goal Children's school fees 100000
  goal Family car 81633
- budget Groceries pace 442105
- budget Transport pace 360000
- budget Airtime & Data pace 121579
- budget Church & Giving pace 63158
- budget Health pace 55263
+ budget Groceries pace 420000
+ budget Transport pace 342000
+ budget Airtime & Data pace 115500
+ budget Church & Giving pace 60000
+ budget Health pace 52500
 [
   'You kept 18% of your income (K315,000).',
   'Most money went to Rent: K500,000 (35% of spending).',
