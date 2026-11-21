@@ -1,15 +1,16 @@
-# What the app shows on 2026-11-20 for this persona (sample-data.mjs). Use these numbers in videos.
+# What the app shows on 2026-11-21 for this persona (sample-data.mjs). Use these numbers in videos.
 persona business - Owns two shops in Blantyre, runs a minibus on the side - income a month 3000000
-safe 27818 leftToday 27818 days 11 available 306000
-surplus 479000 needed 480000
- - warning "Second shop" is off track: it needs K360,000 a month but you are on course to save about K359,250. At this rate it takes 26 months instead of 25.
- - warning "Land in Area 47" is off track: it needs K120,000 a month but you are on course to save about K119,750. At this rate it takes 26 months instead of 25.
- - tip Tip: Family support is your biggest everyday cost this month (K250,000). Cutting about K1,000 from spending this month would put your goals back on track.
+safe 24600 leftToday 24600 days 10 available 246000
+surplus 428381 needed 480000
+ - warning "Second shop" is off track: it needs K360,000 a month but you are on course to save about K321,286. At this rate it takes 29 months instead of 25.
+ - warning "Land in Area 47" is off track: it needs K120,000 a month but you are on course to save about K107,095. At this rate it takes 29 months instead of 25.
+ - tip Tip: Family support is your biggest everyday cost this month (K250,000). Cutting about K51,619 from spending this month would put your goals back on track.
  goal Second shop 360000
  goal Land in Area 47 120000
- budget Groceries pace 345000
- budget Airtime & Data pace 225000
- budget Church & Giving pace 225000
+ budget Groceries pace 328571
+ budget Airtime & Data pace 214286
+ budget Church & Giving pace 214286
+ budget Health pace 85714
 [
   'You kept 20% of your income (K614,000).',
   'Most money went to Rent: K900,000 (38% of spending).',

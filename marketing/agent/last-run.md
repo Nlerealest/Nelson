@@ -1,7 +1,8 @@
-# Last run: 2026-11-20
+# Last run: 2026-11-21
 
-- Daily check: no commands, no new references, no concepts to produce, no replies to send, no posts to make or remake.
-- Checked that all 25 video files exist: none missing.
-- Three approved posts are waiting for the owner to post by hand.
-- No videos made this run (no reference in use, no voice or song to report).
+- Daily check: no commands queued, no new references, no posts to make or remake, no approved concepts or replies. Checked all 25 video files: none missing.
+- Three approved posts (p-lent, p-term3fees, p-doublesalary) wait for the owner to post by hand; nothing to do.
+- Not a Monday, so no new ideas were proposed.
 - Logged one activity entry.
+
+Videos made: none (no reference in use, so no voice, song or reference applies).
