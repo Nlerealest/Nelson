@@ -184,7 +184,7 @@ def stream_boxes(src, start, end, w, h, style):
     streamer-on-top. Returns (cam box, game box) as (x, y, width, height) in
     pixels, or None to use the normal framing."""
     framing = style.get('framing', 'auto')
-    if framing not in ('auto', 'stream') or w <= h:
+    if framing not in ('auto', 'stream', 'stream_zoom') or w <= h:
         return None
     corner = CORNERS.get(style.get('cam'))
     spots = find_facecam(src, start, end, w, h)
@@ -196,7 +196,7 @@ def stream_boxes(src, start, end, w, h, style):
         others = any(o[0] >= 0.3 and (abs(o[1] - cx) > 0.2 or abs(o[2] - cy) > 0.25) for o in spots[1:])
         if corner:  # the owner said where the camera is: only accept a face on that side
             ok = size < 0.18 and share >= 0.2 and (cx < 0.5) == (corner[0] == 0) and (cy < 0.5) == (corner[1] == 0)
-        elif framing == 'stream':
+        elif framing in ('stream', 'stream_zoom'):
             ok = size < 0.18 and share >= 0.25
         elif style.get('_gaming'):  # a gaming video or a Twitch/Kick stream
             ok = size < 0.16 and share >= 0.35 and (cx < 0.4 or cx > 0.6) and not others
@@ -220,45 +220,77 @@ def even(v):
     return max(2, int(v) // 2 * 2)
 
 
-def stream_filter(src_info, out_size, boxes):
-    w, h, fps, _, _ = src_info
-    ow, oh = out_size
-    fps_f = ',fps=30' if fps > 31 else ''
+def cam_crop(w, h, boxes, aspect):
+    """The webcam's box in the source picture, in the given shape (width / height)."""
     bw, cx, cy, corner = boxes
-    top_h = even(oh / 3)
-    bot_h = oh - top_h
-    # Camera box: same shape as the top panel, the face a little above its middle.
-    bh = bw * top_h / ow
+    bh = bw / aspect
     if bh > h * 0.6:
-        bh, bw = h * 0.6, h * 0.6 * ow / top_h
+        bh, bw = h * 0.6, h * 0.6 * aspect
     if cy is None:  # corner without a face: hug that corner
         y = h * 0.02 if corner[1] == 0 else h * 0.98 - bh
-    else:
+    else:  # the face a little above the middle of the box
         y = cy * h - bh * 0.45
     x = min(w - bw, max(0, cx * w - bw / 2))
     y = min(h - bh, max(0, y))
-    # Game: the middle of the picture, as tall as it is, in the bottom panel's shape.
-    gw = min(w, h * ow / bot_h)
-    gx = (w - gw) / 2
-    return (f'[0:v]split=2[cam][game];'
-            f'[cam]crop={even(bw)}:{even(bh)}:{int(x)}:{int(y)},scale={ow}:{top_h}:flags=lanczos,setsar=1[top];'
-            f'[game]crop={even(gw)}:{even(h)}:{int(gx)}:0,scale={ow}:{bot_h}:flags=lanczos,setsar=1[bottom];'
-            f'[top][bottom]vstack=inputs=2{fps_f}'), top_h / oh
+    return f'crop={even(bw)}:{even(bh)}:{int(x)}:{int(y)}'
 
 
-def video_filter(src_info, out_size, framing, start, end, src, tmp, style=None):
-    """The ffmpeg picture filter for this framing. Returns (filter, seam), where seam
-    is where the camera meets the game (0–1 of the height) in the streamer layout."""
+def stream_full_filter(src_info, out_size, boxes):
+    """Streamer on top, the WHOLE game below it (nothing of the game is cropped), on a
+    blurred copy of the game, with room above for the title and below for captions."""
     w, h, fps, _, _ = src_info
     ow, oh = out_size
     fps_f = ',fps=30' if fps > 31 else ''
-    if ow < oh and framing in ('auto', 'stream'):
+    game_h = even(ow * h / w)
+    cam_h = even(ow * 9 / 16)
+    if cam_h + game_h > oh * 0.85:  # not enough room (e.g. 4:5): a smaller camera
+        cam_h = even(max(oh * 0.85 - game_h, ow * 0.3))
+    band = (oh - cam_h - game_h) // 2
+    graph = (f'[0:v]split=3[bgsrc][cam][game];'
+             f'[bgsrc]scale={ow // 4}:{oh // 4}:force_original_aspect_ratio=increase,crop={ow // 4}:{oh // 4},'
+             f'boxblur=14:2,eq=brightness=-0.12,scale={ow}:{oh}[bg];'
+             f'[cam]{cam_crop(w, h, boxes, ow / cam_h)},scale={ow}:{cam_h}:flags=lanczos,setsar=1[top];'
+             f'[game]scale={ow}:{game_h}:flags=lanczos,setsar=1[mid];'
+             f'[bg][top]overlay=0:{band}[withcam];[withcam][mid]overlay=0:{band + cam_h},setsar=1{fps_f}')
+    roomy = band >= oh * 0.07
+    return graph, {
+        'kind': 'stream',
+        'cap_y': (band + cam_h + game_h + band / 2) / oh if roomy else (band + cam_h) / oh,  # under the game
+        'title_y': band / 2 / oh if roomy else None,  # above the camera
+        'room': roomy,
+    }
+
+
+def stream_zoom_filter(src_info, out_size, boxes):
+    """Streamer in the top third, the middle of the game filling the rest (crops the game's sides)."""
+    w, h, fps, _, _ = src_info
+    ow, oh = out_size
+    fps_f = ',fps=30' if fps > 31 else ''
+    top_h = even(oh / 3)
+    bot_h = oh - top_h
+    gw = min(w, h * ow / bot_h)
+    gx = (w - gw) / 2
+    return (f'[0:v]split=2[cam][game];'
+            f'[cam]{cam_crop(w, h, boxes, ow / top_h)},scale={ow}:{top_h}:flags=lanczos,setsar=1[top];'
+            f'[game]crop={even(gw)}:{even(h)}:{int(gx)}:0,scale={ow}:{bot_h}:flags=lanczos,setsar=1[bottom];'
+            f'[top][bottom]vstack=inputs=2{fps_f}'), {'kind': 'stream', 'seam': top_h / oh}
+
+
+def video_filter(src_info, out_size, framing, start, end, src, tmp, style=None):
+    """The ffmpeg picture filter for this framing. Returns (filter, layout): layout says
+    where captions and the title go, and whether zooming on cuts is allowed."""
+    w, h, fps, _, _ = src_info
+    ow, oh = out_size
+    fps_f = ',fps=30' if fps > 31 else ''
+    if ow < oh and framing in ('auto', 'stream', 'stream_zoom'):
         boxes = stream_boxes(src, start, end, w, h, {**(style or {}), 'framing': framing})
         if boxes:
-            return stream_filter(src_info, out_size, boxes)
-        if framing == 'stream' or (style or {}).get('_gaming'):
+            return stream_zoom_filter(src_info, out_size, boxes) if framing == 'stream_zoom' else stream_full_filter(src_info, out_size, boxes)
+        if framing in ('stream', 'stream_zoom') or (style or {}).get('_gaming'):
             framing = 'fit'  # gameplay without a webcam: show the whole game
-    return plain_filter(src_info, out_size, framing, start, end, src, tmp, fps_f), None
+    same_shape = abs(w / h - ow / oh) < 0.03
+    layout = {'kind': 'fit', 'room': True} if framing == 'fit' and not same_shape else {'kind': 'crop', 'zoomable': True}
+    return plain_filter(src_info, out_size, framing, start, end, src, tmp, fps_f), layout
 
 
 def plain_filter(src_info, out_size, framing, start, end, src, tmp, fps_f):
@@ -290,12 +322,52 @@ def plain_filter(src_info, out_size, framing, start, end, src, tmp, fps_f):
     return f'[0:v]crop={cw}:{ch}:0:{int((h - ch) * 0.35)},scale={ow}:{oh}:flags=lanczos,setsar=1{fps_f}'
 
 
+# ---------- jump cuts ----------
+PAUSE = 0.45        # silences longer than this are cut out
+KEEP_BEFORE = 0.12  # breathing room kept before the next word
+KEEP_AFTER = 0.18   # and after the last word
+ZOOM = 1.1          # every other part after a cut is pushed in this much (hides the cut, adds energy)
+
+
+def speech_parts(words, dur):
+    """The parts of the clip to keep: the talking, without the pauses between it.
+    words are relative to the clip start. Returns [(start, end), …]."""
+    if not words:
+        return [(0.0, dur)]
+    parts, a, last = [], 0.0, None
+    for s, e, _ in words:
+        if last is not None and s - last > PAUSE:
+            parts.append((a, min(dur, last + KEEP_AFTER)))
+            a = max(0.0, s - KEEP_BEFORE)
+        last = e if last is None else max(last, e)
+    parts.append((a, dur))
+    parts = [(round(x, 3), round(y, 3)) for x, y in parts if y - x > 0.25]
+    return parts or [(0.0, dur)]
+
+
+def shifter(parts):
+    """Maps a time in the clip to the same moment once the pauses are cut out."""
+    starts, acc = [], 0.0
+    for a, b in parts:
+        starts.append((a, b, acc))
+        acc += b - a
+
+    def shift(t):
+        for a, b, before in starts:
+            if t <= b:
+                return round(before + max(0.0, t - a), 2)
+        a, b, before = starts[-1]
+        return round(before + (b - a), 2)
+    return shift
+
+
 def render_clip(src, all_words, start, end, out, style=None, title=None, words=None, offset=0.0):
     """Renders one clip to out (MP4) and out.jpg. Returns (start, end, words used),
     times in the original video. offset: where src begins in the original video
     (for long videos, src is just the few minutes around the clip)."""
     style = style or {}
     info = probe(src)
+    has_audio = info[4]
     start, end = max(0.0, float(start)), min(offset + info[3], float(end))
     if words is None:
         start, end = snap(all_words, start, end)
@@ -303,22 +375,56 @@ def render_clip(src, all_words, start, end, out, style=None, title=None, words=N
         words = clip_words(all_words, start, end)
     dur = round(end - start, 2)
     local = max(0.0, start - offset)  # where the clip starts inside src
-    size = SIZES.get(style.get('aspect', '9:16'), SIZES['9:16'])
+    ow, oh = size = SIZES.get(style.get('aspect', '9:16'), SIZES['9:16'])
+
+    # Jump cuts: keep the talking, drop the pauses (on by default).
+    parts = speech_parts(words, dur) if style.get('tighten', True) else [(0.0, dur)]
+    cut = len(parts) > 1 and dur - sum(b - a for a, b in parts) >= 0.4
+    if not cut:
+        parts = [(0.0, dur)]
+    shift = shifter(parts)
+    shown_words = [[shift(s), shift(e), w] for s, e, w in words] if cut else words
+    shown_dur = round(sum(b - a for a, b in parts), 2)
+
     with tempfile.TemporaryDirectory() as tmp:
+        vf, layout = video_filter(info, size, style.get('framing', 'auto'), local, local + dur, src, tmp, style)
+        graph = vf + '[lv];'
+        if cut:
+            n = len(parts)
+            zoom_ok = layout.get('zoomable') and style.get('punch', True)
+            graph += f'[lv]split={n}' + ''.join(f'[s{i}]' for i in range(n)) + ';'
+            if has_audio:
+                graph += f'[0:a]asplit={n}' + ''.join(f'[r{i}]' for i in range(n)) + ';'
+            for i, (a, b) in enumerate(parts):
+                push = (f',crop=iw/{ZOOM}:ih/{ZOOM}:(iw-ow)/2:(ih-oh)*0.4,scale={ow}:{oh}:flags=lanczos,setsar=1'
+                        if zoom_ok and i % 2 else '')
+                graph += f'[s{i}]trim=start={a:.3f}:end={b:.3f},setpts=PTS-STARTPTS{push}[v{i}];'
+                if has_audio:  # tiny fades so the cuts don't click
+                    graph += (f'[r{i}]atrim=start={a:.3f}:end={b:.3f},asetpts=PTS-STARTPTS,'
+                              f'afade=t=in:d=0.015,afade=t=out:st={max(0.0, b - a - 0.02):.3f}:d=0.02[a{i}];')
+            graph += ''.join(f'[v{i}]' + (f'[a{i}]' if has_audio else '') for i in range(n))
+            graph += f'concat=n={n}:v=1:a={1 if has_audio else 0}[vc]' + ('[ac];' if has_audio else ';')
+            video, audio = 'vc', 'ac'
+        else:
+            video, audio = 'lv', '0:a'
+        cap_style = {**style, '_seam': layout.get('seam'), '_cap_y': layout.get('cap_y'), '_title_y': layout.get('title_y'),
+                     # where there's free room above the picture, the title stays for the whole clip
+                     '_title_always': bool(layout.get('room'))}
         ass = os.path.join(tmp, 'captions.ass')
-        vf, seam = video_filter(info, size, style.get('framing', 'auto'), local, local + dur, src, tmp, style)
         with open(ass, 'w') as f:
-            f.write(captions.build(words, dur, size[0], size[1], {**style, '_seam': seam}, title))
-        vf += f",ass='{ass}'" + (f":fontsdir='{FONTS}'" if os.path.isdir(FONTS) else '') + '[v]'
+            f.write(captions.build(shown_words, shown_dur, ow, oh, cap_style, title))
+        graph += f"[{video}]ass='{ass}'" + (f":fontsdir='{FONTS}'" if os.path.isdir(FONTS) else '') + '[v]'
+        if has_audio:
+            graph += f';[{audio}]loudnorm=I=-14:TP=-1.5:LRA=11[a]'
         # Stay under 45 MB so the clip always fits the storage limit.
-        kbps = int(min(6000, max(1200, 45 * 8 * 1000 / max(dur, 1) - 160)))
-        cmd = ['ffmpeg', '-v', 'error', '-y', '-ss', f'{local:.3f}', '-i', src, '-t', f'{dur:.3f}',
-               '-filter_complex', vf, '-map', '[v]', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21',
+        kbps = int(min(6000, max(1200, 45 * 8 * 1000 / max(shown_dur, 1) - 160)))
+        cmd = ['ffmpeg', '-v', 'error', '-y', '-ss', f'{local:.3f}', '-t', f'{dur:.3f}', '-i', src,
+               '-filter_complex', graph, '-map', '[v]', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21',
                '-maxrate', f'{kbps}k', '-bufsize', f'{kbps * 2}k', '-pix_fmt', 'yuv420p', '-movflags', '+faststart']
-        if info[4]:
-            cmd += ['-map', '0:a:0', '-af', 'loudnorm=I=-14:TP=-1.5:LRA=11', '-c:a', 'aac', '-b:a', '160k', '-ar', '48000']
+        if has_audio:
+            cmd += ['-map', '[a]', '-c:a', 'aac', '-b:a', '160k', '-ar', '48000']
         run(cmd + [out])
-    run(['ffmpeg', '-v', 'error', '-y', '-ss', str(min(1.0, dur / 2)), '-i', out, '-frames:v', '1', '-vf', 'scale=540:-2', '-q:v', '4',
+    run(['ffmpeg', '-v', 'error', '-y', '-ss', str(min(1.0, shown_dur / 2)), '-i', out, '-frames:v', '1', '-vf', 'scale=540:-2', '-q:v', '4',
          out.rsplit('.', 1)[0] + '.jpg'])
     return start, end, words
 

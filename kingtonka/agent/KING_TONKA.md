@@ -55,8 +55,9 @@ Be honest: most clips score 60–85; save 90+ for truly standout moments.
 - `clips`: `"auto"` (find every strong moment: about 1 clip per 4–6 minutes of video,
   at least 3 and at most 15; for videos over 2 hours, the 15 best) or a number (exactly that
   many, if the video has them).
-- `length`: `"auto"` (30–90 s, the sweet spot), `"short"` (15–30 s), `"medium"` (30–60 s),
-  `"long"` (60–90 s), or `"xl"` (90 s–3 min). Stay inside the range.
+- `length`: `"auto"` (20–45 s: the viral sweet spot; go shorter rather than longer), `"short"`
+  (15–30 s), `"medium"` (30–60 s), `"long"` (60–90 s), or `"xl"` (90 s–3 min). Stay inside the
+  range. The renderer also cuts out pauses, so a clip comes out a little shorter than planned.
 - `prompt`: what the owner wants (e.g. "funny moments", "the parts about money",
   "only the guest talking"). Follow it closely: it beats general virality.
 - `range_start` / `range_end` (seconds): only use that part of the video.
@@ -81,6 +82,20 @@ project has `settings.campaign`, its rules come first, before general virality:
 - Don't put the campaign's required hashtags or @mentions in `post_text` or `hashtags`: the
   app adds them when the owner copies the caption. Naming the creator in `post_text` is fine.
 - In `why`, say which campaign rules the clip meets (one short sentence).
+
+### Viral formats (what gets the most views)
+
+- **Hook in the first 2 seconds.** Start mid-action, on the boldest line, the scream, the
+  reveal, never on "so", "um" or a greeting. If the best line comes 10 seconds in, start there.
+- **Gaming streams: reactions win.** Rage, shock, screaming, laughing, a clutch moment, a
+  surprise discovery in the game, a hot take. Pick moments where the streamer reacts out loud.
+- **End on the payoff** (the punchline, the result, the reaction), and when you can, choose an
+  ending that flows back into the start, so the clip loops and gets watched twice.
+- **One idea per clip.** Cut set-up that doesn't pay off.
+- **`emphasis`:** list 1–3 key words that are actually said in the clip (e.g. `["insane", "GTA"]`);
+  they get a second colour in the captions.
+- **Hook titles** create a curiosity gap ("He did NOT expect this", "Nobody noticed this in GTA 6"),
+  max 8 words, true to what happens.
 
 ### Rules
 
@@ -108,6 +123,7 @@ Write `kt-work/<project-id>/plan.json`:
       "score": 88,
       "scores": {"hook": 92, "flow": 85, "value": 90, "trend": 80},
       "why": "Opens on a bold claim, tells a full story with a clear lesson, ends on a quotable line.",
+      "emphasis": ["saving", "10%"],
       "post_text": "The one money habit nobody talks about 👀 Would you try it?",
       "hashtags": "#money #savingtips #podcast #fyp"
     }
@@ -144,10 +160,13 @@ Editable: `title`, `hook`, `start_s`, `end_s`, `score`, `scores`, `why`, `post_t
 `hashtags`, and `style` (merged): `aspect` (`9:16`, `1:1`, `4:5`, `16:9`), `captions`
 (`bold`, `pop`, `karaoke`, `clean`, `none`), `position` (`top`, `middle`, `bottom`),
 `framing` (`auto` follows the speaker's face, and for a gaming stream with a webcam puts
-the streamer on top and the game below; `stream` always uses that streamer-on-top layout;
+the streamer on top and the whole game below; `stream` always uses that layout (nothing of the
+game is cropped); `stream_zoom` puts the streamer on top and zooms the middle of the game to
+fill the rest;
 `left`, `center`, `right`; `fit` shows the whole picture on a blurred background), `cam`
 (where the streamer's webcam is, for `stream`: `auto`, `top-left`, `top-right`,
-`bottom-left`, `bottom-right`), `hook_title` (true/false), `color` (`#RRGGBB`
+`bottom-left`, `bottom-right`), `tighten` (cut out pauses, true/false), `punch` (zoom in a
+little after each cut, true/false), `emphasis` (key words in a second colour), `hook_title` (true/false), `color` (`#RRGGBB`
 for the highlighted word), `watermark` (text in the corner, e.g. "@handle").
 This queues the clip for rendering again. Then mark the command done with a short
 result: `kt.py command <id> done "Starts 5 s earlier now, on the question."`

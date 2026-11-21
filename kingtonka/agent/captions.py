@@ -27,6 +27,11 @@ def ts(t):
     return f'{int(h)}:{int(m):02d}:{s:05.2f}'
 
 
+def norm(word):
+    """A word without case or punctuation, for matching key words."""
+    return ''.join(ch for ch in str(word).lower() if ch.isalnum())
+
+
 def esc(text):
     return text.replace('\\', '').replace('{', '(').replace('}', ')').replace('\n', ' ')
 
@@ -59,8 +64,14 @@ def build(words, duration, width, height, style=None, title=None):
     # Streamer-on-top layout: 'middle' captions sit on the line between the camera and the game.
     if style.get('_seam') and style.get('position', 'middle') == 'middle':
         y = style['_seam']
+    # Layouts with free room (streamer + full game): captions go in the room under the picture.
+    if style.get('_cap_y') and style.get('position', 'middle') != 'top':
+        y = style['_cap_y']
     x, y = width // 2, round(height * y)
     title_margin = round(height * (0.025 if style.get('_seam') else 0.09))
+    # Key words Claude marked (style.emphasis) get a second colour, so the line pops.
+    emphasis = {norm(w) for w in (style.get('emphasis') or []) if norm(w)}
+    pop_color = ass_color('#00E676' if (style.get('color') or '').upper() != '#00E676' else '#FFD400')
     margin = round(width * 0.07)
 
     head = f"""[Script Info]
@@ -87,7 +98,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     pos = f'{{\\an5\\pos({x},{y})}}'
 
     if title and style.get('hook_title', True):
-        add('Title', 0, min(3.5, duration), '{\\fad(150,300)}' + esc(title), 2)
+        # In free room above the picture the title stays the whole clip; otherwise the first 3.5 s.
+        always = style.get('_title_always')
+        where = f'{{\\an5\\pos({x},{round(height * style["_title_y"])})}}' if style.get('_title_y') else ''
+        add('Title', 0, duration if always else min(3.5, duration), where + ('{\\fad(150,0)}' if always else '{\\fad(150,300)}') + esc(title), 2)
     if style.get('watermark'):
         add('Mark', 0, duration, esc(style['watermark']), 3)
 
@@ -99,7 +113,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         for i, (s, e, t) in enumerate(words):
             nxt = words[i + 1][0] if i + 1 < len(words) else duration
             end = max(e, min(nxt, e + 0.6))
-            add('Pop', s, end, pos + '{\\fscx70\\fscy70\\t(0,90,\\fscx108\\fscy108)\\t(90,160,\\fscx100\\fscy100)}' + esc(t.upper()))
+            hot = f'{{\\c{pop_color}}}' if norm(t) in emphasis else ''
+            add('Pop', s, end, pos + '{\\fscx70\\fscy70\\t(0,90,\\fscx108\\fscy108)\\t(90,160,\\fscx100\\fscy100)}' + hot + esc(t.upper()))
         return head + '\n'.join(ev) + '\n'
 
     if kind == 'clean':
@@ -128,7 +143,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             s = w[0] if wi else g[0][0]
             e = g[wi + 1][0] if wi + 1 < len(g) else line_end
             text = ' '.join(
-                (f'{{\\c{accent}\\fscx112\\fscy112}}{esc(o[2].upper())}{{\\c{white}\\fscx100\\fscy100}}' if oi == wi else esc(o[2].upper()))
+                (f'{{\\c{accent}\\fscx112\\fscy112}}{esc(o[2].upper())}{{\\c{white}\\fscx100\\fscy100}}' if oi == wi
+                 else f'{{\\c{pop_color}}}{esc(o[2].upper())}{{\\c{white}}}' if norm(o[2]) in emphasis
+                 else esc(o[2].upper()))
                 for oi, o in enumerate(g))
             pop = '{\\fscx92\\fscy92\\t(0,70,\\fscx100\\fscy100)}' if wi == 0 else ''
             add('Bold', s, max(e, s + 0.05), pos + pop + text)

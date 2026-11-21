@@ -204,7 +204,8 @@ def clean_plan(project, plan):
         raise ValueError('The plan needs a non-empty "clips" list.')
     dur = float(project.get('duration_s') or 1e9)
     defaults = project.get('settings') or {}
-    style = {k: defaults[k] for k in ('aspect', 'captions', 'position', 'framing', 'cam', 'hook_title', 'color', 'watermark') if k in defaults}
+    style = {k: defaults[k] for k in ('aspect', 'captions', 'position', 'framing', 'cam', 'hook_title', 'color', 'watermark', 'tighten', 'punch')
+             if k in defaults}
     rows = []
     for i, c in enumerate(clips):
         start, end = float(c['start']), float(c['end'])
@@ -214,11 +215,12 @@ def clean_plan(project, plan):
             raise ValueError(f'Clip {i + 1}: {end - start:.0f}s long; clips must be 5 s to 10 min.')
         scores = {k: max(0, min(100, int(c.get('scores', {}).get(k, 0)))) for k in SCORE_KEYS}
         score = int(c.get('score') or round(sum(scores.values()) / len(scores)))
+        emphasis = [str(w).strip() for w in (c.get('emphasis') or []) if str(w).strip()][:5]
         rows.append({
             'project_id': project['id'], 'title': str(c['title'])[:120], 'hook': c.get('hook'),
             'start_s': round(start, 2), 'end_s': round(end, 2), 'score': max(0, min(100, score)), 'scores': scores,
             'why': c.get('why'), 'post_text': c.get('post_text'), 'hashtags': c.get('hashtags'),
-            'style': style, 'status': 'planned',
+            'style': {**style, **({'emphasis': emphasis} if emphasis else {})}, 'status': 'planned',
         })
     rows.sort(key=lambda r: -r['score'])
     return rows
