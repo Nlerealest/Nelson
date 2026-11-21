@@ -159,9 +159,9 @@ export function parseClock(text) {
 export const STATUS = {
   queued: ['Waiting', 'info'], downloading: ['Downloading', 'warn'], transcribing: ['Transcribing', 'warn'],
   finding: ['Finding clips', 'warn'], rendering: ['Rendering', 'warn'], done: ['Ready', 'ok'], failed: ['Problem', 'bad'],
-  cancelled: ['Cancelled', 'mute'],
+  cancelled: ['Cancelled', 'mute'], live: ['🔴 LIVE', 'bad'],
 };
-export const WORKING = ['queued', 'downloading', 'transcribing', 'finding', 'rendering'];
+export const WORKING = ['queued', 'downloading', 'transcribing', 'finding', 'rendering', 'live'];
 
 // Closes everything still waiting for one video (after you cancel it).
 export async function closeCommands(projectId, result) {

@@ -23,6 +23,7 @@ on:
 
 permissions:
   contents: read
+  actions: write  # to start "King Tonka live" for a stream that is live
 
 # One run at a time; a run that starts later picks up everything still waiting.
 concurrency:
@@ -81,6 +82,17 @@ jobs:
       - name: Download and transcribe
         continue-on-error: true
         run: python kingtonka/agent/prepare.py
+
+      # Links that are live right now get their own run that clips them while they stream.
+      - name: Start live clipping
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for id in $($KT live-to-start); do
+            gh workflow run kingtonka-live.yml --repo "${{ github.repository }}" --ref "${{ github.ref_name }}" -f project="$id" \
+              && echo "Started live clipping for $id"
+          done
 
       - name: Anything for Claude?
         id: need

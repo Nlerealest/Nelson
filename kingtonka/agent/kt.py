@@ -12,6 +12,7 @@ Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in the environment.
   python kt.py edit-clip <clip-id> '<json>'   change a clip and queue it for rendering again
   python kt.py campaign-shots <campaign-id>    download the campaign's rule screenshots; prints their paths
   python kt.py fill-campaign <campaign-id> '<json>'   fill in a campaign from its screenshots (checked)
+  python kt.py live-to-start                   live videos with no live job running (claims them); one id per line
   python kt.py command <id> <working|done|failed> "<result>"
   python kt.py agent <working|idle|error> "<message>"
   python kt.py log "<text>"
@@ -267,7 +268,7 @@ def main(argv):
         out(select('kt_clips', f'project_id=eq.{a[0]}&select=id,title,hook,start_s,end_s,score,scores,status,why&order=score.desc'))
     elif cmd == 'add-clips':
         project = get('kt_projects', a[0]) or sys.exit(f'No project {a[0]}: the owner deleted it. Skip it.')
-        if project['status'] != 'finding':
+        if project['status'] not in ('finding', 'live'):
             sys.exit(f'Not accepted: this video is "{project["status"]}" now (the owner cancelled it or it is no longer '
                      'waiting for clips). Skip it.')
         with open(a[1]) as f:
@@ -279,7 +280,8 @@ def main(argv):
         saved = insert('kt_clips', rows)
         if isinstance(plan, dict) and plan.get('title') and not project.get('title'):
             update('kt_projects', a[0], {'title': plan['title'][:140]})
-        project_step(a[0], 'rendering', f'Rendering {len(saved)} clips…', 70)
+        if project['status'] != 'live':  # a live stream stays live; its clips render as they come
+            project_step(a[0], 'rendering', f'Rendering {len(saved)} clips…', 70)
         out([{'id': r['id'], 'title': r['title'], 'score': r['score']} for r in saved])
     elif cmd == 'edit-clip':
         patch = json.loads(a[1])
@@ -310,6 +312,14 @@ def main(argv):
         except (ValueError, TypeError) as e:
             sys.exit(f'Not accepted: {e}')
         out(update('kt_campaigns', a[0], patch))
+    elif cmd == 'live-to-start':
+        # A live job updates live_seen_at every minute; none for 10 minutes means none is running.
+        stale = time.time() - 10 * 60
+        for p in select('kt_projects', 'status=eq.live&select=id,settings'):
+            seen = (p.get('settings') or {}).get('live_seen_at') or 0
+            if seen < stale:
+                update('kt_projects', p['id'], {'settings': {**(p.get('settings') or {}), 'live_seen_at': time.time()}})
+                print(p['id'])
     elif cmd == 'command':
         out(update('kt_commands', int(a[0]), {'status': a[1], 'result': ' '.join(a[2:])}))
     elif cmd == 'agent':

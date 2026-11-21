@@ -60,11 +60,13 @@ export default function Project() {
   const ready = (clipRows || []).filter((c) => c.status === 'ready');
   // Looking for more clips in a finished video: cancelling just goes back to the clips you have.
   const findingMore = p.status === 'finding' && ready.length > 0 && !pending.length;
-  const cancel = () => confirm(findingMore ? 'Stop looking for more clips?' : 'Stop working on this video?',
-    findingMore ? 'Your clips stay.' : 'King Tonka stops downloading and clipping it within a few seconds. You can start it again later.',
+  const isLive = p.status === 'live';
+  const wasLive = !!s.live;  // clips from a live stream can't be cut again later
+  const cancel = () => confirm(isLive ? 'Stop clipping this stream?' : findingMore ? 'Stop looking for more clips?' : 'Stop working on this video?',
+    isLive || findingMore ? 'Your clips stay.' : 'King Tonka stops downloading and clipping it within a few seconds. You can start it again later.',
     'Stop', async () => {
-      await update('kt_projects', p.id, findingMore
-        ? { status: 'done', step: `${ready.length} clips ready`, percent: 100 }
+      await update('kt_projects', p.id, (findingMore || isLive) && ready.length
+        ? { status: 'done', step: isLive ? `Stopped by you · ${ready.length} clips` : `${ready.length} clips ready`, percent: 100 }
         : { status: 'cancelled', step: 'Cancelled', percent: 0 });
       await closeCommands(p.id, 'Cancelled by you.');
       logYou(`You cancelled “${p.title || p.source_url || 'a video'}”`);
@@ -135,7 +137,14 @@ export default function Project() {
           {s.prompt ? `\nLooking for: ${s.prompt}` : ''}
           {s.range_start != null || s.range_end != null ? `\nOnly ${clock(s.range_start || 0)}–${s.range_end != null ? clock(s.range_end) : 'end'}` : ''}
         </Body>
-        {busy ? (
+        {isLive ? (
+          <View style={{ gap: 8, backgroundColor: t.dangerSoft, borderRadius: 12, padding: 12 }}>
+            <Body bold color={t.danger}>🔴 Clipping live</Body>
+            <Body small>King Tonka is watching this stream. New clips arrive here about every 15–20 minutes while it’s live, and it stops by itself when the stream ends.</Body>
+            <Body small muted>{p.step || 'Starting…'}</Body>
+            <Row><Button small kind="danger" icon="stop-circle-outline" title="Stop clipping" onPress={cancel} /></Row>
+          </View>
+        ) : busy ? (
           <View style={{ gap: 10 }}>
             <Steps status={p.status} />
             <Progress percent={p.percent || 2} />
@@ -162,7 +171,7 @@ export default function Project() {
         ) : null}
         <Row>
           {p.source_url ? <Button small kind="plain" icon="open-outline" title="Original" onPress={() => Linking.openURL(p.source_url)} /> : null}
-          {p.status === 'done' ? <Button small kind="soft" icon="add" title="Find more clips" onPress={more} /> : null}
+          {p.status === 'done' && !wasLive ? <Button small kind="soft" icon="add" title="Find more clips" onPress={more} /> : null}
           <Button small kind="danger" icon="trash-outline" title="Delete" onPress={del} />
         </Row>
       </Card>

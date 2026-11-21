@@ -141,7 +141,7 @@ export default function Create() {
 
       <Card>
         <Body bold style={{ fontSize: 18 }}>Turn a long video into viral clips</Body>
-        <Body small muted>Paste a link from YouTube, X, TikTok, Instagram, Twitch, Vimeo, Facebook, Google Drive or Dropbox. Videos up to 10 hours, like full streams. Or upload a video from your phone (up to 800 MB).</Body>
+        <Body small muted>Paste a link from YouTube, X, TikTok, Instagram, Twitch, Vimeo, Facebook, Google Drive or Dropbox. Videos up to 10 hours, like full streams, and streams that are live right now (clips arrive while they stream). Or upload a video from your phone (up to 800 MB).</Body>
         <Row wrap={false}>
           <View style={{ flex: 1 }}>
             <Field value={url} onChangeText={setUrl} placeholder="Paste a video link here" autoCapitalize="none" autoCorrect={false} keyboardType="url" />

@@ -94,13 +94,16 @@ def ytdlp(cmd, pid=None):
         raise RuntimeError(friendly_download_error(e.stderr or str(e))) from None
 
 
+def is_live(info):
+    """A stream that is live now, or announced and about to start."""
+    return bool(info.get('is_live')) or info.get('live_status') in ('is_live', 'is_upcoming')
+
+
 def link_info(url):
     info = json.loads(ytdlp(ytdlp_base() + ['-J', url]).stdout)
     if info.get('_type') == 'playlist':
         raise RuntimeError('That is a playlist. Paste the link to one video.')
-    if info.get('is_live') or info.get('live_status') in ('is_live', 'is_upcoming'):
-        raise RuntimeError('This stream is still live. When it ends, paste the link to the saved video (VOD).')
-    if (info.get('duration') or 0) > MAX_HOURS * 3600:
+    if (info.get('duration') or 0) > MAX_HOURS * 3600 and not is_live(info):
         raise RuntimeError(f'The video is longer than {MAX_HOURS} hours. Use “Only part of the video”, or trim it first.')
     return info
 
@@ -187,7 +190,7 @@ def load_audio(src, start=0.0, length=None):
     return np.frombuffer(pcm, np.float32)
 
 
-def transcribe(src, d, language=None, duration=0, on_progress=None, check=None, start=0.0, end=None):
+def transcribe(src, d, language=None, duration=0, on_progress=None, check=None, start=0.0, end=None, shift=0.0):
     """Writes every word with its time, 30 minutes at a time (so a 10-hour stream fits
     in memory). Only start–end when the owner picked part of the video."""
     from faster_whisper import WhisperModel
@@ -212,8 +215,8 @@ def transcribe(src, d, language=None, duration=0, on_progress=None, check=None, 
             for w in seg.words or []:
                 text = w.word.strip()
                 if text:
-                    words.append([round(t0 + w.start, 2), round(t0 + w.end, 2), text])
-            lines.append(f'[{fmt(t0 + seg.start)} → {fmt(t0 + seg.end)}] {seg.text.strip()}')
+                    words.append([round(shift + t0 + w.start, 2), round(shift + t0 + w.end, 2), text])
+            lines.append(f'[{fmt(shift + t0 + seg.start)} → {fmt(shift + t0 + seg.end)}] {seg.text.strip()}')
             done = t0 + seg.end - start
             if on_progress and done - last > 60:
                 last = done
@@ -221,7 +224,7 @@ def transcribe(src, d, language=None, duration=0, on_progress=None, check=None, 
         if len(audio) < length * 16000 - 16000:  # the file ended inside this piece
             break
         t0 += length
-    if not words and not lines:
+    if not words and not lines and not shift:
         raise RuntimeError('This video has no sound, so there are no words to clip.')
     with open(os.path.join(d, 'words.json'), 'w') as f:
         json.dump({'language': lang, 'words': words}, f)
@@ -268,6 +271,9 @@ def prepare(project):
     else:
         info = link_info(project['source_url'])
         title = info.get('title')
+        if is_live(info):
+            start_live(project, info, settings)
+            return
         long_link = (info.get('duration') or 0) > LONG
         if long_link:  # 2–10 hours: the sound now, each clip's few minutes of video later
             kt.project_step(pid, step=f'Long video ({int(info["duration"] // 3600)} h {int(info["duration"] % 3600 // 60)} min): '
@@ -307,6 +313,22 @@ def prepare(project):
         os.remove(media)  # the sound is no longer needed; clips get their own video parts
     kt.project_step(pid, 'finding', 'Claude is watching for the best moments…', 60)
     kt.log(f'Transcribed “{(title or pid)[:60]}”: {int(duration // 60)} min, {n} words ({lang}).')
+
+
+def start_live(project, info, settings):
+    """The link is live (or about to be): no download now. The "King Tonka live" workflow
+    watches it and sends clips while it's live (see live.py)."""
+    pid = project['id']
+    d = os.path.join(kt.WORK, pid)
+    pic = thumbnail_from_site(info, d)
+    thumb = kt.upload(pic, f'projects/{pid}/thumb.jpg', 'image/jpeg') if pic else None
+    settings = {**settings, 'live': True, 'live_seen_at': None}
+    if (info.get('extractor_key') or '').lower().startswith(('twitch', 'kick')) or 'Gaming' in (info.get('categories') or []):
+        settings['gaming'] = True
+    upcoming = info.get('live_status') == 'is_upcoming'
+    kt.project_step(pid, 'live', 'Waiting for the stream to start…' if upcoming else 'Live: starting to watch…', 2,
+                    title=(project.get('title') or info.get('title') or 'Live stream')[:140], thumb_path=thumb, settings=settings)
+    kt.log(f'“{(info.get("title") or project.get("source_url"))[:60]}” is live. King Tonka will clip it while it streams.')
 
 
 def stopped(project):

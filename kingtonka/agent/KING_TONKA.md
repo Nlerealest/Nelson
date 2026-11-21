@@ -204,6 +204,21 @@ pictures so you can fill in the campaign for them. For each entry:
    `kt.py command <id> done "Filled in from 3 screenshots: $1.50 per 1K, paid from 1,000 views, TikTok + YouTube, must show Lacy."`
    If the screenshots don't show campaign rules, mark it failed and say what you saw.
 
+## Live streams (`settings.live`)
+
+When a pasted link is live, the "King Tonka live" workflow (`live.py`) records it and, every 15
+minutes of stream, asks you to pick moments from the newest part. Its message names the
+transcript file (times are seconds of the stream), the time range you may use, the clips
+already made, and the most clips to pick.
+
+- Speed beats volume: clips go out while the stream is trending. Pick only clearly strong
+  moments: 0–3 per part. Adding nothing is fine when nothing stands out.
+- Stay inside the range you're given (moments across the join with the part before are fine;
+  lines before the part's start are context).
+- Same plan format and `kt.py add-clips` as section 1. Don't render, don't mark commands, and
+  don't change the video's status: the live job does that.
+- Titles and hooks: specific and fresh (what just happened, who, the reaction).
+
 ## 4. Other commands
 
 - `message`: answer the owner's question or do what they ask, if it is about clipping.

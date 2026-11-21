@@ -48,7 +48,7 @@ export function ProjectCard({ project, clipCount, postedCount, selecting, select
         </Row>
         {busy ? (
           <View style={{ gap: 6 }}>
-            <Progress percent={project.percent || 2} />
+            {project.status !== 'live' ? <Progress percent={project.percent || 2} /> : null}
             <Body small muted numberOfLines={2}>{project.step || 'Working…'}</Body>
           </View>
         ) : project.status === 'failed' ? <Body small color={t.danger} numberOfLines={3}>{project.error || 'Something went wrong.'}</Body> : null}

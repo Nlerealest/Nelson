@@ -185,7 +185,11 @@ function ClipScreen({ clip, tab, setTab }) {
 
       <ClipActions clip={clip} toast={toast} />
 
-      <Chips options={[['post', 'Post'], ['edit', 'Edit'], ['captions', 'Caption text'], ['score', 'Score']]} value={tab} onChange={setTab} />
+      {project?.settings?.live ? (
+        <Body small muted>From a live stream: this clip is final (the recording isn’t kept, so it can’t be trimmed or restyled).</Body>
+      ) : null}
+      <Chips options={project?.settings?.live ? [['post', 'Post'], ['score', 'Score']]
+        : [['post', 'Post'], ['edit', 'Edit'], ['captions', 'Caption text'], ['score', 'Score']]} value={tab} onChange={setTab} />
 
       {tab === 'post' ? (
         <>
@@ -270,6 +274,7 @@ function ClipScreen({ clip, tab, setTab }) {
               <Card><Body small selectable>{clip.transcript}</Body></Card>
             </>
           ) : null}
+          {project?.settings?.live ? <Button kind="danger" icon="trash-outline" title="Delete clip" onPress={del} /> : null}
         </>
       ) : null}
     </Screen>

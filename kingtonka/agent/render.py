@@ -430,6 +430,31 @@ def render_clip(src, all_words, start, end, out, style=None, title=None, words=N
 
 
 # ---------- the run ----------
+def render_and_upload(project, c, src, offset, all_words, d):
+    """Renders clip c from src (which starts at `offset` in the original video), uploads
+    the MP4 and its still frame, and points the clip at them. Raises on failure."""
+    import kt
+    out = os.path.join(d, f"{c['id']}.mp4")
+    edited_words = c.get('words') if c['status'] == 'rerender' else None
+    style = {**(c.get('style') or {}), '_gaming': bool((project.get('settings') or {}).get('gaming'))}
+    s, e, words = render_clip(src, all_words, c['start_s'], c['end_s'], out,
+                              style, c.get('hook') if style.get('hook_title', True) else None,
+                              words=edited_words, offset=offset)
+    if project.get('status') != 'live':  # (the live job checks for itself)
+        kt.check_wanted(project['id'], every=0)  # cancelled while this clip was rendering?
+    stamp = time.strftime('%Y%m%d%H%M%S')
+    path = kt.upload(out, f"clips/{c['id']}-{stamp}.mp4", 'video/mp4')
+    thumb = kt.upload(out.rsplit('.', 1)[0] + '.jpg', f"clips/{c['id']}-{stamp}.jpg", 'image/jpeg')
+    old = [c.get('media_path'), c.get('thumb_path')]
+    saved = kt.update('kt_clips', c['id'], {'status': 'ready', 'media_path': path, 'thumb_path': thumb, 'start_s': s, 'end_s': e,
+                                            'words': words, 'transcript': ' '.join(w[2] for w in words)[:4000], 'error': None})
+    if saved is None:  # the owner deleted this clip while it was rendering
+        old += [path, thumb]
+    kt.remove([p for p in old if p and (saved is None or p not in (path, thumb))])
+    for f in (out, out.rsplit('.', 1)[0] + '.jpg'):
+        os.remove(f)
+
+
 def render_waiting():
     import kt
     import prepare
@@ -446,6 +471,12 @@ def render_waiting():
         project = kt.get('kt_projects', pid)
         if not project or project['status'] == 'cancelled':
             continue  # the owner deleted or cancelled it: leave its clips alone
+        if (project.get('settings') or {}).get('live'):
+            # Live clips are made by the live job from its own recording; there is no source to cut again.
+            if project['status'] != 'live':
+                for c in items:
+                    kt.update('kt_clips', c['id'], {'status': 'failed', 'error': 'Clips from a live stream can’t be made again after the stream.'})
+            continue
         d = os.path.join(kt.WORK, pid)
         # Long link videos (over 2 h) are never downloaded whole: each clip gets its own few minutes.
         sections = bool((project.get('settings') or {}).get('sections')) and project.get('source_url') and not project.get('source_path')
@@ -479,30 +510,13 @@ def render_waiting():
                 kt.project_step(pid, step=f'Rendering clip {n} of {total}…', percent=70 + 29 * n // max(total, 1))
             part = None
             try:
-                out = os.path.join(d, f"{c['id']}.mp4")
-                edited_words = c.get('words') if c['status'] == 'rerender' else None
-                style = {**(c.get('style') or {}), '_gaming': bool((project.get('settings') or {}).get('gaming'))}
                 src, offset = os.path.join(d, 'source.mp4'), 0.0
                 if sections:  # download just this clip's part of the long video (with a few seconds spare)
                     offset = max(0.0, float(c['start_s']) - SECTION_PAD)
                     kt.agent('working', f'Downloading clip {n} of {total} from the long video…')
                     part = src = prepare.download_section(project['source_url'], d, pid, offset, float(c['end_s']) + SECTION_PAD,
                                                           f"part-{c['id']}")
-                s, e, words = render_clip(src, all_words, c['start_s'], c['end_s'], out,
-                                          style, c.get('hook') if style.get('hook_title', True) else None,
-                                          words=edited_words, offset=offset)
-                kt.check_wanted(pid, every=0)  # cancelled while this clip was rendering?
-                stamp = time.strftime('%Y%m%d%H%M%S')
-                path = kt.upload(out, f"clips/{c['id']}-{stamp}.mp4", 'video/mp4')
-                thumb = kt.upload(out.rsplit('.', 1)[0] + '.jpg', f"clips/{c['id']}-{stamp}.jpg", 'image/jpeg')
-                old = [c.get('media_path'), c.get('thumb_path')]
-                saved = kt.update('kt_clips', c['id'], {'status': 'ready', 'media_path': path, 'thumb_path': thumb, 'start_s': s, 'end_s': e,
-                                                        'words': words, 'transcript': ' '.join(w[2] for w in words)[:4000], 'error': None})
-                if saved is None:  # the owner deleted this clip while it was rendering
-                    old += [path, thumb]
-                kt.remove([p for p in old if p and (saved is None or p not in (path, thumb))])
-                for f in (out, out.rsplit('.', 1)[0] + '.jpg'):
-                    os.remove(f)
+                render_and_upload(project, c, src, offset, all_words, d)
             except kt.Cancelled:
                 cancelled = True
                 kt.update('kt_clips', c['id'], {'status': c['status']})  # back to waiting, not failed
