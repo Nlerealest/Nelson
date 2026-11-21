@@ -14,7 +14,7 @@ export const OPTIONS = {
   aspect: [['9:16', '9:16 Vertical'], ['1:1', '1:1 Square'], ['4:5', '4:5 Portrait'], ['16:9', '16:9 Wide']],
   captions: [['bold', 'Bold'], ['pop', 'Pop'], ['karaoke', 'Karaoke'], ['clean', 'Clean'], ['none', 'None']],
   position: [['top', 'Top'], ['middle', 'Middle'], ['bottom', 'Bottom']],
-  framing: [['auto', 'Auto'], ['stream', 'Streamer + full game'], ['stream_zoom', 'Streamer + zoomed game'], ['fit', 'Fit (blur)'],
+  framing: [['auto', 'Auto'], ['stream', 'Streamer + game (split)'], ['stream_full', 'Streamer + whole game'], ['fit', 'Fit (blur)'],
     ['left', 'Left'], ['center', 'Center'], ['right', 'Right']],
   cam: [['auto', 'Find it'], ['top-left', 'Top left'], ['top-right', 'Top right'], ['bottom-left', 'Bottom left'], ['bottom-right', 'Bottom right']],
   language: [['auto', 'Auto'], ['en', 'English'], ['es', 'Spanish'], ['fr', 'French'], ['pt', 'Portuguese'], ['ny', 'Chichewa'], ['sw', 'Swahili']],
@@ -39,6 +39,8 @@ function Swatches({ value, onChange }) {
 export function StyleForm({ value, onChange, hideAspect }) {
   const t = useTheme();
   const set = (k) => (v) => onChange({ ...value, [k]: v });
+  // Older clips used 'stream_zoom'; it is the split screen now.
+  const framing = value.framing === 'stream_zoom' ? 'stream' : value.framing;
   return (
     <View style={{ gap: 12 }}>
       {!hideAspect ? <View style={{ gap: 6 }}><Label>Shape</Label><Chips options={OPTIONS.aspect} value={value.aspect} onChange={set('aspect')} /></View> : null}
@@ -51,14 +53,14 @@ export function StyleForm({ value, onChange, hideAspect }) {
       ) : null}
       <View style={{ gap: 6 }}>
         <Label>Framing</Label>
-        <Chips options={OPTIONS.framing} value={value.framing} onChange={set('framing')} />
-        {value.framing === 'auto' || !value.framing ? (
-          <Body small muted>Follows the speaker. In a gaming stream with a webcam: the streamer on top and the whole game below, nothing cropped.</Body>
-        ) : value.framing === 'stream' || value.framing === 'stream_zoom' ? (
+        <Chips options={OPTIONS.framing} value={framing} onChange={set('framing')} />
+        {framing === 'auto' || !framing ? (
+          <Body small muted>Follows the speaker. In a gaming stream with a webcam: split screen, the streamer in the top half and the game in the bottom half.</Body>
+        ) : framing === 'stream' || framing === 'stream_full' ? (
           <View style={{ gap: 6 }}>
-            <Body small muted>{value.framing === 'stream'
-              ? 'The streamer’s webcam on top and the whole game below (nothing cropped), on a blurred background.'
-              : 'The streamer’s webcam on top, the middle of the game zoomed to fill the rest (the game’s sides are cut).'} Where is the webcam in the video?</Body>
+            <Body small muted>{framing === 'stream'
+              ? 'Split screen: the streamer fills the top half, the game fills the bottom half (a little of the game’s left and right edges is trimmed).'
+              : 'The streamer on top and the whole game below it, nothing cropped, on a blurred background.'} Where is the webcam in the video?</Body>
             <Chips options={OPTIONS.cam} value={value.cam || 'auto'} onChange={set('cam')} />
           </View>
         ) : null}

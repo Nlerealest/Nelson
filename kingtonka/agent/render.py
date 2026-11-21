@@ -140,7 +140,7 @@ def camera_path(samples, duration, frac):
 CORNERS = {'top-left': (0, 0), 'top-right': (1, 0), 'bottom-left': (0, 1), 'bottom-right': (1, 1)}
 
 
-def find_facecam(src, start, end, w, h):
+def find_facecam(src, start, end, w, h, keep=None):
     """Looks for faces that stay in one place (a streamer's webcam stays put while the
     game moves; faces in the game move around, so they don't add up in one spot).
     Returns the steadiest spots first, each (share of frames with a face there,
@@ -159,6 +159,8 @@ def find_facecam(src, start, end, w, h):
             continue
         looked += 1
         small = cv2.cvtColor(cv2.resize(frame, None, fx=scale, fy=scale), cv2.COLOR_BGR2GRAY)
+        if keep is not None:
+            keep.append(small)
         H, W = small.shape
         side = max(18, int(H * 0.035))
         for (x, y, fw, fh) in front.detectMultiScale(small, 1.1, 6, minSize=(side, side)):
@@ -179,15 +181,65 @@ def find_facecam(src, start, end, w, h):
     return spots
 
 
+def webcam_rect(frames, cx, cy, size):
+    """The webcam overlay's rectangle around a face, as (left, top, right, bottom) in 0–1 of
+    the picture, or None. A webcam's borders stay in the same place in every frame while
+    the game under them moves, so they show up as edges that never change."""
+    import cv2
+    import numpy as np
+    if len(frames) < 4:
+        return None
+    gx = np.median(np.stack([np.abs(cv2.Sobel(f, cv2.CV_32F, 1, 0, ksize=3)) for f in frames]), axis=0)  # vertical edges
+    gy = np.median(np.stack([np.abs(cv2.Sobel(f, cv2.CV_32F, 0, 1, ksize=3)) for f in frames]), axis=0)  # horizontal edges
+    H, W = gx.shape
+    fx, fy, fw = cx * W, cy * H, size * W
+    fh = fw
+
+    def border(profile, lo, hi, face_at):
+        """The strongest steady line between lo and hi; the one nearest the face if several are strong."""
+        lo, hi = max(0, int(lo)), min(len(profile) - 1, int(hi))
+        if hi - lo < 3:
+            return None
+        part = profile[lo:hi + 1]
+        best = float(part.max())
+        floor = max(4 * float(np.median(part)), 12.0)
+        if best < floor:
+            return None
+        strong = [lo + i for i, v in enumerate(part) if v >= 0.6 * best]
+        return min(strong, key=lambda i: abs(i - face_at))
+
+    xa, xb = int(max(0, fx - 1.2 * fw)), int(min(W, fx + 1.2 * fw))
+    ya, yb = int(max(0, fy - 1.0 * fh)), int(min(H, fy + 1.0 * fh))
+    rows = gy[:, xa:xb].mean(axis=1)  # how strong a horizontal line is at each row, across the face
+    cols = gx[ya:yb, :].mean(axis=0)  # how strong a vertical line is at each column, beside the face
+    top = border(rows, fy - 4 * fh, fy - 0.9 * fh, fy)
+    bottom = border(rows, fy + 1.2 * fh, fy + 5 * fh, fy)
+    left = border(cols, fx - 5 * fw, fx - 0.9 * fw, fx)
+    right = border(cols, fx + 0.9 * fw, fx + 5 * fw, fx)
+    if None in (top, bottom, left, right):
+        # A webcam in a corner often runs to the picture's edge: accept the edge when its line wasn't found.
+        top = 0 if top is None and fy - 4 * fh <= 0 else top
+        bottom = H - 1 if bottom is None and fy + 5 * fh >= H - 1 else bottom
+        left = 0 if left is None and fx - 5 * fw <= 0 else left
+        right = W - 1 if right is None and fx + 5 * fw >= W - 1 else right
+    if None in (top, bottom, left, right):
+        return None
+    rw, rh = right - left, bottom - top
+    if not (1.8 * fw <= rw <= 8 * fw and 1.5 * fh <= rh <= 7 * fh):
+        return None
+    return left / W, top / H, right / W, bottom / H
+
+
 def stream_boxes(src, start, end, w, h, style):
     """Where the webcam and the game are, when this clip should be laid out
     streamer-on-top. Returns (cam box, game box) as (x, y, width, height) in
     pixels, or None to use the normal framing."""
     framing = style.get('framing', 'auto')
-    if framing not in ('auto', 'stream', 'stream_zoom') or w <= h:
+    if framing not in STREAM_LAYOUTS or w <= h:
         return None
     corner = CORNERS.get(style.get('cam'))
-    spots = find_facecam(src, start, end, w, h)
+    frames = []
+    spots = find_facecam(src, start, end, w, h, keep=frames)
     hit = spots[0] if spots else None
     if hit:
         share, cx, cy, size = hit
@@ -196,7 +248,7 @@ def stream_boxes(src, start, end, w, h, style):
         others = any(o[0] >= 0.3 and (abs(o[1] - cx) > 0.2 or abs(o[2] - cy) > 0.25) for o in spots[1:])
         if corner:  # the owner said where the camera is: only accept a face on that side
             ok = size < 0.18 and share >= 0.2 and (cx < 0.5) == (corner[0] == 0) and (cy < 0.5) == (corner[1] == 0)
-        elif framing in ('stream', 'stream_zoom'):
+        elif framing != 'auto':  # the owner asked for a streamer layout
             ok = size < 0.18 and share >= 0.25
         elif style.get('_gaming'):  # a gaming video or a Twitch/Kick stream
             ok = size < 0.16 and share >= 0.35 and (cx < 0.4 or cx > 0.6) and not others
@@ -206,14 +258,19 @@ def stream_boxes(src, start, end, w, h, style):
             hit = None
     if not hit and not corner:
         return None
+    rect = None
     if hit:
         fw = size * w
         bw = min(w * 0.5, max(fw * 3.4, w * 0.16))
+        try:
+            rect = webcam_rect(frames, cx, cy, size)  # the webcam's own borders, when they can be seen
+        except Exception:
+            rect = None
     else:  # no face found but the owner picked the corner: take a typical webcam-sized box there
         bw = w * 0.3
         cx = 0.02 + bw / w / 2 if corner[0] == 0 else 0.98 - bw / w / 2
         cy = None
-    return bw, cx, cy, corner
+    return bw, cx, cy, corner, rect
 
 
 def even(v):
@@ -222,7 +279,13 @@ def even(v):
 
 def cam_crop(w, h, boxes, aspect):
     """The webcam's box in the source picture, in the given shape (width / height)."""
-    bw, cx, cy, corner = boxes
+    bw, cx, cy, corner, rect = boxes
+    if rect:  # the largest box of this shape inside the webcam's borders, around the face
+        l, t, r, b = rect[0] * w, rect[1] * h, rect[2] * w, rect[3] * h
+        cw, ch = min(r - l, (b - t) * aspect), min(b - t, (r - l) / aspect)
+        x = min(r - cw, max(l, cx * w - cw / 2))
+        y = min(b - ch, max(t, cy * h - ch * 0.45))
+        return f'crop={even(cw)}:{even(ch)}:{int(x)}:{int(y)}'
     bh = bw / aspect
     if bh > h * 0.6:
         bh, bw = h * 0.6, h * 0.6 * aspect
@@ -261,19 +324,31 @@ def stream_full_filter(src_info, out_size, boxes):
     }
 
 
-def stream_zoom_filter(src_info, out_size, boxes):
-    """Streamer in the top third, the middle of the game filling the rest (crops the game's sides)."""
+def stream_split_filter(src_info, out_size, boxes, top=0.5):
+    """Split screen: the streamer fills the top half, the game fills the bottom half
+    (the middle of the game, so a little of its left and right edges is trimmed)."""
     w, h, fps, _, _ = src_info
     ow, oh = out_size
     fps_f = ',fps=30' if fps > 31 else ''
-    top_h = even(oh / 3)
+    top_h = even(oh * top)
     bot_h = oh - top_h
     gw = min(w, h * ow / bot_h)
     gx = (w - gw) / 2
+    # Slide the game's crop away from the webcam's side, so the streamer doesn't show twice.
+    bw, cx, _, _, rect = boxes
+    cam_l, cam_r = (rect[0] * w, rect[2] * w) if rect else (cx * w - bw / 2, cx * w + bw / 2)
+    spare = 0.4 * (cam_r - cam_l)  # the webcam's real edge can sit a little further out than the one found
+    if cam_l > w / 2 and gx + gw > cam_l - spare:    # webcam on the right
+        gx = max(0, cam_l - spare - gw)
+    elif cam_r < w / 2 and gx < cam_r + spare:       # webcam on the left
+        gx = min(w - gw, cam_r + spare)
     return (f'[0:v]split=2[cam][game];'
             f'[cam]{cam_crop(w, h, boxes, ow / top_h)},scale={ow}:{top_h}:flags=lanczos,setsar=1[top];'
             f'[game]crop={even(gw)}:{even(h)}:{int(gx)}:0,scale={ow}:{bot_h}:flags=lanczos,setsar=1[bottom];'
             f'[top][bottom]vstack=inputs=2{fps_f}'), {'kind': 'stream', 'seam': top_h / oh}
+
+
+STREAM_LAYOUTS = ('auto', 'stream', 'stream_full', 'stream_zoom')  # stream_zoom: older clips, now the split screen
 
 
 def video_filter(src_info, out_size, framing, start, end, src, tmp, style=None):
@@ -282,11 +357,13 @@ def video_filter(src_info, out_size, framing, start, end, src, tmp, style=None):
     w, h, fps, _, _ = src_info
     ow, oh = out_size
     fps_f = ',fps=30' if fps > 31 else ''
-    if ow < oh and framing in ('auto', 'stream', 'stream_zoom'):
+    if ow < oh and framing in STREAM_LAYOUTS:
         boxes = stream_boxes(src, start, end, w, h, {**(style or {}), 'framing': framing})
         if boxes:
-            return stream_zoom_filter(src_info, out_size, boxes) if framing == 'stream_zoom' else stream_full_filter(src_info, out_size, boxes)
-        if framing in ('stream', 'stream_zoom') or (style or {}).get('_gaming'):
+            # 'stream_full': the whole game, uncropped, on a blurred background; otherwise
+            # (Auto, 'stream') the half-and-half split screen.
+            return stream_full_filter(src_info, out_size, boxes) if framing == 'stream_full' else stream_split_filter(src_info, out_size, boxes)
+        if framing != 'auto' or (style or {}).get('_gaming'):
             framing = 'fit'  # gameplay without a webcam: show the whole game
     same_shape = abs(w / h - ow / oh) < 0.03
     layout = {'kind': 'fit', 'room': True} if framing == 'fit' and not same_shape else {'kind': 'crop', 'zoomable': True}

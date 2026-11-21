@@ -159,10 +159,10 @@ python kingtonka/agent/kt.py edit-clip <clip-id> '{"start_s": 120.5, "end_s": 17
 Editable: `title`, `hook`, `start_s`, `end_s`, `score`, `scores`, `why`, `post_text`,
 `hashtags`, and `style` (merged): `aspect` (`9:16`, `1:1`, `4:5`, `16:9`), `captions`
 (`bold`, `pop`, `karaoke`, `clean`, `none`), `position` (`top`, `middle`, `bottom`),
-`framing` (`auto` follows the speaker's face, and for a gaming stream with a webcam puts
-the streamer on top and the whole game below; `stream` always uses that layout (nothing of the
-game is cropped); `stream_zoom` puts the streamer on top and zooms the middle of the game to
-fill the rest;
+`framing` (`auto` follows the speaker's face, and for a gaming stream with a webcam uses the
+split screen; `stream` is the split screen: the streamer fills the top half and the game the
+bottom half; `stream_full` puts the streamer on top and the whole game below it, uncropped,
+on a blurred background;
 `left`, `center`, `right`; `fit` shows the whole picture on a blurred background), `cam`
 (where the streamer's webcam is, for `stream`: `auto`, `top-left`, `top-right`,
 `bottom-left`, `bottom-right`), `tighten` (cut out pauses, true/false), `punch` (zoom in a

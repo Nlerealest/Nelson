@@ -52,7 +52,7 @@ You can follow each run on GitHub: **Actions** → **King Tonka agent**.
 
 **Caption styles:** *Bold* (big words, the spoken one lights up), *Pop* (one word at a time), *Karaoke* (words fill with colour as they're spoken), *Clean* (calm lines on a dark box), *None*.
 
-**Framing:** *Auto* finds the face and cuts to whoever is on screen, and for a gaming stream with a webcam puts the streamer on top and the **whole game** below (nothing cropped). *Streamer + full game* forces that; *Streamer + zoomed game* fills the screen with the middle of the game instead. *Fit* shows the whole picture on a blurred background. *Left / Center / Right* keep a fixed crop.
+**Framing:** *Auto* finds the face and cuts to whoever is on screen, and for a gaming stream with a webcam uses the **split screen**: the streamer fills the top half, the game the bottom half. *Streamer + game (split)* forces that; *Streamer + whole game* shows the entire game uncropped instead, on a blurred background. *Fit* shows the whole picture on a blurred background. *Left / Center / Right* keep a fixed crop.
 
 **Viral editing (on by default):** pauses are cut out (jump cuts), talking clips push in a little after each cut, Claude starts every clip on its hook and colours 1–3 key words in the captions, and the title stays on screen when there's room above the picture. Turn *Cut the pauses* or *Zoom on cuts* off in the options if you want.
 
