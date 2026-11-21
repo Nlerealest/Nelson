@@ -115,13 +115,16 @@ def _saved(d, stem):
     return os.path.join(d, found[0])
 
 
-VIDEO_FORMAT = 'bv*[height<=1080][vcodec^=avc1]+ba[ext=m4a]/bv*[height<=1080]+ba/b[height<=1080]/b'
+# The sharpest version up to 1440p (a webcam cropped from 1440p stays much sharper), 60 fps when
+# there is one, any codec but AV1 (the face finder can't always read AV1); H.264 when it ties.
+VIDEO_FORMAT = 'bv*[height<=1440][vcodec!^=av01]+ba/b[height<=1440][vcodec!^=av01]/bv*[height<=1440]+ba/b'
+VIDEO_SORT = ['-S', 'res:1440,fps,vcodec:avc1,acodec:m4a']
 
 
 def download_video(url, d, pid):
     """The whole video, up to 1080p, as d/source.mp4."""
     kt.check_wanted(pid, every=0)
-    ytdlp(ytdlp_base() + ['-f', VIDEO_FORMAT, '--merge-output-format', 'mp4', '-o', os.path.join(d, 'source.%(ext)s'), url], pid)
+    ytdlp(ytdlp_base() + ['-f', VIDEO_FORMAT, *VIDEO_SORT, '--merge-output-format', 'mp4', '-o', os.path.join(d, 'source.%(ext)s'), url], pid)
     got = _saved(d, 'source')
     if not got.endswith('source.mp4'):
         run(['ffmpeg', '-v', 'error', '-y', '-i', got, '-c', 'copy', os.path.join(d, 'source.mp4')])
@@ -138,7 +141,7 @@ def download_audio(url, d, pid):
 def download_section(url, d, pid, start, end, name):
     """Just the part of the video between start and end (seconds), cut exactly there."""
     kt.check_wanted(pid, every=0)
-    ytdlp(ytdlp_base() + ['-f', VIDEO_FORMAT, '--merge-output-format', 'mp4', '--download-sections', f'*{start:.2f}-{end:.2f}',
+    ytdlp(ytdlp_base() + ['-f', VIDEO_FORMAT, *VIDEO_SORT, '--merge-output-format', 'mp4', '--download-sections', f'*{start:.2f}-{end:.2f}',
                           '--force-keyframes-at-cuts', '-o', os.path.join(d, f'{name}.%(ext)s'), url], pid)
     got = _saved(d, name)
     if not got.endswith('.mp4'):

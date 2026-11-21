@@ -115,6 +115,9 @@ export async function removeFiles(paths) {
   if (list.length) await db().storage.from(BUCKET).remove(list);
 }
 
+// A clip's light copy for watching in the app (made next to the clip since version 1.0.11).
+export const previewOf = (path) => (path && path.endsWith('.mp4') ? `${path.slice(0, -4)}.preview.mp4` : null);
+
 export async function logYou(text) {
   await db().from('kt_activity').insert({ text, kind: 'you' });
 }

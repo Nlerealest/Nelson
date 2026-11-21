@@ -120,7 +120,7 @@ class Live:
 
     def record(self):
         log = open(os.path.join(self.d, 'record.log'), 'a')
-        cmd = self.record_cmd or prepare.ytdlp_base() + ['-f', 'b[height<=1080]/b', '-o', '-', self.project['source_url']]
+        cmd = self.record_cmd or prepare.ytdlp_base() + ['-f', 'b[height<=1440]/b', '-S', 'res:1440,fps', '-o', '-', self.project['source_url']]
         self.ytdlp = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=log, start_new_session=True)
         self.ff = subprocess.Popen(['ffmpeg', '-v', 'error', '-i', 'pipe:0', '-map', '0:v:0?', '-map', '0:a:0?', '-c', 'copy',
                                     '-f', 'segment', '-segment_time', str(PART), '-reset_timestamps', '1', '-segment_format', 'mpegts',

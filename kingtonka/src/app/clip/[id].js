@@ -5,7 +5,7 @@ import { Alert, Platform, Pressable, View } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
-import { ask, campaignOf, clock, CLIP_STATUS, logYou, postCaption, remove, removeFiles, update, useRow, useRows, useToast } from '../../data';
+import { ask, campaignOf, clock, CLIP_STATUS, logYou, postCaption, previewOf, remove, removeFiles, update, useRow, useRows, useToast } from '../../data';
 import { Body, Button, Card, Chips, Empty, Field, Label, Loading, Pill, Progress, Row, Screen, Section } from '../../components/ui';
 import { ClipActions, ClipPlayer } from '../../components/media';
 import { ScoreBadge } from '../../components/cards';
@@ -158,7 +158,7 @@ function ClipScreen({ clip, tab, setTab }) {
     toast('Saved.');
   };
   const del = () => confirm('Delete this clip?', 'It is removed from the app. A copy you saved to your phone stays there.', 'Delete', async () => {
-    await removeFiles([clip.media_path, clip.thumb_path]);
+    await removeFiles([clip.media_path, clip.thumb_path, previewOf(clip.media_path)]);
     await remove('kt_clips', clip.id);
     toast('Clip deleted.');
     router.back();

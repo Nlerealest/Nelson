@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Platform, View } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { ask, clock, closeCommands, logYou, remove, removeFiles, STATUS, update, useRow, useRows, useToast, WORKING } from '../../data';
+import { ask, clock, closeCommands, logYou, previewOf, remove, removeFiles, STATUS, update, useRow, useRows, useToast, WORKING } from '../../data';
 import { Body, Button, Card, Chips, Empty, Loading, Pill, Progress, Row, Screen, Section } from '../../components/ui';
 import { Thumb } from '../../components/media';
 import { ClipTile, Grid } from '../../components/cards';
@@ -110,7 +110,7 @@ export default function Project() {
   };
   const del = () => confirm('Delete this video and its clips?', 'The clips are removed from the app. Clips you saved to your phone stay there.', 'Delete', async () => {
     await removeFiles([...sourceFiles(p), p.thumb_path, `projects/${p.id}/transcript.txt`, `projects/${p.id}/words.json`,
-      ...(clipRows || []).flatMap((c) => [c.media_path, c.thumb_path])]);
+      ...(clipRows || []).flatMap((c) => [c.media_path, c.thumb_path, previewOf(c.media_path)])]);
     await remove('kt_projects', p.id);
     logYou(`You deleted “${p.title || p.source_url}”`);
     toast('Deleted.');

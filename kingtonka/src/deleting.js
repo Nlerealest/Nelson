@@ -1,7 +1,7 @@
 // Deleting clips and whole videos, files included, so storage space comes back.
 // Copies already saved on the phone or posted online are not touched.
 import { db } from './supabase';
-import { BUCKET, logYou } from './data';
+import { BUCKET, logYou, previewOf } from './data';
 import { sourceFiles } from './upload';
 
 async function removeAll(paths) {
@@ -14,7 +14,7 @@ async function removeAll(paths) {
 
 export async function deleteClips(clips) {
   if (!clips.length) return;
-  await removeAll(clips.flatMap((c) => [c.media_path, c.thumb_path]));
+  await removeAll(clips.flatMap((c) => [c.media_path, c.thumb_path, previewOf(c.media_path)]));
   const { error } = await db().from('kt_clips').delete().in('id', clips.map((c) => c.id));
   if (error) throw error;
   logYou(clips.length === 1 ? `You deleted the clip “${clips[0].title}”` : `You deleted ${clips.length} clips`);
@@ -27,7 +27,7 @@ export async function deleteProjects(projects, allClips) {
   const theirClips = (allClips || []).filter((c) => ids.has(c.project_id));
   await removeAll([
     ...projects.flatMap((p) => [...sourceFiles(p), p.thumb_path, `projects/${p.id}/thumb.jpg`, `projects/${p.id}/transcript.txt`, `projects/${p.id}/words.json`]),
-    ...theirClips.flatMap((c) => [c.media_path, c.thumb_path]),
+    ...theirClips.flatMap((c) => [c.media_path, c.thumb_path, previewOf(c.media_path)]),
   ]);
   const { error } = await db().from('kt_projects').delete().in('id', [...ids]); // their clips go with them
   if (error) throw error;

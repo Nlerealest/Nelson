@@ -298,12 +298,18 @@ def cam_crop(w, h, boxes, aspect):
     return f'crop={even(bw)}:{even(bh)}:{int(x)}:{int(y)}'
 
 
+def sharpen(crop, out_w=1080):
+    """A webcam box blown up more than twice looks soft: a light sharpen after enlarging it."""
+    crop_w = int(crop.split('=')[1].split(':')[0])
+    return ',unsharp=5:5:0.7:5:5:0' if out_w / max(1, crop_w) >= 2 else ''
+
+
 def stream_full_filter(src_info, out_size, boxes):
     """Streamer on top, the WHOLE game below it (nothing of the game is cropped), on a
     blurred copy of the game, with room above for the title and below for captions."""
     w, h, fps, _, _ = src_info
     ow, oh = out_size
-    fps_f = ',fps=30' if fps > 31 else ''
+    fps_f = ''  # the renderer sets the frame rate (render_clip)
     game_h = even(ow * h / w)
     cam_h = even(ow * 9 / 16)
     if cam_h + game_h > oh * 0.85:  # not enough room (e.g. 4:5): a smaller camera
@@ -312,7 +318,7 @@ def stream_full_filter(src_info, out_size, boxes):
     graph = (f'[0:v]split=3[bgsrc][cam][game];'
              f'[bgsrc]scale={ow // 4}:{oh // 4}:force_original_aspect_ratio=increase,crop={ow // 4}:{oh // 4},'
              f'boxblur=14:2,eq=brightness=-0.12,scale={ow}:{oh}[bg];'
-             f'[cam]{cam_crop(w, h, boxes, ow / cam_h)},scale={ow}:{cam_h}:flags=lanczos,setsar=1[top];'
+             f'[cam]{(cc := cam_crop(w, h, boxes, ow / cam_h))},scale={ow}:{cam_h}:flags=lanczos,setsar=1{sharpen(cc, ow)}[top];'
              f'[game]scale={ow}:{game_h}:flags=lanczos,setsar=1[mid];'
              f'[bg][top]overlay=0:{band}[withcam];[withcam][mid]overlay=0:{band + cam_h},setsar=1{fps_f}')
     roomy = band >= oh * 0.07
@@ -329,7 +335,7 @@ def stream_split_filter(src_info, out_size, boxes, top=0.5):
     (the middle of the game, so a little of its left and right edges is trimmed)."""
     w, h, fps, _, _ = src_info
     ow, oh = out_size
-    fps_f = ',fps=30' if fps > 31 else ''
+    fps_f = ''  # the renderer sets the frame rate (render_clip)
     top_h = even(oh * top)
     bot_h = oh - top_h
     gw = min(w, h * ow / bot_h)
@@ -343,7 +349,7 @@ def stream_split_filter(src_info, out_size, boxes, top=0.5):
     elif cam_r < w / 2 and gx < cam_r + spare:       # webcam on the left
         gx = min(w - gw, cam_r + spare)
     return (f'[0:v]split=2[cam][game];'
-            f'[cam]{cam_crop(w, h, boxes, ow / top_h)},scale={ow}:{top_h}:flags=lanczos,setsar=1[top];'
+            f'[cam]{(cc := cam_crop(w, h, boxes, ow / top_h))},scale={ow}:{top_h}:flags=lanczos,setsar=1{sharpen(cc, ow)}[top];'
             f'[game]crop={even(gw)}:{even(h)}:{int(gx)}:0,scale={ow}:{bot_h}:flags=lanczos,setsar=1[bottom];'
             f'[top][bottom]vstack=inputs=2{fps_f}'), {'kind': 'stream', 'seam': top_h / oh}
 
@@ -356,7 +362,7 @@ def video_filter(src_info, out_size, framing, start, end, src, tmp, style=None):
     where captions and the title go, and whether zooming on cuts is allowed."""
     w, h, fps, _, _ = src_info
     ow, oh = out_size
-    fps_f = ',fps=30' if fps > 31 else ''
+    fps_f = ''  # the renderer sets the frame rate (render_clip)
     if ow < oh and framing in STREAM_LAYOUTS:
         boxes = stream_boxes(src, start, end, w, h, {**(style or {}), 'framing': framing})
         if boxes:
@@ -462,10 +468,16 @@ def render_clip(src, all_words, start, end, out, style=None, title=None, words=N
     shift = shifter(parts)
     shown_words = [[shift(s), shift(e), w] for s, e, w in words] if cut else words
     shown_dur = round(sum(b - a for a, b in parts), 2)
+    # 60 fps sources (gameplay) stay 60 fps: smooth. Long ones go to 30 so they stay sharp within the size limit.
+    src_fps = info[2] if 10 < (info[2] or 0) < 1000 else 30.0
+    out_fps = min(src_fps, 60.0)
+    if out_fps >= 47 and shown_dur > 75:
+        out_fps /= 2
+    out_fps = round(out_fps, 3)
 
     with tempfile.TemporaryDirectory() as tmp:
         vf, layout = video_filter(info, size, style.get('framing', 'auto'), local, local + dur, src, tmp, style)
-        graph = vf + '[lv];'
+        graph = vf + f',fps={out_fps}[lv];'  # a steady frame rate: no stutter
         if cut:
             n = len(parts)
             zoom_ok = layout.get('zoomable') and style.get('punch', True)
@@ -493,20 +505,38 @@ def render_clip(src, all_words, start, end, out, style=None, title=None, words=N
         graph += f"[{video}]ass='{ass}'" + (f":fontsdir='{FONTS}'" if os.path.isdir(FONTS) else '') + '[v]'
         if has_audio:
             graph += f';[{audio}]loudnorm=I=-14:TP=-1.5:LRA=11[a]'
-        # Stay under 45 MB so the clip always fits the storage limit.
-        kbps = int(min(6000, max(1200, 45 * 8 * 1000 / max(shown_dur, 1) - 160)))
+        # Quality: x264 "slow" (or "medium" for long clips) at a high-quality setting, with as much
+        # bitrate as the storage limit allows (Supabase's free plan takes 50 MB per file).
+        smooth = out_fps >= 47
+        budget = int(44 * 8 * 1024 / max(shown_dur, 1)) - 192
+        kbps = max(1500, min(14000 if smooth else 9000, budget))
         cmd = ['ffmpeg', '-v', 'error', '-y', '-ss', f'{local:.3f}', '-t', f'{dur:.3f}', '-i', src,
-               '-filter_complex', graph, '-map', '[v]', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21',
-               '-maxrate', f'{kbps}k', '-bufsize', f'{kbps * 2}k', '-pix_fmt', 'yuv420p', '-movflags', '+faststart']
-        if has_audio:
-            cmd += ['-map', '[a]', '-c:a', 'aac', '-b:a', '160k', '-ar', '48000']
-        run(cmd + [out])
-    run(['ffmpeg', '-v', 'error', '-y', '-ss', str(min(1.0, shown_dur / 2)), '-i', out, '-frames:v', '1', '-vf', 'scale=540:-2', '-q:v', '4',
-         out.rsplit('.', 1)[0] + '.jpg'])
+               '-filter_complex', graph, '-map', '[v]', '-c:v', 'libx264', '-preset', 'slow' if shown_dur <= 60 else 'medium',
+               '-crf', '18' if smooth else '19', '-profile:v', 'high', '-level:v', '4.2', '-g', str(int(round(out_fps * 2))),
+               '-pix_fmt', 'yuv420p', '-movflags', '+faststart']
+        audio = ['-map', '[a]', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000'] if has_audio else []
+        for _ in range(3):
+            run(cmd + ['-maxrate', f'{kbps}k', '-bufsize', f'{kbps * 2}k'] + audio + [out])
+            if os.path.getsize(out) <= 48 * 1024 * 1024:
+                break
+            kbps = int(kbps * 0.75)  # just over the storage limit: a little less and again
+    base_out = out.rsplit('.', 1)[0]
+    run(['ffmpeg', '-v', 'error', '-y', '-ss', str(min(1.0, shown_dur / 2)), '-i', out, '-frames:v', '1', '-vf', 'scale=540:-2', '-q:v', '3',
+         base_out + '.jpg'])
+    # A light copy for watching in the app (plays smoothly on a phone connection);
+    # saving and sharing use the full-quality clip.
+    run(['ffmpeg', '-v', 'error', '-y', '-i', out, '-vf', 'scale=720:-2:flags=lanczos,fps=30', '-c:v', 'libx264', '-preset', 'veryfast',
+         '-crf', '24', '-maxrate', '2200k', '-bufsize', '4400k', '-pix_fmt', 'yuv420p', '-movflags', '+faststart',
+         '-c:a', 'aac', '-b:a', '96k', base_out + '.preview.mp4'])
     return start, end, words
 
 
 # ---------- the run ----------
+def preview_of(path):
+    """Where a clip's light copy for the app lives (next to the clip)."""
+    return path[:-4] + '.preview.mp4' if path and path.endswith('.mp4') else None
+
+
 def render_and_upload(project, c, src, offset, all_words, d):
     """Renders clip c from src (which starts at `offset` in the original video), uploads
     the MP4 and its still frame, and points the clip at them. Raises on failure."""
@@ -522,14 +552,16 @@ def render_and_upload(project, c, src, offset, all_words, d):
     stamp = time.strftime('%Y%m%d%H%M%S')
     path = kt.upload(out, f"clips/{c['id']}-{stamp}.mp4", 'video/mp4')
     thumb = kt.upload(out.rsplit('.', 1)[0] + '.jpg', f"clips/{c['id']}-{stamp}.jpg", 'image/jpeg')
-    old = [c.get('media_path'), c.get('thumb_path')]
+    preview = kt.upload(out.rsplit('.', 1)[0] + '.preview.mp4', preview_of(path), 'video/mp4')
+    old = [c.get('media_path'), c.get('thumb_path'), preview_of(c.get('media_path'))]
     saved = kt.update('kt_clips', c['id'], {'status': 'ready', 'media_path': path, 'thumb_path': thumb, 'start_s': s, 'end_s': e,
                                             'words': words, 'transcript': ' '.join(w[2] for w in words)[:4000], 'error': None})
     if saved is None:  # the owner deleted this clip while it was rendering
-        old += [path, thumb]
-    kt.remove([p for p in old if p and (saved is None or p not in (path, thumb))])
-    for f in (out, out.rsplit('.', 1)[0] + '.jpg'):
-        os.remove(f)
+        old += [path, thumb, preview]
+    kt.remove([p for p in old if p and (saved is None or p not in (path, thumb, preview))])
+    for f in (out, out.rsplit('.', 1)[0] + '.jpg', out.rsplit('.', 1)[0] + '.preview.mp4'):
+        if os.path.exists(f):
+            os.remove(f)
 
 
 def render_waiting():

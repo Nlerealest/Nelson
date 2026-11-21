@@ -7,7 +7,7 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { db } from '../supabase';
-import { BUCKET } from '../data';
+import { BUCKET, previewOf } from '../data';
 import { Body, Button, Row } from './ui';
 import { useTheme } from '../theme';
 
@@ -63,7 +63,11 @@ export function ClipPlayer({ clip }) {
   // Remembers which file is playing, so a re-rendered clip starts on its still frame.
   const [playingPath, setPlayingPath] = useState(null);
   const playing = !!clip.media_path && playingPath === clip.media_path;
-  const { url, error } = useSignedUrl(playing ? clip.media_path : null);
+  // Watch the light copy (smooth on a phone connection); older clips without one play the full clip.
+  const light = useSignedUrl(playing ? previewOf(clip.media_path) : null);
+  const full = useSignedUrl(playing && light.error ? clip.media_path : null);
+  const url = light.url || full.url;
+  const error = light.error && full.error;
   const [stop] = useState(() => () => setPlayingPath(null));
   useEffect(() => () => { if (stopCurrent === stop) stopCurrent = null; }, [stop]);
   const aspect = clip.style?.aspect || '9:16';
