@@ -64,7 +64,7 @@ jobs:
           unzip -q -o /tmp/inter.zip -d /tmp/inter && find /tmp/inter -name "*.otf" -exec cp {} ~/.local/share/fonts/ \; && fc-cache -f >/dev/null
           $KT agent working "Getting the studio ready…"
 
-      # Run by hand with the task "check-clips" to get a playback report on the newest clips.
+      # Run by hand with the task "check-clips" to get a playback report on the newest clips (nothing else runs).
       - name: Check the newest clips
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.task == 'check-clips'
         continue-on-error: true
@@ -86,11 +86,13 @@ jobs:
           fi
 
       - name: Download and transcribe
+        if: github.event.inputs.task != 'check-clips'  # a check only reports
         continue-on-error: true
         run: python kingtonka/agent/prepare.py
 
       # Links that are live right now get their own run that clips them while they stream.
       - name: Start live clipping
+        if: github.event.inputs.task != 'check-clips'  # a check only reports
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
@@ -102,6 +104,7 @@ jobs:
 
       - name: Anything for Claude?
         id: need
+        if: github.event.inputs.task != 'check-clips'
         run: |
           python - <<'EOF' >> "$GITHUB_OUTPUT"
           import json, subprocess
@@ -138,6 +141,7 @@ jobs:
         run: python kingtonka/agent/redo.py
 
       - name: Render the clips
+        if: github.event.inputs.task != 'check-clips'  # a check only reports
         run: python kingtonka/agent/render.py
 
       - name: Back to waiting
