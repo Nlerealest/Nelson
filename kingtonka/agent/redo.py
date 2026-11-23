@@ -87,7 +87,7 @@ def move_live_to_replay(project):
     the unposted ones to be made again. Returns how many will be made again."""
     pid = project['id']
     settings = dict(project.get('settings') or {})
-    info = prepare.link_info(project['source_url'])
+    info = prepare.link_info(project['source_url'], any_length=True)
     if prepare.is_live(info):
         raise RuntimeError('the stream is live again (or still live)')
     duration = float(info.get('duration') or 0)

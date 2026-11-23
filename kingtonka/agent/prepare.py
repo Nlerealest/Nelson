@@ -99,11 +99,13 @@ def is_live(info):
     return bool(info.get('is_live')) or info.get('live_status') in ('is_live', 'is_upcoming')
 
 
-def link_info(url):
+def link_info(url, any_length=False):
+    """What the site says about a link. New videos over MAX_HOURS are refused (any_length:
+    for clips already made, which only need their own few minutes)."""
     info = json.loads(ytdlp(ytdlp_base() + ['-J', url]).stdout)
     if info.get('_type') == 'playlist':
         raise RuntimeError('That is a playlist. Paste the link to one video.')
-    if (info.get('duration') or 0) > MAX_HOURS * 3600 and not is_live(info):
+    if (info.get('duration') or 0) > MAX_HOURS * 3600 and not is_live(info) and not any_length:
         raise RuntimeError(f'The video is longer than {MAX_HOURS} hours. Use “Only part of the video”, or trim it first.')
     return info
 

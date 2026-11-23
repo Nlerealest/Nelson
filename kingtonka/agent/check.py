@@ -109,7 +109,7 @@ def report(label, path):
 def main(argv):
     n = int(argv[0]) if argv else 8
     clips = kt.select('kt_clips', f'status=eq.ready&media_path=not.is.null&order=updated_at.desc&limit={n}'
-                                  '&select=id,project_id,start_s,end_s,media_path,style,created_at,updated_at')
+                                  '&select=id,project_id,start_s,end_s,media_path,style,created_at,updated_at,posted_at')
     projects = {}
     with tempfile.TemporaryDirectory() as tmp:
         for c in clips:
@@ -118,7 +118,8 @@ def main(argv):
                 p = projects[c['project_id']] = kt.get('kt_projects', c['project_id']) or {}
             s = p.get('settings') or {}
             host = urlparse(p.get('source_url') or '').netloc or ('upload' if p.get('source_path') else '?')
-            print(f'\nclip {c["id"]} (project {c["project_id"]}, {host}, made {c["updated_at"][:16]}) '
+            print(f'\nclip {c["id"]} (project {c["project_id"]}, {host}, file {os.path.basename(c["media_path"])}, '
+                  f'{"posted" if c.get("posted_at") else "not posted"}) '
                   f'{float(c["end_s"]) - float(c["start_s"]):.1f}s at {float(c["start_s"]):.1f}s; '
                   f'long-video parts: {bool(s.get("sections"))}, live: {bool(s.get("live"))}, gaming: {s.get("gaming")}, '
                   f'framing: {(c.get("style") or {}).get("framing", "auto")}', flush=True)

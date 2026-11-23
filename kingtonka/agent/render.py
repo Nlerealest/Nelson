@@ -580,7 +580,7 @@ def render_and_upload(project, c, src, offset, all_words, d):
             os.remove(f)
 
 
-def failed(c, why):
+def keep_or_fail(c, why):
     """What a clip becomes when it can't be made (again). One that already has a finished
     file keeps it, still watchable, with the reason noted."""
     why = str(why)[:400]
@@ -607,7 +607,7 @@ def render_waiting():
             # Live clips are made by the live job from its own recording; there is no source to cut again.
             if project['status'] != 'live':
                 for c in items:
-                    kt.update('kt_clips', c['id'], failed(c, 'Clips from a live stream can’t be made again after the stream.'))
+                    kt.update('kt_clips', c['id'], keep_or_fail(c, 'Clips from a live stream can’t be made again after the stream.'))
             continue
         d = os.path.join(kt.WORK, pid)
         # Long link videos (over 2 h) are never downloaded whole: each clip gets its own few minutes.
@@ -615,6 +615,11 @@ def render_waiting():
         try:
             kt.agent('working', f'Getting “{(project.get("title") or "the video")[:50]}” ready to cut…')
             os.makedirs(d, exist_ok=True)
+            if not sections and project.get('source_url') and not project.get('source_path'):
+                # A link that got longer since (a stream's replay keeps growing while it's live):
+                # over 2 hours, each clip gets just its own part, like any long video.
+                info = prepare.link_info(project['source_url'], any_length=True)
+                sections = (info.get('duration') or 0) > prepare.LONG
             if not sections:
                 prepare.get_source(project, d)
             prepare.restore_transcript(pid)
@@ -626,7 +631,7 @@ def render_waiting():
         except Exception as e:
             traceback.print_exc()
             for c in items:
-                kt.update('kt_clips', c['id'], failed(c, f'Couldn’t get the source video again: {e}'))
+                kt.update('kt_clips', c['id'], keep_or_fail(c, f'Couldn’t get the source video again: {e}'))
             continue
         cancelled = False
         for c in items:
@@ -655,7 +660,7 @@ def render_waiting():
                 break
             except Exception as e:
                 traceback.print_exc()
-                kt.update('kt_clips', c['id'], failed(c, e))
+                kt.update('kt_clips', c['id'], keep_or_fail(c, e))
             finally:
                 if part and os.path.exists(part):
                     os.remove(part)
