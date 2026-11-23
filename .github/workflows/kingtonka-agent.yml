@@ -55,12 +55,22 @@ jobs:
           deno-version: v2.x
 
       - name: Video tools
+        timeout-minutes: 25
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
+          # Ubuntu's package servers sometimes hang: give up on a stuck try and try again (never wait for hours).
+          for i in 1 2 3; do
+            sudo dpkg --configure -a >/dev/null 2>&1 || true
+            sudo timeout 300 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update -qq \
+              && sudo timeout 600 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 \
+                   install -y -qq ffmpeg >/dev/null \
+              && break
+            echo "Installing ffmpeg didn't finish (try $i of 3), trying again…"; sleep 15
+          done
+          command -v ffmpeg >/dev/null
           pip install -q -r kingtonka/agent/requirements.txt
           pip install -q -U --pre "yt-dlp[default]"
           mkdir -p ~/.local/share/fonts
-          curl -sSL -o /tmp/inter.zip https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip
+          curl -sSL --retry 3 --max-time 120 -o /tmp/inter.zip https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip
           unzip -q -o /tmp/inter.zip -d /tmp/inter && find /tmp/inter -name "*.otf" -exec cp {} ~/.local/share/fonts/ \; && fc-cache -f >/dev/null
           $KT agent working "Getting the studio ready…"
 
