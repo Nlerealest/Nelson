@@ -1,5 +1,5 @@
 // Clip previews from Supabase storage, and saving / sharing them.
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useEvent } from 'expo';
 import { Ionicons } from '@expo/vector-icons';
@@ -44,9 +44,18 @@ const ratioOf = (aspect) => ({ '1:1': 1, '4:5': 4 / 5, '16:9': 16 / 9 }[aspect] 
 // Only one clip plays at a time; the others show their still frame.
 let stopCurrent = null;
 
-function Player({ url, aspect }) {
-  const player = useVideoPlayer(url, (p) => { p.loop = true; p.play(); });
+function Player({ url, aspect, poster }) {
+  // Loaded first, started after: the sound never runs ahead of a picture that isn't there yet.
+  const player = useVideoPlayer(url, (p) => { p.loop = true; });
   const { status, error } = useEvent(player, 'statusChange', { status: player.status, error: null });
+  const [drawn, setDrawn] = useState(false);
+  const started = useRef(false);
+  useEffect(() => {
+    if (status === 'readyToPlay' && !started.current) {
+      started.current = true;
+      player.play();
+    }
+  }, [status, player]);
   if (status === 'error') {
     return (
       <View style={{ gap: 8 }}>
@@ -55,7 +64,20 @@ function Player({ url, aspect }) {
       </View>
     );
   }
-  return <VideoView player={player} style={{ width: '100%', aspectRatio: ratioOf(aspect), maxHeight: 560, borderRadius: 14, backgroundColor: '#000' }} contentFit="contain" nativeControls fullscreenOptions={{ enable: true }} />;
+  return (
+    <View style={{ width: '100%', aspectRatio: ratioOf(aspect), maxHeight: 560, borderRadius: 14, overflow: 'hidden', backgroundColor: '#000' }}>
+      <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="contain" nativeControls fullscreenOptions={{ enable: true }}
+        onFirstFrameRender={() => setDrawn(true)} />
+      {drawn ? null : (
+        // The still frame stays on top until the video has drawn its first picture.
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          <Thumb path={poster} style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
+            <ActivityIndicator color="#fff" />
+          </Thumb>
+        </View>
+      )}
+    </View>
+  );
 }
 
 export function ClipPlayer({ clip }) {
@@ -80,7 +102,7 @@ export function ClipPlayer({ clip }) {
     );
   }
   if (playing && error) return <Body small color={t.danger}>Couldn’t load the clip: {error}</Body>;
-  if (playing && url) return <Player url={url} aspect={aspect} />;
+  if (playing && url) return <Player url={url} aspect={aspect} poster={clip.thumb_path} />;
   return (
     <Pressable
       accessibilityRole="button"

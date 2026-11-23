@@ -199,17 +199,21 @@ class Live:
             traceback.print_exc()
 
     def window(self, k):
-        """The video to cut this part's clips from: the part before (if kept) and this one, joined."""
+        """The video to cut this part's clips from: the part before (if kept) and this one, joined
+        into an MP4. Clips are never cut straight from the .ts recording: jumping into a .ts file
+        lands between keyframes, so a clip's first seconds had a frozen picture while the sound played."""
         f, start, _ = self.parts[k]
-        if k == 0 or not os.path.exists(self.parts[k - 1][0]):
-            return f, start
-        prev, prev_start, _ = self.parts[k - 1]
-        joined = os.path.join(self.d, f'window-{k:03d}.ts')
+        files = [f]
+        if k > 0 and os.path.exists(self.parts[k - 1][0]):
+            files, start = [self.parts[k - 1][0], f], self.parts[k - 1][1]
+        joined = os.path.join(self.d, f'window-{k:03d}.mp4')
         listing = os.path.join(self.d, f'window-{k:03d}.txt')
         with open(listing, 'w') as fh:
-            fh.write(f"file '{prev}'\nfile '{f}'\n")
-        prepare.run(['ffmpeg', '-v', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', listing, '-c', 'copy', joined])
-        return joined, prev_start
+            fh.write(''.join(f"file '{x}'\n" for x in files))
+        prepare.run(['ffmpeg', '-v', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', listing,
+                     '-map', '0:v:0?', '-map', '0:a:0?', '-c', 'copy', joined])
+        os.remove(listing)
+        return joined, start
 
     def pick_and_render(self, k, start, dur):
         end = start + dur
@@ -251,7 +255,7 @@ class Live:
             except Exception as e:
                 traceback.print_exc()
                 kt.update('kt_clips', c['id'], {'status': 'failed', 'error': str(e)[:400]})
-        if src != self.parts[k][0] and os.path.exists(src):
+        if os.path.exists(src):
             os.remove(src)
         if done:
             kt.log(f'🔴 {done} new clip{"s" if done != 1 else ""} from the live stream “{(self.project.get("title") or "")[:50]}”.')

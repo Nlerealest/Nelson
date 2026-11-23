@@ -142,7 +142,8 @@ def download_section(url, d, pid, start, end, name):
     """Just the part of the video between start and end (seconds), cut exactly there."""
     kt.check_wanted(pid, every=0)
     ytdlp(ytdlp_base() + ['-f', VIDEO_FORMAT, *VIDEO_SORT, '--merge-output-format', 'mp4', '--download-sections', f'*{start:.2f}-{end:.2f}',
-                          '--force-keyframes-at-cuts', '-o', os.path.join(d, f'{name}.%(ext)s'), url], pid)
+                          '--force-keyframes-at-cuts', '--downloader-args', 'ffmpeg_o:-c:v libx264 -preset veryfast -crf 16 -c:a aac -b:a 192k',
+                          '-o', os.path.join(d, f'{name}.%(ext)s'), url], pid)
     got = _saved(d, name)
     if not got.endswith('.mp4'):
         run(['ffmpeg', '-v', 'error', '-y', '-i', got, '-c', 'copy', os.path.join(d, f'{name}.mp4')])

@@ -137,3 +137,6 @@ Good to know:
 - A video stuck on **Waiting**: the agent didn't wake up. Check **More → Activity** for a note, and check that Twizzy works (they share the GitHub token).
 - Open **GitHub → Actions → King Tonka agent** and read the latest run.
 - **Try again** on a failed video starts it from the beginning.
+- **Check or re-make clips:** in **GitHub → Actions → King Tonka agent → Run workflow**, type a task:
+  - `check-clips` writes a playback report on the 8 newest clips in the run's log (frozen picture at the start, keyframes, sizes). It changes nothing.
+  - `redo-clips` makes every clip you haven't posted again with the latest fixes, keeping your edits. Clips from a live stream are moved onto the stream's replay first (the live recording is deleted when the stream ends), lined up by matching the words.

@@ -410,6 +410,7 @@ PAUSE = 0.45        # silences longer than this are cut out
 KEEP_BEFORE = 0.12  # breathing room kept before the next word
 KEEP_AFTER = 0.18   # and after the last word
 ZOOM = 1.1          # every other part after a cut is pushed in this much (hides the cut, adds energy)
+PREROLL = 6.0       # seconds before a clip that are decoded and thrown away (see render_clip)
 
 
 def speech_parts(words, dur):
@@ -475,15 +476,22 @@ def render_clip(src, all_words, start, end, out, style=None, title=None, words=N
         out_fps /= 2
     out_fps = round(out_fps, 3)
 
+    # The video is opened a few seconds before the clip and those seconds are dropped: whatever the
+    # file type, the decoder has passed a keyframe by the clip's first frame, so the picture never
+    # starts frozen while the sound plays. Times stay exact (the seconds are cut by timestamp).
+    pre = round(min(PREROLL, local), 3)
     with tempfile.TemporaryDirectory() as tmp:
         vf, layout = video_filter(info, size, style.get('framing', 'auto'), local, local + dur, src, tmp, style)
-        graph = vf + f',fps={out_fps}[lv];'  # a steady frame rate: no stutter
+        graph = (f'[0:v]trim=start={pre:.3f}:end={pre + dur:.3f},setpts=PTS-{pre:.3f}/TB[vin];'
+                 + vf.replace('[0:v]', '[vin]', 1) + f',fps={out_fps}[lv];')  # a steady frame rate: no stutter
+        if has_audio:
+            graph += f'[0:a]atrim=start={pre:.3f}:end={pre + dur:.3f},asetpts=PTS-{pre:.3f}/TB[ain];'
         if cut:
             n = len(parts)
             zoom_ok = layout.get('zoomable') and style.get('punch', True)
             graph += f'[lv]split={n}' + ''.join(f'[s{i}]' for i in range(n)) + ';'
             if has_audio:
-                graph += f'[0:a]asplit={n}' + ''.join(f'[r{i}]' for i in range(n)) + ';'
+                graph += f'[ain]asplit={n}' + ''.join(f'[r{i}]' for i in range(n)) + ';'
             for i, (a, b) in enumerate(parts):
                 push = (f',crop=iw/{ZOOM}:ih/{ZOOM}:(iw-ow)/2:(ih-oh)*0.4,scale={ow}:{oh}:flags=lanczos,setsar=1'
                         if zoom_ok and i % 2 else '')
@@ -495,7 +503,7 @@ def render_clip(src, all_words, start, end, out, style=None, title=None, words=N
             graph += f'concat=n={n}:v=1:a={1 if has_audio else 0}[vc]' + ('[ac];' if has_audio else ';')
             video, audio = 'vc', 'ac'
         else:
-            video, audio = 'lv', '0:a'
+            video, audio = 'lv', 'ain'
         cap_style = {**style, '_seam': layout.get('seam'), '_cap_y': layout.get('cap_y'), '_title_y': layout.get('title_y'),
                      # where there's free room above the picture, the title stays for the whole clip
                      '_title_always': bool(layout.get('room'))}
@@ -504,13 +512,15 @@ def render_clip(src, all_words, start, end, out, style=None, title=None, words=N
             f.write(captions.build(shown_words, shown_dur, ow, oh, cap_style, title))
         graph += f"[{video}]ass='{ass}'" + (f":fontsdir='{FONTS}'" if os.path.isdir(FONTS) else '') + '[v]'
         if has_audio:
-            graph += f';[{audio}]loudnorm=I=-14:TP=-1.5:LRA=11[a]'
+            # loudnorm mislabels the timing of what it outputs after a jump cut; without fresh timestamps
+            # (counted from the samples) part of the sound was dropped and the rest drifted out of sync.
+            graph += f';[{audio}]loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000,asetpts=N/SR/TB[a]'
         # Quality: x264 "slow" (or "medium" for long clips) at a high-quality setting, with as much
         # bitrate as the storage limit allows (Supabase's free plan takes 50 MB per file).
         smooth = out_fps >= 47
         budget = int(44 * 8 * 1024 / max(shown_dur, 1)) - 192
         kbps = max(1500, min(14000 if smooth else 9000, budget))
-        cmd = ['ffmpeg', '-v', 'error', '-y', '-ss', f'{local:.3f}', '-t', f'{dur:.3f}', '-i', src,
+        cmd = ['ffmpeg', '-v', 'error', '-y', '-ss', f'{local - pre:.3f}', '-t', f'{dur + pre:.3f}', '-i', src,
                '-filter_complex', graph, '-map', '[v]', '-c:v', 'libx264', '-preset', 'slow' if shown_dur <= 60 else 'medium',
                '-crf', '18' if smooth else '19', '-profile:v', 'high', '-level:v', '4.2', '-g', str(int(round(out_fps * 2))),
                '-pix_fmt', 'yuv420p', '-movflags', '+faststart']
@@ -525,10 +535,16 @@ def render_clip(src, all_words, start, end, out, style=None, title=None, words=N
          base_out + '.jpg'])
     # A light copy for watching in the app (plays smoothly on a phone connection);
     # saving and sharing use the full-quality clip.
-    run(['ffmpeg', '-v', 'error', '-y', '-i', out, '-vf', 'scale=720:-2:flags=lanczos,fps=30', '-c:v', 'libx264', '-preset', 'veryfast',
-         '-crf', '24', '-maxrate', '2200k', '-bufsize', '4400k', '-pix_fmt', 'yuv420p', '-movflags', '+faststart',
-         '-c:a', 'aac', '-b:a', '96k', base_out + '.preview.mp4'])
+    make_preview(out, base_out + '.preview.mp4')
     return start, end, words
+
+
+def make_preview(clip, out):
+    """A light copy for watching in the app (plays smoothly on a phone connection); saving and
+    sharing use the full-quality clip. A keyframe every second, so it starts at once."""
+    run(['ffmpeg', '-v', 'error', '-y', '-i', clip, '-vf', 'scale=720:-2:flags=lanczos,fps=30', '-c:v', 'libx264', '-preset', 'veryfast',
+         '-crf', '24', '-maxrate', '2200k', '-bufsize', '4400k', '-g', '30', '-pix_fmt', 'yuv420p', '-movflags', '+faststart',
+         '-c:a', 'aac', '-b:a', '96k', out])
 
 
 # ---------- the run ----------
@@ -564,6 +580,13 @@ def render_and_upload(project, c, src, offset, all_words, d):
             os.remove(f)
 
 
+def failed(c, why):
+    """What a clip becomes when it can't be made (again). One that already has a finished
+    file keeps it, still watchable, with the reason noted."""
+    why = str(why)[:400]
+    return {'status': 'ready', 'error': why} if c.get('media_path') else {'status': 'failed', 'error': why}
+
+
 def render_waiting():
     import kt
     import prepare
@@ -584,7 +607,7 @@ def render_waiting():
             # Live clips are made by the live job from its own recording; there is no source to cut again.
             if project['status'] != 'live':
                 for c in items:
-                    kt.update('kt_clips', c['id'], {'status': 'failed', 'error': 'Clips from a live stream can’t be made again after the stream.'})
+                    kt.update('kt_clips', c['id'], failed(c, 'Clips from a live stream can’t be made again after the stream.'))
             continue
         d = os.path.join(kt.WORK, pid)
         # Long link videos (over 2 h) are never downloaded whole: each clip gets its own few minutes.
@@ -603,7 +626,7 @@ def render_waiting():
         except Exception as e:
             traceback.print_exc()
             for c in items:
-                kt.update('kt_clips', c['id'], {'status': 'failed', 'error': f'Couldn’t get the source video again: {e}'[:400]})
+                kt.update('kt_clips', c['id'], failed(c, f'Couldn’t get the source video again: {e}'))
             continue
         cancelled = False
         for c in items:
@@ -632,7 +655,7 @@ def render_waiting():
                 break
             except Exception as e:
                 traceback.print_exc()
-                kt.update('kt_clips', c['id'], {'status': 'failed', 'error': str(e)[:400]})
+                kt.update('kt_clips', c['id'], failed(c, e))
             finally:
                 if part and os.path.exists(part):
                     os.remove(part)
@@ -662,7 +685,7 @@ def render_waiting():
     for cmd in kt.select('kt_commands', 'status=in.(queued,working)&kind=in.(rerender,edit)'):
         if cmd.get('clip_id') in ids:
             row = kt.get('kt_clips', cmd['clip_id'])
-            ok = row and row['status'] == 'ready'
+            ok = row and row['status'] == 'ready' and not row.get('error')
             kt.update('kt_commands', cmd['id'], {'status': 'done' if ok else 'failed',
                                                  'result': 'Updated clip is ready.' if ok else f'Render failed: {(row or {}).get("error") or "unknown"}'})
     return 0

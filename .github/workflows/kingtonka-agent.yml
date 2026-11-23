@@ -111,7 +111,9 @@ jobs:
           EOF
 
       - name: Claude finds the clips
-        if: steps.need.outputs.claude == 'yes' || (github.event_name == 'workflow_dispatch' && github.event.inputs.task && github.event.inputs.task != 'check-clips')
+        if: >-
+          steps.need.outputs.claude == 'yes' || (github.event_name == 'workflow_dispatch' && github.event.inputs.task
+          && !contains(fromJSON('["check-clips", "redo-clips"]'), github.event.inputs.task))
         continue-on-error: true
         uses: anthropics/claude-code-action@v1
         with:
@@ -128,6 +130,12 @@ jobs:
             screenshots (campaigns_to_read), and answer messages.
             You never render videos: a script renders everything you plan after you finish.
             ${{ github.event.inputs.task && format('Also: {0}', github.event.inputs.task) || '' }}
+
+      # Run by hand with the task "redo-clips" to make every finished clip again with the latest fixes.
+      - name: Make finished clips again
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.task == 'redo-clips'
+        continue-on-error: true
+        run: python kingtonka/agent/redo.py
 
       - name: Render the clips
         run: python kingtonka/agent/render.py
