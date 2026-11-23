@@ -64,6 +64,12 @@ jobs:
           unzip -q -o /tmp/inter.zip -d /tmp/inter && find /tmp/inter -name "*.otf" -exec cp {} ~/.local/share/fonts/ \; && fc-cache -f >/dev/null
           $KT agent working "Getting the studio ready…"
 
+      # Run by hand with the task "check-clips" to get a playback report on the newest clips.
+      - name: Check the newest clips
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.task == 'check-clips'
+        continue-on-error: true
+        run: python kingtonka/agent/check.py 8
+
       - name: Cache the speech model
         uses: actions/cache@v4
         with:
@@ -105,7 +111,7 @@ jobs:
           EOF
 
       - name: Claude finds the clips
-        if: steps.need.outputs.claude == 'yes' || (github.event_name == 'workflow_dispatch' && github.event.inputs.task)
+        if: steps.need.outputs.claude == 'yes' || (github.event_name == 'workflow_dispatch' && github.event.inputs.task && github.event.inputs.task != 'check-clips')
         continue-on-error: true
         uses: anthropics/claude-code-action@v1
         with:
