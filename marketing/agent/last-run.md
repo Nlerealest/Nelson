@@ -1,6 +1,4 @@
-# Last run: 2026-11-24
+# Last run: 2026-11-25
 
-- Daily check: no commands, no new references, no approved concepts, no changes requested, no replies waiting.
-- Video file check: 25 posts checked, none missing.
-- Three approved posts (p-lent, p-term3fees, p-doublesalary) wait for the owner to post by hand; nothing to do.
-- Videos made: none. Logged one activity entry.
+- Daily check: no commands, no approved concepts, no new references, no replies waiting. Checked that all 25 video files exist (none missing). Approved posts are for the owner to post by hand. Logged one activity entry.
+- Videos made: none. Skipped Monday ideas because today is not Monday.
