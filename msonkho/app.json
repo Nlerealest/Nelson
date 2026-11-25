@@ -1,0 +1,74 @@
+{
+  "expo": {
+    "name": "Msonkho Pocket",
+    "slug": "msonkho-pocket",
+    "scheme": "msonkho",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "description": "An independent taxpayer companion prototype for Malawi: PAYE, VAT and withholding tax calculators, tax deadlines with reminders, receipt and link checks, and plain-language guides in English and Chichewa.",
+    "ios": {
+      "bundleIdentifier": "mw.nelson.msonkho",
+      "supportsTablet": true,
+      "config": {
+        "usesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "mw.nelson.msonkho",
+      "versionCode": 2,
+      "adaptiveIcon": {
+        "backgroundColor": "#0d5e3a",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "output": "single"
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "root": "./src/app"
+        }
+      ],
+      "expo-status-bar",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Msonkho Pocket uses the camera only to scan QR codes on receipts and MRA documents.",
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": true
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#0d5e3a",
+          "enableRemoteNotifications": false
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 180,
+          "backgroundColor": "#0d5e3a"
+        }
+      ],
+      "expo-font",
+      "expo-web-browser",
+      "./plugins/withReleaseSigning"
+    ]
+  }
+}

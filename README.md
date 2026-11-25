@@ -106,6 +106,12 @@ Small fixes to screens and logic can be pushed straight to installed apps with [
 
 ---
 
+## Msonkho Pocket (taxpayer app prototype)
+
+[`msonkho/`](msonkho/) is a separate app: an independent prototype of a taxpayer app for Malawi (not an official MRA app). It has PAYE, VAT, withholding and presumptive tax calculators, a tax calendar with reminders, a QR and link checker for EIS receipts and scams, and guides in English and Chichewa. See [`msonkho/README.md`](msonkho/README.md) and the research in [`msonkho/RESEARCH.md`](msonkho/RESEARCH.md).
+
+**Install on Android:** https://github.com/Nlerealest/Nelson/releases/download/msonkho-latest/msonkho-pocket.apk (built by the *Msonkho Pocket APK* GitHub Action).
+
 ## Marketing (Twizzy)
 
 `marketing/` holds Ndalama's marketing: the video studio that made the launch adverts (`marketing/studio/`), each campaign's source (`marketing/campaigns/`), the app screens used in videos and store images (`marketing/assets/app/`), and **[`marketing/TWIZZY.md`](marketing/TWIZZY.md)**, the playbook Ndalama's marketing agent follows.
