@@ -152,3 +152,7 @@ src/backup.js            Backup export and restore
 src/demo.js              Sample data
 tests/logic.test.js      Unit tests for the calculations
 ```
+
+## Gramaro Travel
+
+[`gramaro/`](gramaro/) is a separate real-time Android app for Gramaro Travel Agency (Zomba): flight and visa requests, live fare options, mobile money payments and tickets, with a staff inbox. Research: [`gramaro/RESEARCH.md`](gramaro/RESEARCH.md). Setup: [`gramaro/SETUP.md`](gramaro/SETUP.md).

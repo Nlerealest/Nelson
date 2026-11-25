@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "Gramaro Travel",
+    "slug": "gramaro-travel",
+    "scheme": "gramaro",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "description": "Flight bookings, live quotes, mobile money payments and trip tracking with Gramaro Travel Agency.",
+    "ios": {
+      "bundleIdentifier": "mw.nelson.gramaro",
+      "supportsTablet": true,
+      "config": { "usesNonExemptEncryption": false }
+    },
+    "android": {
+      "package": "mw.nelson.gramaro",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#1d3a8f",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": { "favicon": "./assets/favicon.png", "output": "single" },
+    "plugins": [
+      ["expo-router", { "root": "./src/app" }],
+      "expo-status-bar",
+      ["expo-splash-screen", { "image": "./assets/splash-icon.png", "imageWidth": 180, "backgroundColor": "#1d3a8f" }],
+      "expo-font",
+      "./plugins/withReleaseSigning"
+    ]
+  }
+}
