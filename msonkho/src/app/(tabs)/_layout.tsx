@@ -35,9 +35,10 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: theme.card,
           borderTopColor: theme.line,
-          height: 62 + insets.bottom,
-          paddingTop: 6,
-          paddingBottom: Math.max(insets.bottom, 8),
+          // Room for the raised Scan button plus its label, above the system bar.
+          height: 72 + insets.bottom,
+          paddingTop: 8,
+          paddingBottom: 8 + insets.bottom,
         },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
         tabBarBadgeStyle: { backgroundColor: theme.danger, color: '#ffffff', fontSize: 11, fontWeight: '800' },
