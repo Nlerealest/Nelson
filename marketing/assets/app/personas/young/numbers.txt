@@ -1,11 +1,10 @@
-# What the app shows on 2026-11-25 for this persona (sample-data.mjs). Use these numbers in videos.
+# What the app shows on 2026-11-26 for this persona (sample-data.mjs). Use these numbers in videos.
 persona young - Young professional, single, sells phone accessories on the side - income a month 740000
-safe 9976 leftToday 9976 days 6 available 59857.142857142855
-surplus 130667 needed 101143
+safe 11971 leftToday 11971 days 5 available 59857.142857142855
+surplus 134590 needed 101143
  goal New phone 57143
  goal Rainy-day fund 44000
- budget Airtime & Data pace 48000
- budget Church & Giving pace 24000
+ budget Church & Giving pace 23077
 [
   'You kept 21% of your income (K153,000).',
   'Most money went to Rent: K220,000 (37% of spending).',
